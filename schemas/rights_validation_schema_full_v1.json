@@ -1,9 +1,198 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "rights_validation_schema_full_v1",
   "type": "object",
+  "additionalProperties": false,
+  "required": ["rows"],
   "properties": {
     "rows": {
-      "type": "array"
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project_id",
+          "record_id",
+          "generation_status",
+          "approval_status",
+          "step_id",
+          "is_translation",
+          "original_author",
+          "original_author_birth_year",
+          "original_author_death_year",
+          "translator",
+          "translator_birth_year",
+          "translator_death_year",
+          "aozora_rights_note",
+          "cc_license_present",
+          "cc_license_type",
+          "public_domain_candidate",
+          "original_author_pd_jp",
+          "translator_pd_jp",
+          "other_rights_risk",
+          "war_addition_risk",
+          "rights_evidence_url_1",
+          "rights_evidence_url_2",
+          "rights_evidence_url_3",
+          "rights_summary",
+          "rights_status",
+          "risk_level",
+          "checked_by",
+          "checked_date",
+          "review_required",
+          "reviewer",
+          "review_date",
+          "go_next",
+          "updated_at",
+          "updated_by",
+          "notes"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "pattern": "^PJT-[0-9]{3}$"
+          },
+          "record_id": {
+            "type": "string",
+            "pattern": "^PJT-[0-9]{3}-RV-[0-9]{3}$"
+          },
+          "generation_status": {
+            "type": "string",
+            "enum": ["GENERATED", "FAILED", "SKIPPED", "PENDING"]
+          },
+          "approval_status": {
+            "type": "string",
+            "enum": ["PENDING", "APPROVED", "REJECTED"]
+          },
+          "step_id": {
+            "type": "string",
+            "const": "STEP_01"
+          },
+          "is_translation": {
+            "type": "string",
+            "enum": ["Y", "N", "UNKNOWN"]
+          },
+          "original_author": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "original_author_birth_year": {
+            "type": "string",
+            "pattern": "^$|^[0-9]{1,4}$|^UNKNOWN$"
+          },
+          "original_author_death_year": {
+            "type": "string",
+            "pattern": "^$|^[0-9]{1,4}$|^UNKNOWN$"
+          },
+          "translator": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "translator_birth_year": {
+            "type": "string",
+            "pattern": "^$|^[0-9]{1,4}$|^UNKNOWN$"
+          },
+          "translator_death_year": {
+            "type": "string",
+            "pattern": "^$|^[0-9]{1,4}$|^UNKNOWN$"
+          },
+          "aozora_rights_note": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "cc_license_present": {
+            "type": "string",
+            "enum": ["Y", "N", "UNKNOWN"]
+          },
+          "cc_license_type": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "public_domain_candidate": {
+            "type": "string",
+            "enum": ["Y", "N", "UNKNOWN"]
+          },
+          "original_author_pd_jp": {
+            "type": "string",
+            "enum": ["Y", "N", "UNKNOWN"]
+          },
+          "translator_pd_jp": {
+            "type": "string",
+            "enum": ["Y", "N", "UNKNOWN"]
+          },
+          "other_rights_risk": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "war_addition_risk": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "rights_evidence_url_1": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "rights_evidence_url_2": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "rights_evidence_url_3": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "rights_summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 250
+          },
+          "rights_status": {
+            "type": "string",
+            "enum": ["APPROVED", "NEEDS_REVIEW", "BLOCKED", "UNKNOWN"]
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH", "UNKNOWN"]
+          },
+          "checked_by": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "checked_date": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "review_required": {
+            "type": "string",
+            "enum": ["Y", "N"]
+          },
+          "reviewer": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "review_date": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "go_next": {
+            "type": "string",
+            "enum": ["Y", "N", ""]
+          },
+          "updated_at": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "updated_by": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      }
     }
-  },
-  "required": ["rows"]
+  }
 }
