@@ -1,0 +1,14 @@
+{
+  "name": "douwa-ai-workflow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "echo \"No tests yet\"",
+    "step01": "node dist/index.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
