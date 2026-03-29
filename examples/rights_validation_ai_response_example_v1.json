@@ -2,27 +2,27 @@
   "rows": [
     {
       "is_translation": "N",
-      "original_author": "",
-      "original_author_birth_year": "",
-      "original_author_death_year": "",
+      "original_author": "楠山正雄",
+      "original_author_birth_year": "1884",
+      "original_author_death_year": "1950",
       "translator": "",
       "translator_birth_year": "",
       "translator_death_year": "",
-      "aozora_rights_note": "青空文庫掲載作品である可能性が高いが、掲載条件のみでは権利状態の最終確認には不十分。",
+      "aozora_rights_note": "青空文庫の図書カード上で著者は楠山正雄と確認できる。翻訳者表記は確認できず、日本の昔話を楠山正雄が記述した作品として見える。",
       "cc_license_present": "N",
       "cc_license_type": "",
-      "public_domain_candidate": "UNKNOWN",
-      "original_author_pd_jp": "UNKNOWN",
+      "public_domain_candidate": "Y",
+      "original_author_pd_jp": "Y",
       "translator_pd_jp": "UNKNOWN",
-      "other_rights_risk": "原典自体は昔話と考えられるが、掲載テキストの編集・注記・底本条件の確認が必要。",
+      "other_rights_risk": "青空文庫掲載自体は有力参考情報だが、動画化・翻案・公開時の表示条件や底本注記の確認は別途必要。",
       "war_addition_risk": "",
-      "rights_evidence_url_1": "https://www.aozora.gr.jp/cards/000329/files/18376_12100.html",
-      "rights_evidence_url_2": "",
-      "rights_evidence_url_3": "",
-      "rights_summary": "日本の昔話として翻訳物ではない可能性が高いが、青空文庫掲載のみでは権利状態の断定は避けるべきです。原著者特定や底本条件、編集・注記の有無を追加確認し、人レビューを行うのが安全です。",
-      "rights_status": "NEEDS_REVIEW",
-      "risk_level": "MEDIUM",
-      "review_required": "Y"
+      "rights_evidence_url_1": "https://www.aozora.gr.jp/cards/000329/card18376.html",
+      "rights_evidence_url_2": "https://ja.wikipedia.org/wiki/%E6%A5%A0%E5%B1%B1%E6%AD%A3%E9%9B%84",
+      "rights_evidence_url_3": "https://www.bunka.go.jp/seisaku/chosakuken/hokaisei/kantaiheiyo_chosakuken/1411890.html",
+      "rights_summary": "青空文庫図書カードでは著者は楠山正雄、翻訳者表記は未確認。楠山正雄の没年は1950年で、日本基準ではPD候補と考えられる。一方、動画化時の利用表示や底本注記の扱いは追加確認が望ましい。",
+      "rights_status": "APPROVED",
+      "risk_level": "LOW",
+      "review_required": "N"
     }
   ]
 }
