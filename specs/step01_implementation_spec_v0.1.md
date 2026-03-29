@@ -1,0 +1,21 @@
+docs/
+  specs/
+    step01_implementation_spec_v0.1.md
+  design/
+    fast_pass_design.md
+prompts/
+  rights_validation_prompt_v1.md
+  fragments/
+    rights_validation_output_field_guide_v1.md
+policies/
+  copyright_policy_jp_v1.md
+  rights_review_policy_v1.md
+config/
+  fast_pass_logic_v1.md
+examples/
+  rights_validation_ai_row_example_v1.json
+  rights_validation_full_row_example_v1.json
+schemas/
+  rights_validation_schema_ai_v1.json
+  rights_validation_schema_full_v1.json
+
