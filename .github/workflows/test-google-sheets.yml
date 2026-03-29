@@ -30,4 +30,4 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
-        run: node tests/test-google-sheets-read-write.js
+        run: node tests/test-google-sheets-read-write.cjs
