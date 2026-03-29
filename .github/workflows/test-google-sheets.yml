@@ -11,10 +11,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
+
+      - name: Show workspace files
+        run: |
+          pwd
+          ls -la
+          echo "-----"
+          find . -maxdepth 3 | sort
 
       - name: Install dependencies
         run: npm install
@@ -23,4 +30,4 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
-        run: npx ts-node tests/test-google-sheets-read-write.ts
+        run: node tests/test-google-sheets-read-write.js
