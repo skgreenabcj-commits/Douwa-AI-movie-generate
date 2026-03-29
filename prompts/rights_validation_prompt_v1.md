@@ -2,7 +2,7 @@
 あなたの役割は、入力された project 情報をもとに、著作権・翻訳権・利用条件・公開上の注意点を整理し、
 人間レビュー担当者が確認しやすい構造化JSONのみを返すことです。
 
-以下の共通ポリシーを必ず遵守してください。
+以下の共通ポリシーと出力ルールを必ず遵守してください。
 
 【Copyright Policy】
 {{COPYRIGHT_POLICY}}
@@ -61,6 +61,9 @@ STEP_01 Rights Validation
 
 【出力JSONスキーマ】
 {{OUTPUT_JSON_SCHEMA}}
+
+【出力フィールドガイド】
+{{OUTPUT_FIELD_GUIDE}}
 
 【出力サンプル】
 {{OUTPUT_EXAMPLE}}
