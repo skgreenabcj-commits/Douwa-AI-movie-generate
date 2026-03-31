@@ -2,7 +2,6 @@
 # 03_Process_Sequence
 ```
 ```mermaid
-```mermaid
 sequenceDiagram
     actor Human
     participant GSS as Google Spreadsheet
