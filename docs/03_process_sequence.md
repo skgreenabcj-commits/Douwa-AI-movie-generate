@@ -2,6 +2,7 @@
 # 03_Process_Sequence
 ```
 ```mermaid
+```mermaid
 sequenceDiagram
     actor Human
     participant GSS as Google Spreadsheet
@@ -86,10 +87,11 @@ sequenceDiagram
 
     rect rgb(245, 245, 245)
     Note over Human,AI: STEP_06 Visual Bible
+    Note over Human,AI: STEP_04 と STEP_05 の完了後に実行
     Human->>GAS: STEP_06 実行を指示
     GAS->>GH: Trigger STEP_06
-    GH->>GSS: Read required data
-    GH->>AI: Request 05_Visual_Bible JSON
+    GH->>GSS: Read required data from 03_Script_Short and 04_Script_Full
+    GH->>AI: Request 05_Visual_Bible JSON for Short and Full
     AI-->>GH: Return JSON
     GH->>GH: Validate / normalize JSON
     GH->>GSS: Write 05_Visual_Bible rows
