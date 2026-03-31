@@ -1,3 +1,6 @@
+```md
+# 01_System_Architecture
+```
 ```mermaid
 flowchart LR
     human[Human User / Operator]
