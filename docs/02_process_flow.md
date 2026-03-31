@@ -2,7 +2,6 @@
 # 02_Process_Flow
 ```
 ```mermaid
-```mermaid
 flowchart TD
     STEP_00[STEP_00<br/>Project Create / project_id 採番済み案件を準備]
     STEP_01[STEP_01<br/>Rights Validation<br/>Output: 00_Rights_Validation rows<br/>Also update: 00_Project / 100_App_Logs]
