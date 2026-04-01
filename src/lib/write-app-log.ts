@@ -10,7 +10,7 @@
  * log_level / error_type は app_log フィールドに "[LEVEL][TYPE] message" 形式で含める。
  */
 
-import { appendRow } from "./sheets-client.js";
+import { getNextEmptyRowIndex, updateRow } from "./sheets-client.js";
 import type { AppLogRow } from "../types.js";
 
 const SHEET_NAME = "100_App_Logs";
@@ -42,7 +42,10 @@ export async function appendAppLog(
     app_log: logRow.app_log,
   };
 
-  await appendRow(spreadsheetId, SHEET_NAME, LOG_HEADERS, rowData);
+  // appendRow(INSERT_ROWS) は 999 行の空行がある場合に正常動作しないため
+  // getNextEmptyRowIndex + updateRow 方式で末尾の次行に書き込む
+  const nextRowIndex = await getNextEmptyRowIndex(spreadsheetId, SHEET_NAME);
+  await updateRow(spreadsheetId, SHEET_NAME, nextRowIndex, LOG_HEADERS, rowData);
 }
 
 /**
