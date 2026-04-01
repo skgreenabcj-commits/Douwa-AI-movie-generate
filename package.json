@@ -4,14 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npx esbuild src/index.ts src/types.ts src/lib/sheets-client.ts src/lib/load-runtime-config.ts src/lib/load-project-input.ts src/lib/write-rights-validation.ts src/lib/update-project.ts src/lib/write-app-log.ts src/lib/load-assets.ts src/lib/build-prompt.ts src/lib/call-gemini.ts src/lib/validate-json.ts src/lib/normalize-ai-row.ts src/lib/apply-fast-pass.ts src/lib/logger.ts src/lib/load-step-mapping.ts src/steps/step01-rights-validation.ts --bundle=false --format=esm --platform=node --target=node20 --outdir=dist --out-extension:.js=.js",
+    "typecheck": "tsc --noEmit",
     "test": "echo \"No tests yet\"",
     "step01": "node dist/index.js"
   },
   "devDependencies": {
+    "esbuild": "^0.27.4",
     "typescript": "^5.6.0"
   },
   "dependencies": {
+    "ajv": "^8.18.0",
     "googleapis": "^171.4.0"
   }
 }
