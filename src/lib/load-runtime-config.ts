@@ -23,6 +23,10 @@ export async function loadRuntimeConfig(
 
   const configMap: RuntimeConfigMap = new Map();
 
+  // デバッグ: 読み込んだ生の行データを出力（調査用）
+  console.log("[DEBUG] 94_Runtime_Config raw rows (first 3):", JSON.stringify(rows.slice(0, 3)));
+  console.log("[DEBUG] 94_Runtime_Config all keys:", rows.map(r => r["key"]).filter(Boolean));
+
   for (const row of rows) {
     const key = (row["key"] ?? "").trim();
     const value = (row["value"] ?? "").trim();
@@ -30,6 +34,11 @@ export async function loadRuntimeConfig(
 
     if (!key) continue;
     if (enabled === "FALSE") continue;
+
+    // デバッグ: モデル関連のキーのみ詳細出力
+    if (key.includes("model") || key.includes("gemini")) {
+      console.log(`[DEBUG] config row: key="${key}", value="${value}", enabled="${enabled}", raw_row=${JSON.stringify(row)}`);
+    }
 
     configMap.set(key, value);
   }
