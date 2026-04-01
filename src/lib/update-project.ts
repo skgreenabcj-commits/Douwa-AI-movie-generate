@@ -14,7 +14,7 @@
  * - project_id, record_id, その他人入力フィールドは一切触れない
  */
 
-import { readSheet, updateRow, readSheetHeaders } from "./sheets-client.js";
+import { readSheet, updateRow, readSheetHeaders, calcRowIndex } from "./sheets-client.js";
 import type { ProjectMinimalPatch } from "../types.js";
 
 const SHEET_NAME = "00_Project";
@@ -40,7 +40,7 @@ export async function updateProjectMinimal(
 
   for (let i = 0; i < rows.length; i++) {
     if ((rows[i]["project_id"] ?? "").trim() === target) {
-      targetRowIndex = i + 2; // 1-indexed, ヘッダーが1行目
+      targetRowIndex = calcRowIndex(i);
       existingRow = rows[i];
       break;
     }

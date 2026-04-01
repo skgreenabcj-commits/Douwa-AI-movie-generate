@@ -8,7 +8,7 @@
  * - AI 入力は title_jp, source_url のみ（初期実装）
  */
 
-import { readSheet } from "./sheets-client.js";
+import { readSheet, calcRowIndex } from "./sheets-client.js";
 import type { ProjectRow } from "../types.js";
 
 const SHEET_NAME = "00_Project";
@@ -47,8 +47,7 @@ export async function readProjectById(
 
   for (let i = 0; i < rows.length; i++) {
     if ((rows[i]["project_id"] ?? "").trim() === target) {
-      // rowIndex: ヘッダー行が1行目なので、データは2行目から = i + 2
-      return { row: rowToProjectRow(rows[i]), rowIndex: i + 2 };
+      return { row: rowToProjectRow(rows[i]), rowIndex: calcRowIndex(i) };
     }
   }
 

@@ -10,7 +10,7 @@
  * 注意: 採番は本ファイルが行う（GitHub 側で採番）
  */
 
-import { readSheet, appendRow, updateRow, readSheetHeaders } from "./sheets-client.js";
+import { readSheet, appendRow, updateRow, readSheetHeaders, calcRowIndex } from "./sheets-client.js";
 import type { RightsValidationFullRow } from "../types.js";
 
 const SHEET_NAME = "00_Rights_Validation";
@@ -74,7 +74,7 @@ export async function upsertRightsValidation(
 
   for (let i = 0; i < rows.length; i++) {
     if ((rows[i]["project_id"] ?? "").trim() === projectId) {
-      existingRowIndex = i + 2; // 1-indexed, +1 for header row
+      existingRowIndex = calcRowIndex(i);
       existingRecordId = (rows[i]["record_id"] ?? "").trim() || null;
       break;
     }
@@ -116,7 +116,7 @@ export async function findRightsValidationByProjectId(
 
   for (let i = 0; i < rows.length; i++) {
     if ((rows[i]["project_id"] ?? "").trim() === target) {
-      return { row: rows[i], rowIndex: i + 2 };
+      return { row: rows[i], rowIndex: calcRowIndex(i) };
     }
   }
 
