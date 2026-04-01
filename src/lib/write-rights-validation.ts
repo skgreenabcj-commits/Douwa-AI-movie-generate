@@ -4,13 +4,17 @@
  * 00_Rights_Validation シートへの upsert（project_id キー）を担当する。
  *
  * upsert 方針:
- * - project_id が既存行に見つかれば → update（record_id は既存を維持）
- * - 見つからなければ → insert（record_id を新規採番: PJT-001-RV-001）
+ * - project_id が既存行に見つかれば → その行を UPDATE（record_id は既存を維持）
+ * - 見つからなければ → 上から走査して project_id が空の最初の行を UPDATE（空行を埋める）
  *
- * 注意: 採番は本ファイルが行う（GitHub 側で採番）
+ * 前提:
+ * - GSSには事前に 999 行の空行が用意されている
+ * - INSERT（appendRow）は使わない。常に既存行を UPDATE する。
+ *
+ * 注意: record_id 採番は本ファイルが行う（GitHub 側で採番）
  */
 
-import { readSheet, appendRow, updateRow, readSheetHeaders, calcRowIndex } from "./sheets-client.js";
+import { readSheet, updateRow, readSheetHeaders, calcRowIndex } from "./sheets-client.js";
 import type { RightsValidationFullRow } from "../types.js";
 
 const SHEET_NAME = "00_Rights_Validation";
@@ -57,6 +61,12 @@ const RV_HEADERS: Array<keyof RightsValidationFullRow> = [
 /**
  * project_id キーで 00_Rights_Validation を upsert する。
  *
+ * 処理順:
+ * 1. シート全行を読み込む
+ * 2. project_id が一致する既存行を探す → あれば UPDATE（record_id 維持）
+ * 3. なければ上から走査して project_id が空の最初の行を探す → その行を UPDATE（record_id 新規採番）
+ * 4. 空行も見つからなければエラー（シートの空行が枯渇）
+ *
  * @param spreadsheetId - 対象スプレッドシートID
  * @param fullRow       - 書き込む full row データ
  * @returns upsert 後の record_id
@@ -68,39 +78,37 @@ export async function upsertRightsValidation(
   const rows = await readSheet(spreadsheetId, SHEET_NAME);
   const projectId = fullRow.project_id.trim();
 
-  // 既存行を project_id で検索
-  let existingRowIndex: number | null = null;
-  let existingRecordId: string | null = null;
-
+  // ── STEP 1: 既存行を project_id で検索 ──────────────────────────────────
   for (let i = 0; i < rows.length; i++) {
-    if ((rows[i]["project_id"] ?? "").trim() === projectId) {
-      existingRowIndex = calcRowIndex(i);
-      existingRecordId = (rows[i]["record_id"] ?? "").trim() || null;
-      break;
+    const existingProjectId = (rows[i]["project_id"] ?? "").trim();
+    if (existingProjectId === projectId) {
+      // UPDATE: 既存 record_id を維持
+      const existingRecordId = (rows[i]["record_id"] ?? "").trim() || generateRecordId(projectId, i);
+      const rowIndex = calcRowIndex(i);
+      const rowData = buildRowData({ ...fullRow, record_id: existingRecordId });
+      await updateRow(spreadsheetId, SHEET_NAME, rowIndex, RV_HEADERS, rowData);
+      return existingRecordId;
     }
   }
 
-  let recordId: string;
-
-  if (existingRowIndex !== null && existingRecordId) {
-    // UPDATE: 既存 record_id を維持
-    recordId = existingRecordId;
-    const rowData = buildRowData({ ...fullRow, record_id: recordId });
-    await updateRow(
-      spreadsheetId,
-      SHEET_NAME,
-      existingRowIndex,
-      RV_HEADERS,
-      rowData
-    );
-  } else {
-    // INSERT: record_id を採番
-    recordId = generateRecordId(projectId, rows.length);
-    const rowData = buildRowData({ ...fullRow, record_id: recordId });
-    await appendRow(spreadsheetId, SHEET_NAME, RV_HEADERS, rowData);
+  // ── STEP 2: 空行を上から走査して INSERT ──────────────────────────────────
+  for (let i = 0; i < rows.length; i++) {
+    const existingProjectId = (rows[i]["project_id"] ?? "").trim();
+    if (existingProjectId === "") {
+      // この空行に書き込む（record_id を新規採番）
+      const recordId = generateRecordId(projectId, i);
+      const rowIndex = calcRowIndex(i);
+      const rowData = buildRowData({ ...fullRow, record_id: recordId });
+      await updateRow(spreadsheetId, SHEET_NAME, rowIndex, RV_HEADERS, rowData);
+      return recordId;
+    }
   }
 
-  return recordId;
+  // ── STEP 3: 空行が見つからない場合はエラー ───────────────────────────────
+  throw new Error(
+    `00_Rights_Validation: no empty row found for project_id "${projectId}". ` +
+    `All ${rows.length} rows are occupied. Please add more empty rows to the sheet.`
+  );
 }
 
 /**
@@ -128,16 +136,15 @@ export async function findRightsValidationByProjectId(
 /**
  * record_id を採番する。
  * 形式: PJT-001-RV-001
- * 連番部分はシートの現在の行数 + 1 を使う（簡易採番）。
+ * 連番部分はシート上の配列インデックス + 1 を使う（行位置ベースの採番）。
  */
-function generateRecordId(projectId: string, existingRowCount: number): string {
-  // projectId: "PJT-001" → "001" 部分を取り出す
+function generateRecordId(projectId: string, arrayIndex: number): string {
   const match = projectId.match(/^PJT-(\d+)$/);
   if (!match) {
-    throw new Error(`Invalid project_id format: ${projectId}`);
+    throw new Error(`Invalid project_id format: "${projectId}"`);
   }
   const projectNum = match[1].padStart(3, "0");
-  const seq = String(existingRowCount + 1).padStart(3, "0");
+  const seq = String(arrayIndex + 1).padStart(3, "0");
   return `PJT-${projectNum}-RV-${seq}`;
 }
 

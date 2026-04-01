@@ -4,16 +4,10 @@
  * 100_App_Logs シートへのログ追記を担当する。
  * 成功時も失敗時も append する（指示書 §6 参照）。
  *
- * 最低限の列（指示書 §6）:
- * - project_id
- * - record_id
- * - current_step
- * - timestamp
- * - app_log
+ * GSS 100_App_Logs の列定義（GSS_field_master.tsv 準拠）:
+ *   project_id | record_id | current_step | timestamp | app_log
  *
- * 追加列（運用上有用）:
- * - log_level   : INFO / WARN / ERROR
- * - error_type  : success / schema_validation_failure / runtime_failure / ai_failure / write_failure
+ * log_level / error_type は app_log フィールドに "[LEVEL][TYPE] message" 形式で含める。
  */
 
 import { appendRow } from "./sheets-client.js";
@@ -21,14 +15,12 @@ import type { AppLogRow } from "../types.js";
 
 const SHEET_NAME = "100_App_Logs";
 
-// 書き込み列順（シートに存在しない列があっても appendRow は空文字を補う）
+// GSS_field_master.tsv 定義に合わせた列順
 const LOG_HEADERS: Array<keyof AppLogRow> = [
   "project_id",
   "record_id",
   "current_step",
   "timestamp",
-  "log_level",
-  "error_type",
   "app_log",
 ];
 
@@ -47,8 +39,6 @@ export async function appendAppLog(
     record_id: logRow.record_id,
     current_step: logRow.current_step,
     timestamp: logRow.timestamp,
-    log_level: logRow.log_level,
-    error_type: logRow.error_type,
     app_log: logRow.app_log,
   };
 
@@ -57,6 +47,7 @@ export async function appendAppLog(
 
 /**
  * ログ行を組み立てるファクトリ関数（成功時）
+ * log_level=INFO, error_type=success を app_log に埋め込む。
  */
 export function buildSuccessLog(
   projectId: string,
@@ -68,19 +59,18 @@ export function buildSuccessLog(
     record_id: recordId,
     current_step: "STEP_01_RIGHTS_VALIDATION",
     timestamp: new Date().toISOString(),
-    log_level: "INFO",
-    error_type: "success",
-    app_log: message,
+    app_log: `[INFO][success] ${message}`,
   };
 }
 
 /**
  * ログ行を組み立てるファクトリ関数（失敗時）
+ * log_level=ERROR, error_type を app_log に埋め込む。
  */
 export function buildFailureLog(
   projectId: string,
   recordId: string,
-  errorType: AppLogRow["error_type"],
+  errorType: string,
   message: string
 ): AppLogRow {
   return {
@@ -88,8 +78,6 @@ export function buildFailureLog(
     record_id: recordId,
     current_step: "STEP_01_RIGHTS_VALIDATION",
     timestamp: new Date().toISOString(),
-    log_level: "ERROR",
-    error_type: errorType,
-    app_log: message,
+    app_log: `[ERROR][${errorType}] ${message}`,
   };
 }

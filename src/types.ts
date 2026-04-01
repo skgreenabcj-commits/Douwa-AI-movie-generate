@@ -102,22 +102,13 @@ export interface RightsValidationFullRow extends RightsValidationAiRow {
 
 // ─── 100_App_Logs ─────────────────────────────────────────────────────────────
 
-export type AppLogLevel = "INFO" | "WARN" | "ERROR";
-export type AppLogErrorType =
-  | "schema_validation_failure"
-  | "runtime_failure"
-  | "ai_failure"
-  | "write_failure"
-  | "success";
 
 export interface AppLogRow {
   project_id: string;
   record_id: string;
   current_step: string;
   timestamp: string;
-  log_level: AppLogLevel;
-  error_type: AppLogErrorType;
-  app_log: string;
+  app_log: string; // "[LEVEL][error_type] message" 形式で log_level/error_type を含む
 }
 
 // ─── Workflow Payload ─────────────────────────────────────────────────────────

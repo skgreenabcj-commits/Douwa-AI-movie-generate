@@ -226,7 +226,7 @@ async function handleProjectFailure(
   projectId: string,
   recordId: string,
   now: string,
-  errorType: Parameters<typeof buildFailureLog>[2],
+  errorType: string,
   message: string
 ): Promise<void> {
   logError(`STEP_01 failed for ${projectId} [${errorType}]: ${message}`);
