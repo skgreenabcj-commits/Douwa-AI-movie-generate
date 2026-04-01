@@ -14,7 +14,7 @@
  * 注意: record_id 採番は本ファイルが行う（GitHub 側で採番）
  */
 
-import { readSheet, updateRow, readSheetHeaders, calcRowIndex } from "./sheets-client.js";
+import { readSheet, updateRow, calcRowIndex, getNextEmptyRowIndex, DATA_START_ROW } from "./sheets-client.js";
 import type { RightsValidationFullRow } from "../types.js";
 
 const SHEET_NAME = "00_Rights_Validation";
@@ -91,18 +91,14 @@ export async function upsertRightsValidation(
     }
   }
 
-  // ── STEP 2: 空行を上から走査して INSERT ──────────────────────────────────
-  for (let i = 0; i < rows.length; i++) {
-    const existingProjectId = (rows[i]["project_id"] ?? "").trim();
-    if (existingProjectId === "") {
-      // この空行に書き込む（record_id を新規採番）
-      const recordId = generateRecordId(projectId, i);
-      const rowIndex = calcRowIndex(i);
-      const rowData = buildRowData({ ...fullRow, record_id: recordId });
-      await updateRow(spreadsheetId, SHEET_NAME, rowIndex, RV_HEADERS, rowData);
-      return recordId;
-    }
-  }
+  // ── STEP 2: 空行を特定して INSERT ───────────────────────────────────────
+  // Sheets API は末尾の空行をトリミングするため空行走査は機能しない。
+  // データが入っている最終行の次の行番号を取得して書き込む。
+  const nextRowIndex = await getNextEmptyRowIndex(spreadsheetId, SHEET_NAME);
+  const newRecordId = generateRecordId(projectId, nextRowIndex - DATA_START_ROW);
+  const newRowData = buildRowData({ ...fullRow, record_id: newRecordId });
+  await updateRow(spreadsheetId, SHEET_NAME, nextRowIndex, RV_HEADERS, newRowData);
+  return newRecordId;
 
   // ── STEP 3: 空行が見つからない場合はエラー ───────────────────────────────
   throw new Error(

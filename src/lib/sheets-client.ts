@@ -213,6 +213,37 @@ export async function readSheetHeaders(
   return rows[0].map(String);
 }
 
+/**
+ * シートの「データが入っている最終行」の絶対行番号（1-indexed）を返す。
+ *
+ * Sheets API は末尾の空行をトリミングして返すため、
+ * readSheet() の行数 = 実際のデータ行数 となる。
+ * ヘッダー行(row5) + データ行数 = 最終データ行番号。
+ * 次の空行 = 最終データ行番号 + 1。
+ *
+ * @param spreadsheetId - スプレッドシートID
+ * @param sheetName     - シート名
+ * @returns 次に書き込める空行の絶対行番号（1-indexed）
+ */
+export async function getNextEmptyRowIndex(
+  spreadsheetId: string,
+  sheetName: string
+): Promise<number> {
+  const sheets = getSheetsClient();
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: buildReadRange(sheetName),
+  });
+
+  const rows = response.data.values ?? [];
+  // rows[0] = ヘッダー行、rows[1]以降 = データ行
+  // データ行数 = rows.length - 1（ヘッダーを除く）
+  const dataRowCount = Math.max(0, rows.length - 1);
+  // 次の空行 = DATA_START_ROW + dataRowCount
+  return DATA_START_ROW + dataRowCount;
+}
+
 // ─── Row index helpers ────────────────────────────────────────────────────────
 
 /**
