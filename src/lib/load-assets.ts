@@ -23,8 +23,9 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// リポジトリルート = dist/lib/../../.. = プロジェクトルート
-const REPO_ROOT = resolve(__dirname, "..", "..", "..");
+// リポジトリルート = dist/lib/../.. = プロジェクトルート
+// dist/lib/load-assets.js → dist/lib → dist → repo_root
+const REPO_ROOT = resolve(__dirname, "..", "..");
 
 function repoPath(...segments: string[]): string {
   return resolve(REPO_ROOT, ...segments);
