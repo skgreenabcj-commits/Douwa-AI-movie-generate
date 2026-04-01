@@ -9,12 +9,16 @@
  * 制約（指示書 §3, §7）:
  * - gemini_api_key: 94_Runtime_Config の "gemini_api_key" から取得
  * - primary model : "step_01_model_role" key の value（フォールバック: "gemini-2.5-pro"）
- * - secondary model: "model_role_text_pro" key の value（フォールバック: "gemini-2.0-flash"）
+ * - secondary model: "model_role_text_pro" key の value（フォールバック: "gemini-2.0-pro"）
+ *
+ * 指示書 §7 のモデル方針:
+ *   primary   = gemini-2.5-pro
+ *   secondary = gemini-2.0-pro  ← flash ではなく pro
  */
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_PRIMARY_MODEL = "gemini-2.5-pro";
-const DEFAULT_SECONDARY_MODEL = "gemini-2.0-flash";
+const DEFAULT_SECONDARY_MODEL = "gemini-2.0-pro"; // 指示書 §7 に従い pro を使用
 const REQUEST_TIMEOUT_MS = 120_000; // 2 分
 const MAX_RETRIES = 1;
 
