@@ -17,6 +17,7 @@
  * 読み込み対象（STEP_02）:
  * - prompts/source_build_prompt_v1.md
  * - prompts/copyright_policy_jp_v1.md
+ * - prompts/difficult_terms_policy_v1.md
  * - prompts/fragments/source_build_output_field_guide_v1.md
  * - schemas/source_build_schema_ai_v1.json
  * - schemas/source_build_schema_full_v1.json
@@ -61,6 +62,7 @@ export interface Step01Assets {
 export interface Step02Assets {
   promptTemplate: string;
   copyrightPolicy: string;
+  difficultTermsPolicy: string;
   outputFieldGuide: string;
   aiSchema: string;         // JSON string
   fullSchema: string;       // JSON string
@@ -77,6 +79,9 @@ export function loadStep02Assets(): Step02Assets {
     ),
     copyrightPolicy: readText(
       repoPath("prompts", "copyright_policy_jp_v1.md")
+    ),
+    difficultTermsPolicy: readText(
+      repoPath("prompts", "difficult_terms_policy_v1.md")
     ),
     outputFieldGuide: readText(
       repoPath("prompts", "fragments", "source_build_output_field_guide_v1.md")

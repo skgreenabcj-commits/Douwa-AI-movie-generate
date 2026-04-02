@@ -95,6 +95,7 @@ export function buildStep02Prompt(
 
   return buildPrompt(assets.promptTemplate, {
     COPYRIGHT_POLICY: assets.copyrightPolicy,
+    DIFFICULT_TERMS_POLICY: assets.difficultTermsPolicy,
     INPUT_DATA: inputData,
     OUTPUT_JSON_SCHEMA: assets.aiSchema,
     OUTPUT_FIELD_GUIDE: assets.outputFieldGuide,
