@@ -76,7 +76,7 @@
           "difficult_terms": {
             "type": "string",
             "maxLength": 1000,
-            "description": "難語・注意語リスト（カンマ区切り、なければ空文字）"
+            "description": "難語・注意語リスト（全角読点「、」区切り、なければ空文字）。target_age に応じて選定基準を変える。"
           },
           "adaptation_policy": {
             "type": "string",

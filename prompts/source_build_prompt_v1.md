@@ -30,7 +30,7 @@ STEP_02 Source Build
 4. 動画クレジット用のテキスト（credit_text）を生成する
 5. 底本注記（base_text_notes）として、底本の版・底本情報・特記事項を整理する
 6. target_age に応じた言語スタイル方針（language_style）を生成する
-7. 後工程のシナリオ制作者が参照すべき難語・注意語リスト（difficult_terms）を整理する
+7. 後工程のシナリオ制作者が参照すべき難語・注意語リスト（difficult_terms）を整理する（全角「、」区切りで列挙）
 8. target_age を主軸とした現代語化・脚色方針（adaptation_policy）を生成する
 
 【target_age による言語スタイルと適応方針の目安】
