@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "source_build_schema_ai_v1",
+  "description": "STEP_02 Source Build の AI 出力スキーマ（AI が返すべき JSON の定義）",
+  "type": "object",
+  "required": ["rows"],
+  "additionalProperties": false,
+  "properties": {
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "source_title",
+          "author",
+          "translator",
+          "source_url",
+          "source_type",
+          "copyright_status",
+          "credit_text",
+          "base_text_notes",
+          "language_style",
+          "difficult_terms",
+          "adaptation_policy"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "source_title": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "底本タイトル"
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "著者名（人名のみ、不明は空文字）"
+          },
+          "translator": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "翻訳者名（人名のみ、不存在または不明は空文字）"
+          },
+          "source_url": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "底本URL（入力値をそのまま返す）"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": ["aozora", "original", "translation", "arrangement", "unknown"],
+            "description": "出典種別"
+          },
+          "copyright_status": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "著作権状態の要約（1〜2文、非断定的）"
+          },
+          "credit_text": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "動画クレジット文"
+          },
+          "base_text_notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "底本注記（版情報・特記事項）"
+          },
+          "language_style": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "target_age に応じた言語スタイル方針（空文字不可）"
+          },
+          "difficult_terms": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "難語・注意語リスト（カンマ区切り、なければ空文字）"
+          },
+          "adaptation_policy": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "現代語化・脚色方針（target_age 主軸、空文字不可）"
+          }
+        }
+      }
+    }
+  }
+}
