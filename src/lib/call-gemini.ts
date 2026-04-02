@@ -21,6 +21,7 @@ const DEFAULT_PRIMARY_MODEL = "gemini-2.5-pro";
 const DEFAULT_SECONDARY_MODEL = "gemini-2.0-pro"; // 指示書 §7 に従い pro を使用
 const REQUEST_TIMEOUT_MS = 120_000; // 2 分
 const MAX_RETRIES = 1;
+const RETRY_BACKOFF_MS = 10_000; // 429 レート制限対策: リトライ前に 10 秒待機
 
 export interface GeminiCallOptions {
   apiKey: string;
@@ -90,8 +91,8 @@ async function callGeminiModel(
     } catch (err) {
       lastError = err;
       if (attempt < retries) {
-        // 簡易バックオフ（2 秒待機）
-        await sleep(2000);
+        // 簡易バックオフ（RETRY_BACKOFF_MS 待機: 429 レート制限対策）
+        await sleep(RETRY_BACKOFF_MS);
       }
     }
   }
@@ -216,7 +217,9 @@ export function buildGeminiOptions(configMap: RuntimeConfigMap): GeminiCallOptio
 
 /**
  * STEP_02 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
- * primary model キー: step_02_model_role
+ * primary model キー  : step_02_model_role   (デフォルト: gemini-2.5-pro)
+ * secondary model キー: model_role_text_flash_seconday (デフォルト: gemini-2.0-flash)
+ *   ※ pro 系が RPM 429 になった場合に flash 系へフォールバックする。
  */
 export function buildGeminiOptionsStep02(configMap: RuntimeConfigMap): GeminiCallOptions {
   const apiKey = getConfigValue(configMap, "gemini_api_key");
@@ -225,11 +228,16 @@ export function buildGeminiOptionsStep02(configMap: RuntimeConfigMap): GeminiCal
     "step_02_model_role",
     DEFAULT_PRIMARY_MODEL
   );
+  // フォールバックは flash 系（軽量・独立したレート制限枠）
   const secondaryModel = getConfigValue(
     configMap,
-    "model_role_text_pro",
-    DEFAULT_SECONDARY_MODEL
+    "model_role_text_flash_seconday",
+    "gemini-2.0-flash"
   );
+
+  console.info(`[INFO] Gemini options resolved (STEP_02) ***`);
+  console.info(`  primaryModel: '${primaryModel}',`);
+  console.info(`  secondaryModel: '${secondaryModel}'`);
 
   return { apiKey, primaryModel, secondaryModel };
 }
