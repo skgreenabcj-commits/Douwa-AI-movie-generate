@@ -196,13 +196,33 @@ import type { RuntimeConfigMap } from "../types.js";
 import { getConfigValue } from "./load-runtime-config.js";
 
 /**
- * RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
+ * STEP_01 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
  */
 export function buildGeminiOptions(configMap: RuntimeConfigMap): GeminiCallOptions {
   const apiKey = getConfigValue(configMap, "gemini_api_key");
   const primaryModel = getConfigValue(
     configMap,
     "step_01_model_role",
+    DEFAULT_PRIMARY_MODEL
+  );
+  const secondaryModel = getConfigValue(
+    configMap,
+    "model_role_text_pro",
+    DEFAULT_SECONDARY_MODEL
+  );
+
+  return { apiKey, primaryModel, secondaryModel };
+}
+
+/**
+ * STEP_02 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
+ * primary model キー: step_02_model_role
+ */
+export function buildGeminiOptionsStep02(configMap: RuntimeConfigMap): GeminiCallOptions {
+  const apiKey = getConfigValue(configMap, "gemini_api_key");
+  const primaryModel = getConfigValue(
+    configMap,
+    "step_02_model_role",
     DEFAULT_PRIMARY_MODEL
   );
   const secondaryModel = getConfigValue(

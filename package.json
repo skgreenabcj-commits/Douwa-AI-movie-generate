@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npx esbuild src/index.ts src/types.ts src/lib/sheets-client.ts src/lib/load-runtime-config.ts src/lib/load-project-input.ts src/lib/write-rights-validation.ts src/lib/update-project.ts src/lib/write-app-log.ts src/lib/load-assets.ts src/lib/build-prompt.ts src/lib/call-gemini.ts src/lib/validate-json.ts src/lib/normalize-ai-row.ts src/lib/apply-fast-pass.ts src/lib/logger.ts src/lib/load-step-mapping.ts src/steps/step01-rights-validation.ts --bundle=false --format=esm --platform=node --target=node20 --outdir=dist --out-extension:.js=.js",
+    "build": "npx esbuild src/index.ts src/types.ts src/lib/sheets-client.ts src/lib/load-runtime-config.ts src/lib/load-project-input.ts src/lib/write-rights-validation.ts src/lib/write-source.ts src/lib/load-rights-validation.ts src/lib/update-project.ts src/lib/write-app-log.ts src/lib/load-assets.ts src/lib/build-prompt.ts src/lib/call-gemini.ts src/lib/validate-json.ts src/lib/normalize-ai-row.ts src/lib/apply-fast-pass.ts src/lib/logger.ts src/lib/load-step-mapping.ts src/steps/step01-rights-validation.ts src/steps/step02-source-build.ts --bundle=false --format=esm --platform=node --target=node20 --outdir=dist --out-extension:.js=.js",
     "typecheck": "tsc --noEmit",
     "test": "echo \"No tests yet\"",
     "step01": "node dist/index.js"

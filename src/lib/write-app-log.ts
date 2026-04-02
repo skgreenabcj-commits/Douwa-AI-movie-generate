@@ -84,3 +84,34 @@ export function buildFailureLog(
     app_log: `[ERROR][${errorType}] ${message}`,
   };
 }
+
+// ─── STEP_02 ログビルダー ─────────────────────────────────────────────────────
+
+export function buildStep02SuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id: projectId,
+    record_id: recordId,
+    current_step: "STEP_02_SOURCE_BUILD",
+    timestamp: new Date().toISOString(),
+    app_log: `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep02FailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id: projectId,
+    record_id: recordId,
+    current_step: "STEP_02_SOURCE_BUILD",
+    timestamp: new Date().toISOString(),
+    app_log: `[ERROR][${errorType}] ${message}`,
+  };
+}

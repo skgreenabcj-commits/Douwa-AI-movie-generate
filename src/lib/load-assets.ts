@@ -13,6 +13,14 @@
  * - schemas/rights_validation_schema_full_v1.json
  * - examples/rights_validation_ai_response_example_v1.json
  * - config/fast_pass_logic_v1.md
+ *
+ * 読み込み対象（STEP_02）:
+ * - prompts/source_build_prompt_v1.md
+ * - prompts/copyright_policy_jp_v1.md
+ * - prompts/fragments/source_build_output_field_guide_v1.md
+ * - schemas/source_build_schema_ai_v1.json
+ * - schemas/source_build_schema_full_v1.json
+ * - examples/source_build_ai_response_example_v1.json
  */
 
 import { readFileSync } from "fs";
@@ -46,6 +54,43 @@ export interface Step01Assets {
   fullSchema: string;       // JSON string
   aiResponseExample: string; // JSON string
   fastPassLogic: string;
+}
+
+// ─── STEP_02 Assets ───────────────────────────────────────────────────────────
+
+export interface Step02Assets {
+  promptTemplate: string;
+  copyrightPolicy: string;
+  outputFieldGuide: string;
+  aiSchema: string;         // JSON string
+  fullSchema: string;       // JSON string
+  aiResponseExample: string; // JSON string
+}
+
+/**
+ * STEP_02 に必要な全ファイルを読み込んで返す。
+ */
+export function loadStep02Assets(): Step02Assets {
+  return {
+    promptTemplate: readText(
+      repoPath("prompts", "source_build_prompt_v1.md")
+    ),
+    copyrightPolicy: readText(
+      repoPath("prompts", "copyright_policy_jp_v1.md")
+    ),
+    outputFieldGuide: readText(
+      repoPath("prompts", "fragments", "source_build_output_field_guide_v1.md")
+    ),
+    aiSchema: readText(
+      repoPath("schemas", "source_build_schema_ai_v1.json")
+    ),
+    fullSchema: readText(
+      repoPath("schemas", "source_build_schema_full_v1.json")
+    ),
+    aiResponseExample: readText(
+      repoPath("examples", "source_build_ai_response_example_v1.json")
+    ),
+  };
 }
 
 /**

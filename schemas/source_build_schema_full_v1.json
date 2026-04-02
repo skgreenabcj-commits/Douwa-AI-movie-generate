@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "source_build_schema_full_v1",
+  "description": "STEP_02 Source Build の Google Sheets 書き込み行スキーマ（AI出力 + GitHub補完フィールドを含む full row 定義）",
+  "type": "object",
+  "required": [
+    "project_id",
+    "record_id",
+    "generation_status",
+    "approval_status",
+    "step_id",
+    "source_title",
+    "author",
+    "translator",
+    "source_url",
+    "source_type",
+    "copyright_status",
+    "credit_text",
+    "base_text_notes",
+    "language_style",
+    "original_text",
+    "difficult_terms",
+    "adaptation_policy",
+    "legal_check_status",
+    "legal_check_notes",
+    "updated_at",
+    "updated_by",
+    "notes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "description": "案件ID（例: PJT-001）"
+    },
+    "record_id": {
+      "type": "string",
+      "description": "ソース行ID（例: PJT-001-SC-001）。GitHub が採番する。"
+    },
+    "generation_status": {
+      "type": "string",
+      "enum": ["GENERATED", "FAILED", "SKIPPED", "PENDING"],
+      "description": "生成ステータス。STEP_02完了時は GENERATED 固定。"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": ["PENDING", "APPROVED", "REJECTED"],
+      "description": "人手承認ステータス。生成直後は PENDING 固定。"
+    },
+    "step_id": {
+      "type": "string",
+      "description": "生成ステップID。固定: STEP_02_SOURCE_BUILD"
+    },
+    "source_title": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "底本タイトル（AIが特定）"
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "著者名（人名のみ、不明は空文字）"
+    },
+    "translator": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "翻訳者名（人名のみ、不存在または不明は空文字）"
+    },
+    "source_url": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "底本URL（入力値をそのまま返す）"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["aozora", "original", "translation", "arrangement", "unknown"],
+      "description": "出典種別"
+    },
+    "copyright_status": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "著作権状態の要約（1〜2文、非断定的）"
+    },
+    "credit_text": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "動画クレジット文（後続AI入力に使用）"
+    },
+    "base_text_notes": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "底本注記（版情報・特記事項、後続AI入力に使用）"
+    },
+    "language_style": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "target_age に応じた言語スタイル方針（後続AI入力に使用）"
+    },
+    "original_text": {
+      "type": "string",
+      "description": "原文テキスト。source_url がある場合は空文字固定（B-1方式）。"
+    },
+    "difficult_terms": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "難語・注意語リスト（全角「、」区切り、target_age 考慮、後続AI入力に使用）"
+    },
+    "adaptation_policy": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "現代語化・脚色方針（target_age 主軸、後続AI入力の最重要フィールド）"
+    },
+    "legal_check_status": {
+      "type": "string",
+      "description": "人手法的確認ステータス。生成直後は空文字。"
+    },
+    "legal_check_notes": {
+      "type": "string",
+      "description": "人手法的確認メモ。生成直後は空文字。"
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "更新日時（ISO8601形式）。GitHub が補完する。"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "更新者。固定: github_actions"
+    },
+    "notes": {
+      "type": "string",
+      "description": "補足メモ。生成直後は空文字。"
+    }
+  }
+}

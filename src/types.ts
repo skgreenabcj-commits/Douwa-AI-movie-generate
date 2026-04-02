@@ -1,4 +1,4 @@
-export type StepId = "STEP_01";
+export type StepId = "STEP_01" | "STEP_02";
 
 // ─── Runtime Config ──────────────────────────────────────────────────────────
 
@@ -98,6 +98,51 @@ export interface RightsValidationFullRow extends RightsValidationAiRow {
   updated_at: string;
   updated_by: string;
   notes: string;
+}
+
+// ─── 01_Source ────────────────────────────────────────────────────────────────
+
+/** AI が返す Source Build の row（スキーマ: source_build_schema_ai_v1） */
+export interface SourceAiRow {
+  source_title: string;
+  author: string;
+  translator: string;
+  source_url: string;
+  source_type: "aozora" | "original" | "translation" | "arrangement" | "unknown";
+  copyright_status: string;
+  credit_text: string;
+  base_text_notes: string;
+  language_style: string;
+  difficult_terms: string;
+  adaptation_policy: string;
+}
+
+/** Google Sheets に書き込む full row（スキーマ: source_build_schema_full_v1） */
+export interface SourceFullRow extends SourceAiRow {
+  project_id: string;
+  record_id: string;
+  generation_status: "GENERATED" | "FAILED" | "SKIPPED" | "PENDING";
+  approval_status: "PENDING" | "APPROVED" | "REJECTED";
+  step_id: string;
+  original_text: string;
+  legal_check_status: string;
+  legal_check_notes: string;
+  updated_at: string;
+  updated_by: string;
+  notes: string;
+}
+
+// ─── 00_Rights_Validation (read) ──────────────────────────────────────────────
+
+/** 00_Rights_Validation から読み込む参照用 row */
+export interface RightsValidationReadRow {
+  project_id: string;
+  record_id: string;
+  rights_status: string;
+  original_author?: string;
+  translator?: string;
+  rights_summary?: string;
+  public_domain_candidate?: string;
 }
 
 // ─── 100_App_Logs ─────────────────────────────────────────────────────────────
