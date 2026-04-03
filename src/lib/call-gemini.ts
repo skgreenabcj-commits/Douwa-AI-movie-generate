@@ -118,9 +118,7 @@ async function callGeminiOnce(
   apiKey: string
 ): Promise<string> {
   const url = `${GEMINI_API_BASE}/${model}:generateContent?key=${apiKey}`;
-  // Secret マスクを回避するため文字列を分割して出力
-  const half = Math.floor(model.length / 2);
-  console.log(`[DEBUG] callGeminiOnce model(split): "${model.slice(0, half)}" + "${model.slice(half)}"`);
+
 
   const requestBody = {
     contents: [
