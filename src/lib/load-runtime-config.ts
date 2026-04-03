@@ -43,6 +43,16 @@ export async function loadRuntimeConfig(
     configMap.set(key, value);
   }
 
+  // ── 環境変数オーバーライド ──────────────────────────────────────────────
+  // GEMINI_API_KEY_OVERRIDE が設定されている場合、GSS の gemini_api_key を上書きする。
+  // GitHub Secret "GEMINI_API_KEY" を run-step.yml 経由で渡すことで
+  // GSS を編集せずに API キーを切り替えられる。
+  const geminiKeyOverride = (process.env["GEMINI_API_KEY_OVERRIDE"] ?? "").trim();
+  if (geminiKeyOverride) {
+    console.log("[INFO] GEMINI_API_KEY_OVERRIDE detected — overriding gemini_api_key from environment.");
+    configMap.set("gemini_api_key", geminiKeyOverride);
+  }
+
   return configMap;
 }
 
