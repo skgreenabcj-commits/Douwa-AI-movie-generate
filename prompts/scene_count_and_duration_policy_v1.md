@@ -1,0 +1,12 @@
+## Scene Count and Duration Policy
+- STEP_03 は、後工程の正本となる scene master を定義する。
+- scene 分割時の 1 scene の最大秒数は、`94_Runtime_Config` に定義した年齢帯別 key を参照して決定する。
+- 使用する key は以下とする。
+  - `scene_max_sec_2-3`
+  - `scene_max_sec_4-6`
+  - `scene_max_sec_6-8`
+- 対象案件の `target_age` に対応する `scene_max_sec` を用いて、最低必要 scene 数を `ceil(full_target_sec / scene_max_sec)` で算出する。
+- STEP_03 は、`target_age` と `full_target_sec` を前提に、各 scene が最大秒数を超えないように構成する。
+- 年齢帯ごとの推奨 scene 数レンジは別途 `Age Band Scene Guideline` に従う。
+- `full_target_sec` と `scene_max_sec` の条件を満たすために必要な場合は、推奨 scene 数レンジより `required_scene_count` を優先する。
+- STEP_03 の出力には、後工程との同期性を担保するため、少なくとも `scene_id`, `scene_order`, `scene_title`, `scene_summary`, `scene_purpose` を保持する。
