@@ -57,13 +57,21 @@ export async function callGemini(
     );
     return { text, modelUsed: options.primaryModel, usedFallback: false };
   } catch (primaryError) {
+    // Spending Cap は全モデル共通のブロックなのでフォールバック不要
+    if (primaryError instanceof GeminiSpendingCapError) {
+      console.error(
+        `[ERROR] Spending Cap exceeded — skipping fallback. ` +
+        `Action required: raise the cap in Google Cloud Console > Billing > Budgets & alerts.`
+      );
+      throw primaryError;
+    }
     console.warn(
       `[WARN] Primary model (${options.primaryModel}) failed. Falling back to secondary (${options.secondaryModel}).`,
       primaryError instanceof Error ? primaryError.message : String(primaryError)
     );
   }
 
-  // Secondary model (fallback)
+  // Secondary model (fallback) — RPM/RPD 超過時のみここへ到達
   const text = await callGeminiModel(
     prompt,
     options.secondaryModel,
@@ -141,6 +149,19 @@ async function callGeminiOnce(
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => "(no body)");
+
+    // Spending Cap 超過を個別に識別して明確なメッセージを出す
+    if (
+      response.status === 429 &&
+      errorBody.includes("spending cap")
+    ) {
+      throw new GeminiSpendingCapError(
+        `Gemini API: Spending Cap exceeded (HTTP 429). ` +
+        `Please raise the cap in Google Cloud Console. ` +
+        `Raw: ${errorBody}`
+      );
+    }
+
     throw new Error(
       `Gemini API returned HTTP ${response.status}: ${errorBody}`
     );
@@ -154,6 +175,20 @@ async function callGeminiOnce(
   }
 
   return text;
+}
+
+// ─── Custom Errors ────────────────────────────────────────────────────────────
+
+/**
+ * Google Cloud プロジェクトの Spending Cap（支出上限）超過エラー。
+ * RPM/RPD 制限とは異なり、上限引き上げまで全モデルで発生するため
+ * フォールバックを行わず即座に上位へ伝播させる。
+ */
+export class GeminiSpendingCapError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GeminiSpendingCapError";
+  }
 }
 
 // ─── Type / Helpers ───────────────────────────────────────────────────────────

@@ -32,7 +32,7 @@ import { readProjectsByIds } from "../lib/load-project-input.js";
 import { loadRightsValidationByProjectId } from "../lib/load-rights-validation.js";
 import { loadStep02Assets } from "../lib/load-assets.js";
 import { buildStep02Prompt } from "../lib/build-prompt.js";
-import { callGemini, buildGeminiOptionsStep02 } from "../lib/call-gemini.js";
+import { callGemini, buildGeminiOptionsStep02, GeminiSpendingCapError } from "../lib/call-gemini.js";
 import { validateSourceAiResponse } from "../lib/validate-json.js";
 import { upsertSource } from "../lib/write-source.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
@@ -154,6 +154,23 @@ export async function runStep02SourceBuild(
       try {
         geminiResult = await callGemini(prompt, geminiOptions);
       } catch (aiErr) {
+        // Spending Cap 超過は全モデル共通のブロック → 専用メッセージで即終了
+        if (aiErr instanceof GeminiSpendingCapError) {
+          await handleStep02Failure(
+            spreadsheetId,
+            projectId,
+            rvRow.record_id,
+            now,
+            "spending_cap_exceeded",
+            `[Spending Cap] Google Cloud の支出上限に達しています。` +
+            ` Google Cloud Console > お支払い > 予算とアラート でキャップを引き上げてください。` +
+            ` 詳細: ${aiErr.message}`,
+            payload.dry_run
+          );
+          // Spending Cap は全プロジェクト共通のブロックなので残りプロジェクトも即終了
+          logError(`[Spending Cap] Aborting remaining projects.`);
+          break;
+        }
         await handleStep02Failure(
           spreadsheetId,
           projectId,
