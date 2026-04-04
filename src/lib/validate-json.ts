@@ -182,7 +182,12 @@ export type ValidateSceneResult = SceneValidationResult | SceneValidationFailure
 
 /**
  * STEP_03 AI レスポンスを parse / validate して SceneAiRow[] を返す。
+ *
  * AI 出力は { scenes: [...] } 形式（rows ではなく scenes キー）。
+ * 各 scene には chapter, scene_title, scene_summary, scene_goal, visual_focus,
+ * emotion, short_use, full_use, est_duration_short, est_duration_full,
+ * difficult_words, easy_rewrite, qa_seed, continuity_note が含まれる。
+ * scene_id / scene_order は AI 出力に含まれず、システム側で付与する。
  */
 export function validateSceneAiResponse(
   rawText: string,

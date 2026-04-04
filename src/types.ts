@@ -148,28 +148,43 @@ export interface SourceReadRow {
 
 // ─── 02_Scenes ────────────────────────────────────────────────────────────────
 
-/** AI が返す Scenes Build の scene 1件（スキーマ: scene_build_schema_ai_v1） */
+/**
+ * AI が返す Scenes Build の scene 1件（スキーマ: scene_build_schema_ai_v1）
+ *
+ * scene_id / scene_order は AI 出力に含まれず、システム側（GitHub）で付与する。
+ * short_use / full_use は "Y" | "N" のみ（スキーマ enum 準拠）。
+ */
 export interface SceneAiRow {
-  scene_id: string;
-  scene_order: number;
+  chapter: string;
   scene_title: string;
   scene_summary: string;
-  scene_purpose: string;
-  scene_type: "intro" | "development" | "climax" | "resolution" | "ending";
-  scene_target_sec: number;
-  key_characters: string;
-  key_events: string;
-  visual_notes: string;
-  narration_style: string;
+  scene_goal: string;
+  visual_focus: string;
+  emotion: string;
+  short_use: "Y" | "N";
+  full_use: "Y" | "N";
+  est_duration_short: number;
+  est_duration_full: number;
+  difficult_words: string;
+  easy_rewrite: string;
+  qa_seed: string;
+  continuity_note: string;
 }
 
-/** Google Sheets に書き込む full row（スキーマ: scene_build_schema_full_v1） */
+/**
+ * Google Sheets に書き込む full row（スキーマ: scene_build_schema_full_v1）
+ *
+ * scene_id / scene_order は GitHub 側でシステム付与する（format: SC-001-01）。
+ * record_id は upsert 側で採番する（format: PJT-001-SCN-001）。
+ */
 export interface SceneFullRow extends SceneAiRow {
   project_id: string;
   record_id: string;
   generation_status: "GENERATED" | "FAILED" | "SKIPPED" | "PENDING";
   approval_status: "PENDING" | "APPROVED" | "REJECTED";
   step_id: string;
+  scene_id: string;         // システム側付与: SC-{projectNum3桁}-{sceneOrder2桁}
+  scene_order: number;      // システム側付与: 1始まり整数
   updated_at: string;
   updated_by: string;
   notes: string;

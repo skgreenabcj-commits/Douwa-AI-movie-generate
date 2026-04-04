@@ -113,25 +113,27 @@ export function buildStep02Prompt(
  * - {{OUTPUT_JSON_SCHEMA}}
  * - {{OUTPUT_FIELD_GUIDE}}
  * - {{OUTPUT_EXAMPLE}}
+ *
+ * inputData キー:
+ * - project_id, title_jp, target_age, short_target_sec, full_target_sec, visual_style
+ * - adaptation_policy, language_style, difficult_terms, credit_text, base_text_notes
+ * - scene_max_sec: target_age に対応する 1 scene 最大秒数（Runtime Config 参照値）
+ * - required_scene_count_base: ceil(full_target_sec / scene_max_sec)。
+ *   AI はこの値の ±15% 程度を許容範囲として scene 数を調整してよい。
  */
 export function buildStep03Prompt(
   assets: Step03Assets,
   project: ProjectRow,
   sourceRow: SourceReadRow,
   sceneMaxSec: number,
-  requiredSceneCount: number
+  requiredSceneCountBase: number
 ): string {
   const fullTargetSec = parseInt(project.full_target_sec ?? "0", 10);
   const shortTargetSec = parseInt(project.short_target_sec ?? "0", 10);
 
-  // project_id から project 番号を抽出（SC-001-XX の生成ヒント用）
-  const projectNumMatch = project.project_id.match(/^PJT-(\d+)$/);
-  const projectNum = projectNumMatch ? projectNumMatch[1].padStart(3, "0") : "001";
-
   const inputData = JSON.stringify(
     {
       project_id: project.project_id,
-      project_num: projectNum,
       title_jp: project.title_jp ?? "",
       target_age: project.target_age ?? "",
       short_target_sec: shortTargetSec,
@@ -145,7 +147,7 @@ export function buildStep03Prompt(
       base_text_notes: sourceRow.base_text_notes ?? "",
       // scene 設計パラメータ（GitHub 側で算出して渡す）
       scene_max_sec: sceneMaxSec,
-      required_scene_count: requiredSceneCount,
+      required_scene_count_base: requiredSceneCountBase,
     },
     null,
     2

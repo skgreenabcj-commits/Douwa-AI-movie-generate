@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "scene_build_schema_ai_v1",
-  "description": "STEP_03 Scenes Build の AI 出力スキーマ（AI が返すべき JSON の定義）",
+  "description": "STEP_03 Scene Build の AI 出力スキーマ。scene_id / scene_order はシステム側で付与するため AI 出力に含めない。",
   "type": "object",
   "required": ["scenes"],
   "additionalProperties": false,
@@ -9,86 +9,107 @@
     "scenes": {
       "type": "array",
       "minItems": 2,
-      "maxItems": 20,
-      "description": "scene の配列。scene_order 昇順で格納すること。",
+      "maxItems": 30,
+      "description": "scene の配列。AI が出力した順序で格納すること（scene_order はシステム側で付与）。",
       "items": {
         "type": "object",
         "required": [
-          "scene_id",
-          "scene_order",
+          "chapter",
           "scene_title",
           "scene_summary",
-          "scene_purpose",
-          "scene_type",
-          "scene_target_sec",
-          "key_characters",
-          "key_events",
-          "visual_notes",
-          "narration_style"
+          "scene_goal",
+          "visual_focus",
+          "emotion",
+          "short_use",
+          "full_use",
+          "est_duration_short",
+          "est_duration_full",
+          "difficult_words",
+          "easy_rewrite",
+          "qa_seed",
+          "continuity_note"
         ],
         "additionalProperties": false,
         "properties": {
-          "scene_id": {
+          "chapter": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 50,
-            "description": "scene 識別子。形式: SC-{project_num}-{order:02d}（例: SC-001-01）"
-          },
-          "scene_order": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 20,
-            "description": "scene の順序（1始まりの整数）"
+            "description": "物語上の章・大区分（例: 「導入」「仲間集結」「対決」「帰還」）。Script/Visual の章整理に使用。"
           },
           "scene_title": {
             "type": "string",
             "minLength": 1,
             "maxLength": 100,
-            "description": "scene タイトル（端的に、20字以内を目安）"
+            "description": "scene を一目で識別できる短い名称（20字以内を目安）。人レビュー・Script 見出し・Visual 管理に使用。"
           },
           "scene_summary": {
             "type": "string",
             "minLength": 1,
             "maxLength": 500,
-            "description": "scene の内容サマリー（2〜4文）"
+            "description": "scene 内で何が起こるかの要約（1〜3文程度）。Script 化・内容把握・QA 文脈に使用。後工程が script 化しやすい粒度で要約すること。"
           },
-          "scene_purpose": {
+          "scene_goal": {
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "scene の物語的役割・目的（1〜2文）"
+            "description": "その scene が物語上果たす役割（1文程度）。構成妥当性・脚色方針・QC に使用。"
           },
-          "scene_type": {
+          "visual_focus": {
             "type": "string",
-            "enum": ["intro", "development", "climax", "resolution", "ending"],
-            "description": "scene 種別"
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "映像上、何を主に見せるか（具体的な名詞句/短文）。STEP_06 Visual Bible・STEP_07 Image Prompts に使用。"
           },
-          "scene_target_sec": {
+          "emotion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "scene の主感情・感情トーン（短いテキスト）。Script トーン・演出・音/色調整に使用。"
+          },
+          "short_use": {
+            "type": "string",
+            "enum": ["Y", "N"],
+            "description": "Short版で採用するか。Y = 採用 / N = 不採用。STEP_04_05_COMBINED の Short版分岐に使用。"
+          },
+          "full_use": {
+            "type": "string",
+            "enum": ["Y", "N"],
+            "description": "Full版で採用するか。Y = 採用 / N = 不採用。初期実装では原則 Y。STEP_04_05_COMBINED の Full版分岐に使用。"
+          },
+          "est_duration_short": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 480,
+            "description": "Short版での概算秒数（rough estimate）。short_use=N の場合は 0 を設定。最終調整は STEP_04_05_COMBINED で行う。"
+          },
+          "est_duration_full": {
             "type": "integer",
             "minimum": 5,
             "maximum": 480,
-            "description": "この scene の推奨尺（秒）。scene_max_sec を超えてはならない。"
+            "description": "Full版での概算秒数（rough estimate）。scene_max_sec を超えないこと。全scene の合計が full_target_sec の ±15% 以内を目安とする。"
           },
-          "key_characters": {
-            "type": "string",
-            "maxLength": 300,
-            "description": "登場する主要キャラクター（全角「、」区切り。登場なしの場合は空文字）"
-          },
-          "key_events": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500,
-            "description": "scene 内で起こる主要な出来事（1〜3文）"
-          },
-          "visual_notes": {
+          "difficult_words": {
             "type": "string",
             "maxLength": 500,
-            "description": "映像化の方向性ヒント（STEP_06 Visual Bible 用、1〜2文）"
+            "description": "対象年齢に難しい語彙（全角「、」区切り）。難語がない場合は空文字。語彙平易化・字幕最適化に使用。"
           },
-          "narration_style": {
+          "easy_rewrite": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "difficult_words の言い換え候補（全角「、」区切りで対応）。difficult_words が空文字の場合は空文字。STEP_04_05_COMBINED でのやさしい表現化に使用。"
+          },
+          "qa_seed": {
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "このscene のナレーション・語りのトーン（1文）"
+            "description": "QA生成の種になる問い・観点（短い問い/論点）。STEP_09 Q&A Build で再利用。"
+          },
+          "continuity_note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "前後 scene との接続メモ（短文）。Script / Visual / Edit の continuity 維持用。持ち物・感情・構図の連続性を支える。"
           }
         }
       }

@@ -9,16 +9,17 @@
  * 3. 01_Source から当該 project_id の行を読む
  * 4. 01_Source.approval_status が APPROVED でない場合はエラー停止
  * 5. Prompt / Schema / Example / Policy を repo から読む
- * 6. required_scene_count を算出する（= ceil(full_target_sec / scene_max_sec)）
+ * 6. required_scene_count_base を算出する（= ceil(full_target_sec / scene_max_sec)）
  * 7. STEP_03 プロンプトをアセンブル
  * 8. Gemini を実行する
- *    - primary  : step_03_model_role（デフォルト: gemini-2.5-pro）
- *    - 1st fallback: model_role_text_pro（デフォルト: gemini-2.0-pro）
+ *    - primary     : step_03_model_role（デフォルト: gemini-2.5-pro）
+ *    - 1st fallback: model_role_text_pro（デフォルト: gemini-3.1-pro-preview）
  *    - 2nd fallback: model_role_text_flash_seconday（デフォルト: gemini-2.0-flash）
  * 9. AI 出力を schema 検証する
- * 10. 02_Scenes に scene 行を upsert する（project_id + scene_id 複合キー）
- * 11. 00_Project の current_step 等を最小更新する
- * 12. 100_App_Logs に成功・失敗ログを書き出す
+ * 10. scene_id / scene_order をシステム側で付与する（SC-{projectNum3桁}-{order2桁}）
+ * 11. 02_Scenes に scene 行を upsert する（project_id + scene_id 複合キー）
+ * 12. 00_Project の current_step 等を最小更新する
+ * 13. 100_App_Logs に成功・失敗ログを書き出す
  *
  * dry_run=true の場合:
  *   Gemini 呼び出しをスキップし、プロンプトプレビューのみ出力する。
@@ -36,7 +37,7 @@ import {
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
 import { validateSceneAiResponse } from "../lib/validate-json.js";
-import { upsertScene } from "../lib/write-scenes.js";
+import { upsertScene, generateSceneId } from "../lib/write-scenes.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   appendAppLog,
@@ -46,12 +47,13 @@ import {
 import { logInfo, logError } from "../lib/logger.js";
 
 // scene_max_sec のデフォルト値（94_Runtime_Config 未設定時フォールバック）
+// 仕様書 §6.4 / step03_implementation_ai_requirement.md §3.2 準拠
 const DEFAULT_SCENE_MAX_SEC: Record<string, number> = {
-  "2-3": 30,
-  "4-6": 45,
-  "6-8": 60,
+  "2-3": 15,
+  "4-6": 25,
+  "6-8": 40,
 };
-const DEFAULT_SCENE_MAX_SEC_FALLBACK = 45; // target_age が想定外の場合
+const DEFAULT_SCENE_MAX_SEC_FALLBACK = 25; // target_age が想定外の場合（4-6歳相当）
 
 export async function runStep03ScenesBuild(
   payload: WorkflowPayload,
@@ -111,6 +113,11 @@ export async function runStep03ScenesBuild(
           `project_id "${projectId}": full_target_sec is invalid ("${fullTargetSecStr}"). Expected 60-480.`
         );
       }
+      if (shortTargetSecStr && isNaN(parseInt(shortTargetSecStr, 10))) {
+        throw new Error(
+          `project_id "${projectId}": short_target_sec is invalid ("${shortTargetSecStr}").`
+        );
+      }
 
       // 3. 01_Source を読む
       const sourceRow = await loadSourceByProjectId(spreadsheetId, projectId);
@@ -140,36 +147,41 @@ export async function runStep03ScenesBuild(
         continue;
       }
 
-      // 6. scene_max_sec と required_scene_count を算出
+      // 6. scene_max_sec と required_scene_count_base を算出
       const sceneMaxSecKey = `scene_max_sec_${targetAge}`;
       const sceneMaxSecRaw = configMap.get(sceneMaxSecKey);
       if (!sceneMaxSecRaw) {
+        const fallbackVal = DEFAULT_SCENE_MAX_SEC[targetAge] ?? DEFAULT_SCENE_MAX_SEC_FALLBACK;
         logInfo(
-          `[WARN] ${sceneMaxSecKey} not found in 94_Runtime_Config. Using default: ${DEFAULT_SCENE_MAX_SEC[targetAge] ?? DEFAULT_SCENE_MAX_SEC_FALLBACK}`
+          `[WARN] ${sceneMaxSecKey} not found in 94_Runtime_Config. Using default: ${fallbackVal}`
         );
       }
       const sceneMaxSec = sceneMaxSecRaw
         ? parseInt(sceneMaxSecRaw, 10)
         : (DEFAULT_SCENE_MAX_SEC[targetAge] ?? DEFAULT_SCENE_MAX_SEC_FALLBACK);
 
-      const requiredSceneCount = Math.ceil(fullTargetSec / sceneMaxSec);
+      // required_scene_count_base = ceil(full_target_sec / scene_max_sec)
+      // AI はこの値の ±15% 程度を許容範囲として scene 数を調整してよい
+      const requiredSceneCountBase = Math.ceil(fullTargetSec / sceneMaxSec);
 
       logInfo(`Scene params for ${projectId}`, {
         targetAge,
         fullTargetSec,
         sceneMaxSec,
-        requiredSceneCount,
+        requiredSceneCountBase,
+        allowedMin: Math.floor(requiredSceneCountBase * 0.85),
+        allowedMax: Math.ceil(requiredSceneCountBase * 1.15),
       });
 
       // 7. プロンプトアセンブル
       const prompt = buildStep03Prompt(
-        assets, project, sourceRow, sceneMaxSec, requiredSceneCount
+        assets, project, sourceRow, sceneMaxSec, requiredSceneCountBase
       );
       logInfo(`Prompt assembled for ${projectId}`, {
         promptLength: prompt.length,
         target_age: targetAge,
         full_target_sec: fullTargetSec,
-        required_scene_count: requiredSceneCount,
+        required_scene_count_base: requiredSceneCountBase,
       });
 
       // ── dry_run=true → Gemini 呼び出しをスキップ ─────────────────────
@@ -179,7 +191,7 @@ export async function runStep03ScenesBuild(
         continue;
       }
 
-      // 8. Gemini 呼び出し
+      // 8. Gemini 呼び出し（primary → 1st fallback → 2nd fallback）
       logInfo(`Calling Gemini for ${projectId}...`);
       let geminiResult;
       try {
@@ -228,21 +240,28 @@ export async function runStep03ScenesBuild(
         continue;
       }
 
-      logInfo(`AI response validated for ${projectId}. scene count: ${validationResult.scenes.length}`);
       const aiScenes = validationResult.scenes;
+      logInfo(`AI response validated for ${projectId}. scene count: ${aiScenes.length}`);
 
-      // 10. 02_Scenes に scene 行を upsert（project_id + scene_id 複合キー）
+      // 10. scene_id / scene_order をシステム側で付与して 02_Scenes に upsert
+      // AI が出力した順序（配列インデックス）をそのまま scene_order とする
       const upsertedRecordIds: string[] = [];
-      for (const aiScene of aiScenes) {
+      for (let i = 0; i < aiScenes.length; i++) {
+        const aiScene = aiScenes[i];
+        const sceneOrder = i + 1; // 1始まり
+        const sceneId = generateSceneId(projectId, sceneOrder);
+
         const fullRow: SceneFullRow = {
-          // AI 出力フィールド
+          // AI 出力フィールド（新フィールドセット）
           ...aiScene,
-          // GitHub 補完フィールド
+          // システム側付与フィールド
           project_id: projectId,
           record_id: "",          // upsert 側で確定
           generation_status: "GENERATED",
           approval_status: "PENDING",
           step_id: "STEP_03_SCENES_BUILD",
+          scene_id: sceneId,
+          scene_order: sceneOrder,
           updated_at: now,
           updated_by: "github_actions",
           notes: "",
@@ -250,7 +269,7 @@ export async function runStep03ScenesBuild(
 
         const upsertedId = await upsertScene(spreadsheetId, fullRow);
         upsertedRecordIds.push(upsertedId);
-        logInfo(`  02_Scenes upserted: scene_id=${aiScene.scene_id}, record_id=${upsertedId}`);
+        logInfo(`  02_Scenes upserted: scene_id=${sceneId}, scene_order=${sceneOrder}, record_id=${upsertedId}`);
       }
 
       // 11. 00_Project を最小更新（成功時）
@@ -274,7 +293,7 @@ export async function runStep03ScenesBuild(
           `scene_count=${aiScenes.length}, ` +
           `target_age=${targetAge}, ` +
           `full_target_sec=${fullTargetSec}, ` +
-          `required_scene_count=${requiredSceneCount}`
+          `required_scene_count_base=${requiredSceneCountBase}`
       );
       await appendAppLog(spreadsheetId, successLog);
 

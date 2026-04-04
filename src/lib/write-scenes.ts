@@ -16,6 +16,13 @@
  * - 形式: PJT-001-SCN-001
  * - SCN サフィックス
  * - 連番部分は scene_order に対応
+ *
+ * フィールド構成（仕様書 §5.1）:
+ * SYSTEM_CONTROL: project_id, record_id, generation_status, approval_status, step_id, scene_id, scene_order, updated_at, updated_by
+ * AI_OUTPUT: chapter, scene_title, scene_summary, scene_goal, visual_focus, emotion,
+ *            short_use, full_use, est_duration_short, est_duration_full,
+ *            difficult_words, easy_rewrite, qa_seed, continuity_note
+ * HUMAN_REVIEW: notes
  */
 
 import { readSheet, updateRow, calcRowIndex, getNextEmptyRowIndex } from "./sheets-client.js";
@@ -23,7 +30,8 @@ import type { SceneFullRow } from "../types.js";
 
 const SHEET_NAME = "02_Scenes";
 
-// 02_Scenes の書き込み列順（GSS_field_master の定義順に合わせる）
+// 02_Scenes の書き込み列順（GSS field_master の定義順に合わせる）
+// spec §5.1 に従い、新フィールド構成に更新
 const SCN_HEADERS: Array<keyof SceneFullRow> = [
   "project_id",
   "record_id",
@@ -32,15 +40,20 @@ const SCN_HEADERS: Array<keyof SceneFullRow> = [
   "step_id",
   "scene_id",
   "scene_order",
+  "chapter",
   "scene_title",
   "scene_summary",
-  "scene_purpose",
-  "scene_type",
-  "scene_target_sec",
-  "key_characters",
-  "key_events",
-  "visual_notes",
-  "narration_style",
+  "scene_goal",
+  "visual_focus",
+  "emotion",
+  "short_use",
+  "full_use",
+  "est_duration_short",
+  "est_duration_full",
+  "difficult_words",
+  "easy_rewrite",
+  "qa_seed",
+  "continuity_note",
   "updated_at",
   "updated_by",
   "notes",
@@ -50,7 +63,7 @@ const SCN_HEADERS: Array<keyof SceneFullRow> = [
  * project_id + scene_id の複合キーで 02_Scenes を upsert する。
  *
  * @param spreadsheetId - 対象スプレッドシートID
- * @param fullRow       - 書き込む full row データ
+ * @param fullRow       - 書き込む full row データ（scene_id / scene_order はシステム側付与済みであること）
  * @returns upsert 後の record_id
  */
 export async function upsertScene(
@@ -100,6 +113,20 @@ function generateRecordId(projectId: string, sceneOrder: number): string {
   const projectNum = match[1].padStart(3, "0");
   const seq = String(sceneOrder).padStart(3, "0");
   return `PJT-${projectNum}-SCN-${seq}`;
+}
+
+/**
+ * scene_id を生成する（システム側付与）。
+ * 形式: SC-001-01（SC-{projectNum3桁}-{sceneOrder2桁}）
+ */
+export function generateSceneId(projectId: string, sceneOrder: number): string {
+  const match = projectId.match(/^PJT-(\d+)$/);
+  if (!match) {
+    throw new Error(`Invalid project_id format: "${projectId}"`);
+  }
+  const projectNum = match[1].padStart(3, "0");
+  const seq = String(sceneOrder).padStart(2, "0");
+  return `SC-${projectNum}-${seq}`;
 }
 
 function buildRowData(row: SceneFullRow): Record<string, string> {
