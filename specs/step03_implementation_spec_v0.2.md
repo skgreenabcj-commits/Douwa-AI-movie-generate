@@ -101,9 +101,9 @@ STEP_01 / STEP_02 と同一の実行経路を採用する。
 
 | key | 内容 | 例 |
 |---|---|---|
-| `scene_max_sec_2-3` | 2-3歳向け 1 scene 最大秒数 | `30` |
-| `scene_max_sec_4-6` | 4-6歳向け 1 scene 最大秒数 | `45` |
-| `scene_max_sec_6-8` | 6-8歳向け 1 scene 最大秒数 | `60` |
+| `scene_max_sec_2-3` | 2-3歳向け 1 scene 最大秒数 | `15` |
+| `scene_max_sec_4-6` | 4-6歳向け 1 scene 最大秒数 | `20` |
+| `scene_max_sec_6-8` | 6-8歳向け 1 scene 最大秒数 | `30` |
 
 ### 4.5 事前チェック（01_Source approval_status）
 
@@ -202,9 +202,9 @@ const requiredSceneCount = Math.ceil(fullTargetSec / sceneMaxSec);
 
 | key | デフォルト値 | 根拠 |
 |---|---|---|
-| `scene_max_sec_2-3` | `30` | 2-3歳は集中持続が短い |
-| `scene_max_sec_4-6` | `45` | 4-6歳は1場面45秒程度が適切 |
-| `scene_max_sec_6-8` | `60` | 6-8歳は1場面60秒まで対応可 |
+| `scene_max_sec_2-3` | `15` | 2-3歳は集中持続が短い |
+| `scene_max_sec_4-6` | `20` | 4-6歳は1場面20秒程度が適切 |
+| `scene_max_sec_6-8` | `30` | 6-8歳は1場面30秒まで対応可 |
 
 ---
 
@@ -229,10 +229,11 @@ const requiredSceneCount = Math.ceil(fullTargetSec / sceneMaxSec);
 |---|---|---|
 | `gemini_api_key` | Gemini API Key | STEP_01/02 と共通 |
 | `step_03_model_role` | STEP_03 primary model | **独立キー**、未設定時: `gemini-2.5-pro` |
+| `model_role_text_pro` | STEP_03 seconday model | **独立キー**、未設定時: `gemini-3.1-pro-preview` |
 | `model_role_text_flash_seconday` | secondary model | STEP_02 と共通キー |
-| `scene_max_sec_2-3` | 2-3歳向け 1 scene 最大秒数 | 未設定時: `30` |
-| `scene_max_sec_4-6` | 4-6歳向け 1 scene 最大秒数 | 未設定時: `45` |
-| `scene_max_sec_6-8` | 6-8歳向け 1 scene 最大秒数 | 未設定時: `60` |
+| `scene_max_sec_2-3` | 2-3歳向け 1 scene 最大秒数 | 未設定時: `15` |
+| `scene_max_sec_4-6` | 4-6歳向け 1 scene 最大秒数 | 未設定時: `20` |
+| `scene_max_sec_6-8` | 6-8歳向け 1 scene 最大秒数 | 未設定時: `30` |
 
 > **GSS 対応**: `94_Runtime_Config` に `step_03_model_role` および `scene_max_sec_*` 3キーを実装着手前に追加すること。
 
@@ -272,9 +273,9 @@ const requiredSceneCount = Math.ceil(fullTargetSec / sceneMaxSec);
 
 **GSS 対応（ユーザー実施）**
 - [ ] `94_Runtime_Config` に `step_03_model_role = gemini-2.5-pro` を追加
-- [ ] `94_Runtime_Config` に `scene_max_sec_2-3 = 30` を追加
-- [ ] `94_Runtime_Config` に `scene_max_sec_4-6 = 45` を追加
-- [ ] `94_Runtime_Config` に `scene_max_sec_6-8 = 60` を追加
+- [ ] `94_Runtime_Config` に `scene_max_sec_2-3 = 15` を追加
+- [ ] `94_Runtime_Config` に `scene_max_sec_4-6 = 25` を追加
+- [ ] `94_Runtime_Config` に `scene_max_sec_6-8 = 40` を追加
 - [ ] `02_Scenes` シートを GSS に作成し、ヘッダー行（row 5）に列定義を設定
 - [ ] `02_Scenes` シートに 999 行の空行を挿入
 
