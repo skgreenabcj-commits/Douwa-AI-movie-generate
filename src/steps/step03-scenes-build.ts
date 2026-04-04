@@ -16,7 +16,7 @@
  *    - 1st fallback: model_role_text_pro（デフォルト: gemini-3.1-pro-preview）
  *    - 2nd fallback: model_role_text_flash_seconday（デフォルト: gemini-2.0-flash）
  * 9. AI 出力を schema 検証する
- * 10. scene_no / scene_order をシステム側で付与する（scene_no: SC-{projectNum3桁}-{order2桁}）
+ * 10. scene_no / scene_order をシステム側で付与する（scene_no: project_id ごとの通し番号 "1","2","3"...）
  * 11. 02_Scenes に scene 行を upsert する（project_id + scene_no 複合キー）
  * 12. 00_Project の current_step 等を最小更新する
  * 13. 100_App_Logs に成功・失敗ログを書き出す
@@ -249,7 +249,7 @@ export async function runStep03ScenesBuild(
 
       // 10. scene_no / scene_order をシステム側で付与して 02_Scenes に upsert
       // AI が出力した順序（配列インデックス）をそのまま scene_order とする
-      // scene_no は GSS の scene_no カラムに書き込む SC-001-01 形式の識別子
+      // scene_no = project_id ごとの通し番号（"1", "2", "3"...）。GSS の scene_no カラムに書き込む。
       // scene_order はシステム内部用（record_id 採番・ログ）。GSS には書き込まない。
       const upsertedRecordIds: string[] = [];
       for (let i = 0; i < aiScenes.length; i++) {

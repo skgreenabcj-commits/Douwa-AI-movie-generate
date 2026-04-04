@@ -24,7 +24,7 @@ GSS `02_Scenes` シートの実際のヘッダー列順に対応。
 | `generation_status` | SYSTEM | GENERATED / FAILED / SKIPPED / PENDING |
 | `approval_status` | HUMAN | PENDING / APPROVED / REJECTED |
 | `step_id` | SYSTEM | 固定: STEP_03_SCENES_BUILD |
-| `scene_no` | SYSTEM | SC-001-01 形式。旧 scene_id + scene_order 2カラムを廃止し1カラムに統合済み。 |
+| `scene_no` | SYSTEM | project_id ごとの通し番号（`"1"`, `"2"`, `"3"`...）。文字列型で GSS に書き込む。旧 `scene_id`（SC-001-01 形式）+ `scene_order` 2カラムを廃止し1カラムに統合済み。 |
 | `chapter` | AI出力 | 物語上の章・大区分 |
 | `scene_title` | AI出力 | 場面名称 |
 | `scene_summary` | AI出力 | 場面要約 |
@@ -45,4 +45,5 @@ GSS `02_Scenes` シートの実際のヘッダー列順に対応。
 
 > **注**: `scene_no` は以前の仕様では `scene_id`（SC-001-01 形式）と `scene_order`（整数）の 2 カラムだったが、
 > GSS 02_Scenes の実ヘッダーに合わせて `scene_no` 1 カラムに統合済み。
-> 内部管理用 `scene_order` はコード内部では保持するが GSS には出力しない。
+> さらに、`scene_id` の値形式も SC-001-01 形式からシンプルな **project_id ごとの通し番号**（`"1"`, `"2"`, `"3"`...）に変更。
+> 内部管理用 `scene_order`（1始まり整数）はコード内部では保持するが GSS には出力しない。

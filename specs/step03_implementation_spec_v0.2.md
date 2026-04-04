@@ -28,7 +28,7 @@ STEP_02 で生成した `01_Source`（底本・脚色方針）をもとに、AI 
 - scene の粒度は「年齢適合性・理解しやすさ・映像化しやすさ・脚本化しやすさ」を満たすこと
 - 初期実装では、**後工程側での scene 分割・統合・並べ替えは禁止**（STEP_03 が正本）
 - scene 数・尺は `prompts/scene_count_and_duration_policy_v1.md` および `prompts/age_band_scene_guideline_v1.md` に従う
-- `scene_id`, `scene_order` はシステム側（GitHub）で付与し、AI には scene 内容の構造化に集中させる
+- `scene_no`（project_id ごとの通し番号）はシステム側（GitHub）で付与し、AI には scene 内容の構造化に集中させる
 
 ---
 
@@ -42,7 +42,7 @@ STEP_02 で生成した `01_Source`（底本・脚色方針）をもとに、AI 
   - `94_Runtime_Config`（scene_max_sec 等のランタイム設定）
 - AI 実行: Gemini API を利用して scene master を生成する
 - 出力:
-  - `02_Scenes` に scene 行を書き込む（`project_id` + `scene_id` 複合キー upsert）
+  - `02_Scenes` に scene 行を書き込む（`project_id` + `scene_no` 複合キー upsert）
   - `00_Project` の `current_step` を `STEP_03_SCENES_BUILD` に更新
   - `100_App_Logs` に成功・失敗ログを書き出す
 
@@ -67,8 +67,8 @@ STEP_01 / STEP_02 と同一の実行経路を採用する。
 7. `required_scene_count_base` を算出する（§6.2 参照）
 8. Gemini を実行する（primary → 1st fallback → 2nd fallback の 3 段構成）
 9. AI 出力を schema 検証する
-10. `scene_id`, `scene_order` をシステム側で付与する
-11. `02_Scenes` に scene 行を upsert する（`project_id` + `scene_id` 複合キー）
+10. `scene_no`（通し番号）・`scene_order` をシステム側で付与する
+11. `02_Scenes` に scene 行を upsert する（`project_id` + `scene_no` 複合キー）
 12. `00_Project` の `current_step` 等を最小更新する
 13. `100_App_Logs` に成功・失敗ログを書き出す
 
@@ -140,8 +140,7 @@ if 01_Source.approval_status != "APPROVED":
 | `generation_status` | SYSTEM_CONTROL | N | — | 固定: `GENERATED` |
 | `approval_status` | HUMAN_REVIEW | N | — | 固定: `PENDING` |
 | `step_id` | SYSTEM_CONTROL | N | — | 固定: `STEP_03_SCENES_BUILD` |
-| `scene_id` | SYSTEM | N（システム付与） | **Y** | scene 識別子 例: `SC-001-01`。AI ではなくシステム側で付与。 |
-| `scene_order` | SYSTEM | N（システム付与） | **Y** | scene の順序（1始まり整数）。AI ではなくシステム側で付与。 |
+| `scene_no` | SYSTEM | N（システム付与） | **Y** | scene 識別子。project_id ごとの通し番号（`"1"`, `"2"`, `"3"`...）。文字列型で GSS に書き込む。 |
 | `chapter` | AI_OUTPUT | Y | **Y** | 物語上の章・大区分（例: 「導入」「仲間集結」「対決」）。Script/Visual の整理用。 |
 | `scene_title` | AI_OUTPUT | Y | **Y** | scene を一目で識別できる短い名称（20字以内目安） |
 | `scene_summary` | AI_OUTPUT | Y | **Y** | scene 内で何が起こるかの要約（1〜3文程度） |
@@ -166,21 +165,22 @@ if 01_Source.approval_status != "APPROVED":
 - `SCN` サフィックス（STEP_02 の `SC` と区別）
 - 連番部分は `scene_order` に対応（scene_order=1 → `PJT-001-SCN-001`）
 
-### 5.3 `scene_id` / `scene_order` の付与責務（確定）
+### 5.3 `scene_no` の付与責務（確定）
 
-- **`scene_id`** および **`scene_order`** はシステム側（GitHub）で付与する
+- **`scene_no`** はシステム側（GitHub）で付与する
 - AI には scene 内容の構造化に集中させ、識別子の責務はシステムに持たせる
-- `scene_id` 形式: `SC-{project_num:3桁}-{scene_order:2桁}`（例: SC-001-01）
+- `scene_no` 形式: project_id ごとの通し番号（`"1"`, `"2"`, `"3"`...）。文字列型で GSS に書き込む。
+- 内部管理用 `scene_order`（1始まり整数）もあわせて保持するが GSS には出力しない
 - これにより、後工程との同期性・再実行時の整合性を担保する
 
 ### 5.4 upsert 単位（確定: B-2）
 
-- **複合キー**: `project_id` + `scene_id`
-- 既存行に `project_id` + `scene_id` が一致する行があれば UPDATE（`record_id` は既存を維持）
+- **複合キー**: `project_id` + `scene_no`
+- 既存行に `project_id` + `scene_no` が一致する行があれば UPDATE（`record_id` は既存を維持）
 - 一致しなければ新規 INSERT（`record_id` を新規採番）
 - 再実行時の動作: 既存 scene は上書き更新。新 scene は追記。削除された scene は残存する（初期実装では削除しない）
 
-> **注**: 再実行時に scene 構成が変わった場合（scene 数の増減）は、旧 scene 行が残存する可能性がある。後工程は `step_id = STEP_03_SCENES_BUILD` かつ `generation_status = GENERATED` の行を `scene_order` 昇順で参照する仕様とする。
+> **注**: 再実行時に scene 構成が変わった場合（scene 数の増減）は、旧 scene 行が残存する可能性がある。後工程は `step_id = STEP_03_SCENES_BUILD` かつ `generation_status = GENERATED` の行を `scene_no`（数値順）昇順で参照する仕様とする。
 
 ### 5.5 `00_Project` の更新対象列
 
@@ -342,7 +342,7 @@ const requiredSceneCountBase = Math.ceil(fullTargetSec / sceneMaxSec);
 | Phase 4 | `src/lib/build-prompt.ts` の `buildStep03Prompt` 更新 | 要更新 |
 | Phase 5 | `src/lib/load-assets.ts` の `loadStep03Assets` | 完了 |
 | Phase 6 | `src/lib/validate-json.ts` の `validateSceneAiResponse` 更新 | 要更新 |
-| Phase 7 | `src/steps/step03-scenes-build.ts`（オーケストレーター）scene_id/scene_order 付与ロジック追加 | 要更新 |
+| Phase 7 | `src/steps/step03-scenes-build.ts`（オーケストレーター）scene_no/scene_order 付与ロジック追加 | 完了 |
 | Phase 8 | `src/index.ts` に STEP_03 ルーティング | 完了 |
 | Phase 9 | `src/lib/write-app-log.ts` に STEP_03 ログビルダー | 完了 |
 

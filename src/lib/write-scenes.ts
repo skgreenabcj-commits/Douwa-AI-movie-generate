@@ -15,7 +15,7 @@
  * record_id 採番規則（仕様書 §5.2）:
  * - 形式: PJT-001-SCN-001
  * - SCN サフィックス
- * - 連番部分は scene_order（scene_no の連番）に対応
+ * - 連番部分は scene_order に対応
  *
  * フィールド構成（GSS 02_Scenes ヘッダー順に合わせる）:
  * SYSTEM_CONTROL: project_id, record_id, generation_status, approval_status, step_id,
@@ -25,8 +25,8 @@
  *            difficult_words, easy_rewrite, qa_seed, continuity_note
  * HUMAN_REVIEW: notes
  *
- * ⚠️ GSS 02_Scenes の実ヘッダーは scene_no 1 カラム（scene_id/scene_order の 2 カラムではない）。
- *    scene_no には SC-001-01 形式の scene_id 値を格納する。
+ * ⚠️ scene_no は project_id ごとの通し番号（1, 2, 3...）。
+ *    GSS 02_Scenes の scene_no カラムに数字文字列として書き込む。
  */
 
 import { readSheet, updateRow, calcRowIndex, getNextEmptyRowIndex } from "./sheets-client.js";
@@ -46,7 +46,7 @@ const SCN_HEADERS: Array<keyof SceneFullRow> = [
   "generation_status",
   "approval_status",
   "step_id",
-  "scene_no",        // GSS の scene_no カラム（SC-001-01 形式の値を格納）
+  "scene_no",        // GSS の scene_no カラム（project_id ごとの通し番号: "1", "2", "3"...）
   "chapter",
   "scene_title",
   "scene_summary",
@@ -123,18 +123,12 @@ function generateRecordId(projectId: string, sceneOrder: number): string {
 }
 
 /**
- * scene_no（≒ scene_id）を生成する（システム側付与）。
- * 形式: SC-001-01（SC-{projectNum3桁}-{sceneOrder2桁}）
- * GSS の scene_no カラムに格納する値。
+ * scene_no を生成する（システム側付与）。
+ * 形式: project_id ごとの通し番号（"1", "2", "3"...）
+ * GSS の scene_no カラムに文字列として格納する。
  */
-export function generateSceneId(projectId: string, sceneOrder: number): string {
-  const match = projectId.match(/^PJT-(\d+)$/);
-  if (!match) {
-    throw new Error(`Invalid project_id format: "${projectId}"`);
-  }
-  const projectNum = match[1].padStart(3, "0");
-  const seq = String(sceneOrder).padStart(2, "0");
-  return `SC-${projectNum}-${seq}`;
+export function generateSceneId(_projectId: string, sceneOrder: number): string {
+  return String(sceneOrder);
 }
 
 function buildRowData(row: SceneFullRow): Record<string, string> {

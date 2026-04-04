@@ -174,12 +174,12 @@ export interface SceneAiRow {
 /**
  * Google Sheets に書き込む full row（スキーマ: scene_build_schema_full_v1）
  *
- * scene_no は GitHub 側でシステム付与する（format: SC-001-01）。
+ * scene_no は GitHub 側でシステム付与する（project_id ごとの通し番号: "1", "2", "3"...）。
  * record_id は upsert 側で採番する（format: PJT-001-SCN-001）。
  *
- * ⚠️ GSS 02_Scenes の実ヘッダーは scene_no 1 カラム（旧 scene_id/scene_order の 2 カラムではない）。
- *    scene_no カラムには SC-001-01 形式の識別子を格納する。
- *    scene_order はシステム内部処理用（record_id 採番・ログ等）に保持するが GSS には書き込まない。
+ * ⚠️ GSS 02_Scenes の実ヘッダーは scene_no 1 カラム。
+ *    scene_no には project_id ごとの通し番号（数字文字列 "1""2"...）を格納する。
+ *    scene_order はシステム内部処理用（record_id 採番・ログ等）に保持するが GSS には出力しない。
  */
 export interface SceneFullRow extends SceneAiRow {
   project_id: string;
@@ -187,7 +187,7 @@ export interface SceneFullRow extends SceneAiRow {
   generation_status: "GENERATED" | "FAILED" | "SKIPPED" | "PENDING";
   approval_status: "PENDING" | "APPROVED" | "REJECTED";
   step_id: string;
-  scene_no: string;         // GSS 書き込み用: SC-{projectNum3桁}-{sceneOrder2桁} (例: SC-001-01)
+  scene_no: string;         // GSS 書き込み用: project_id ごとの通し番号 (例: "1", "2", "3"...)
   scene_order: number;      // システム内部用: 1始まり整数。record_id 採番・ログに使用。GSS には書き込まない。
   updated_at: string;
   updated_by: string;

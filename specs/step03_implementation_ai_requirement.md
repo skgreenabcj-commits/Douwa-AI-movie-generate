@@ -89,7 +89,7 @@ STEP_03 の責務は以下である。
 - 各 script row は少なくとも `project_id`, `scene_no`（内部管理用: `scene_order`）を保持する
 - `scene_no`, `scene_order` は AI が自由生成せず、システム側で付与する
 
-> **GSS 02_Scenes の列構成**: `scene_no` は 1 カラム（例: SC-001-01）。旧仕様の `scene_id` + `scene_order` 2 カラム構成は廃止済み。
+> **GSS 02_Scenes の列構成**: `scene_no` は 1 カラム（例: "1", "2", "3"...（通し番号））。旧仕様の `scene_id` + `scene_order` 2 カラム構成は廃止済み。
 
 ---
 
@@ -260,7 +260,7 @@ STEP_03 の出力には以下を期待する。
 - `Short版`
 - `Full版`
 - `target_sec は品質優先の目標値`
-- `scene_no` はシステム側付与（形式: SC-001-01、GSS 02_Scenes の 1 カラム。旧 `scene_id` + `scene_order` 2カラム構成を廃止）
+- `scene_no` はシステム側付与（形式: "1", "2", "3"...（通し番号）、GSS 02_Scenes の 1 カラム。旧 `scene_id` + `scene_order` 2カラム構成を廃止）
 - `scene_order` は内部管理用として保持（GSS 列には非出力）
 - `short_use`, `full_use` は `"Y"` / `"N"` のみ（厳密な文字列型 Y/N フラグ）
 - `est_duration_short` は rough estimate（整数・`short_use = N` のとき 0）

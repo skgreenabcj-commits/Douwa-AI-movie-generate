@@ -368,14 +368,14 @@ async function main(): Promise<void> {
       console.log(`    short_use=Y        件数: ${shortUseCount} / ${aiScenes.length}`);
 
       // scene_no / scene_order をシステム側で付与して表示
-      // scene_no = GSS の scene_no カラムに書き込む値（SC-001-01 形式）
-      console.log(`\n  【scene 一覧 (system-assigned scene_no)】`);
+      // scene_no = project_id ごとの通し番号（"1", "2", "3"...）
+      console.log(`\n  [【scene 一覧 (system-assigned scene_no)】]`);
       for (let i = 0; i < aiScenes.length; i++) {
         const sc = aiScenes[i];
         const sceneOrder = i + 1;
         const sceneNo = generateSceneId(projectId, sceneOrder);
         console.log(
-          `    ${sceneNo}  [${sc.short_use === "Y" ? "S✓" : "S✗"}/${sc.full_use === "Y" ? "F✓" : "F✗"}]` +
+          `    ${sceneNo.padStart(3)}  [${sc.short_use === "Y" ? "S✓" : "S✗"}/${sc.full_use === "Y" ? "F✓" : "F✗"}]` +
           `  short=${String(sc.est_duration_short).padStart(3)}s  full=${String(sc.est_duration_full).padStart(3)}s` +
           `  ${sc.chapter} / ${sc.scene_title}`
         );
@@ -399,7 +399,7 @@ async function main(): Promise<void> {
           generated_at:             new Date().toISOString(),
         },
         scenes: aiScenes.map((sc, i) => ({
-          scene_no:    generateSceneId(projectId, i + 1),  // GSS scene_no カラム用
+          scene_no:    generateSceneId(projectId, i + 1),  // project_id ごとの通し番号 ("1","2"...)
           scene_order: i + 1,                               // 内部連番
           ...sc,
         })),
