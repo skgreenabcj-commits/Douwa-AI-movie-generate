@@ -10,7 +10,7 @@
  */
 
 import Ajv from "ajv";
-import type { RightsValidationAiRow, SourceAiRow, SceneAiRow } from "../types.js";
+import type { RightsValidationAiRow, SourceAiRow, SceneAiRow, ScriptFullAiRow, ScriptShortAiRow } from "../types.js";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
@@ -242,6 +242,196 @@ export function validateSceneAiResponse(
   }
 
   return { success: true, scenes: response.scenes };
+}
+
+// ─── STEP_05 用バリデーター（Script Full）────────────────────────────────────
+
+export interface ScriptFullValidationResult {
+  success: true;
+  scripts: ScriptFullAiRow[];
+}
+
+export interface ScriptFullValidationFailure {
+  success: false;
+  errors: string;
+  rawText: string;
+}
+
+export type ValidateScriptFullResult =
+  | ScriptFullValidationResult
+  | ScriptFullValidationFailure;
+
+/**
+ * STEP_05 AI レスポンスを parse / validate して ScriptFullAiRow[] を返す。
+ *
+ * AI 出力は { "scripts": [...] } 形式。
+ * 各 script には record_id, narration_draft, narration_tts,
+ * subtitle_short_1, subtitle_short_2, pause_hint が必須。
+ * visual_emphasis は optional（空文字可）。
+ * emotion / duration_sec は AI 出力に含まれない（コード側で付与）。
+ */
+export function validateScriptFullAiResponse(
+  rawText: string,
+  schema: string
+): ValidateScriptFullResult {
+  const extracted = extractJson(rawText);
+  if (extracted === null) {
+    return {
+      success: false,
+      errors: "Could not extract valid JSON from AI response.",
+      rawText,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted);
+  } catch (e) {
+    return {
+      success: false,
+      errors: `JSON.parse failed: ${e instanceof Error ? e.message : String(e)}`,
+      rawText,
+    };
+  }
+
+  let schemaObj: unknown;
+  try {
+    schemaObj = JSON.parse(schema);
+  } catch {
+    return {
+      success: false,
+      errors: "Failed to parse AI schema JSON file.",
+      rawText,
+    };
+  }
+
+  const validate = ajv.compile(schemaObj as object);
+  const valid = validate(parsed);
+
+  if (!valid) {
+    const errors = ajv.errorsText(validate.errors, { separator: "; " });
+    return { success: false, errors, rawText };
+  }
+
+  const response = parsed as { scripts: ScriptFullAiRow[] };
+  if (!response.scripts || response.scripts.length === 0) {
+    return {
+      success: false,
+      errors: "scripts array is empty after validation.",
+      rawText,
+    };
+  }
+
+  // 追加バリデーション: 必須フィールドの空文字チェック
+  for (let i = 0; i < response.scripts.length; i++) {
+    const s = response.scripts[i];
+    for (const field of ["record_id", "narration_draft", "narration_tts", "subtitle_short_1", "pause_hint"] as const) {
+      if (!s[field] || s[field].trim() === "") {
+        return {
+          success: false,
+          errors: `scripts[${i}].${field} is empty (empty_required_field).`,
+          rawText,
+        };
+      }
+    }
+  }
+
+  return { success: true, scripts: response.scripts };
+}
+
+// ─── STEP_04 用バリデーター（Script Short）───────────────────────────────────
+
+export interface ScriptShortValidationResult {
+  success: true;
+  scripts: ScriptShortAiRow[];
+}
+
+export interface ScriptShortValidationFailure {
+  success: false;
+  errors: string;
+  rawText: string;
+}
+
+export type ValidateScriptShortResult =
+  | ScriptShortValidationResult
+  | ScriptShortValidationFailure;
+
+/**
+ * STEP_04 AI レスポンスを parse / validate して ScriptShortAiRow[] を返す。
+ *
+ * AI 出力は { "scripts": [...] } 形式。
+ * 各 script には record_id, narration_draft, narration_tts,
+ * subtitle_short_1, subtitle_short_2, transition_note が必須。
+ * emphasis_word は optional（空文字可）。
+ * emotion / duration_sec は AI 出力に含まれない（コード側で付与）。
+ */
+export function validateScriptShortAiResponse(
+  rawText: string,
+  schema: string
+): ValidateScriptShortResult {
+  const extracted = extractJson(rawText);
+  if (extracted === null) {
+    return {
+      success: false,
+      errors: "Could not extract valid JSON from AI response.",
+      rawText,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted);
+  } catch (e) {
+    return {
+      success: false,
+      errors: `JSON.parse failed: ${e instanceof Error ? e.message : String(e)}`,
+      rawText,
+    };
+  }
+
+  let schemaObj: unknown;
+  try {
+    schemaObj = JSON.parse(schema);
+  } catch {
+    return {
+      success: false,
+      errors: "Failed to parse AI schema JSON file.",
+      rawText,
+    };
+  }
+
+  const validate = ajv.compile(schemaObj as object);
+  const valid = validate(parsed);
+
+  if (!valid) {
+    const errors = ajv.errorsText(validate.errors, { separator: "; " });
+    return { success: false, errors, rawText };
+  }
+
+  const response = parsed as { scripts: ScriptShortAiRow[] };
+  if (!response.scripts || response.scripts.length === 0) {
+    return {
+      success: false,
+      errors: "scripts array is empty after validation.",
+      rawText,
+    };
+  }
+
+  // 追加バリデーション: 必須フィールドの空文字チェック
+  for (let i = 0; i < response.scripts.length; i++) {
+    const s = response.scripts[i];
+    for (const field of ["record_id", "narration_draft", "narration_tts", "subtitle_short_1", "transition_note"] as const) {
+      if (!s[field] || s[field].trim() === "") {
+        return {
+          success: false,
+          errors: `scripts[${i}].${field} is empty (empty_required_field).`,
+          rawText,
+        };
+      }
+    }
+  }
+
+  return { success: true, scripts: response.scripts };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

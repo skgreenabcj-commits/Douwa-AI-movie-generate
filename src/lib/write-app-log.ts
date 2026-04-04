@@ -146,3 +146,65 @@ export function buildStep03FailureLog(
     app_log: `[ERROR][${errorType}] ${message}`,
   };
 }
+
+// ─── STEP_05 ログビルダー（Full Script Build）────────────────────────────────
+
+export function buildStep05SuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id: projectId,
+    record_id: recordId,
+    current_step: "STEP_05_FULL_SCRIPT_BUILD",
+    timestamp: new Date().toISOString(),
+    app_log: `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep05FailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id: projectId,
+    record_id: recordId,
+    current_step: "STEP_05_FULL_SCRIPT_BUILD",
+    timestamp: new Date().toISOString(),
+    app_log: `[ERROR][${errorType}] ${message}`,
+  };
+}
+
+// ─── STEP_04 ログビルダー（Short Script Build）───────────────────────────────
+
+export function buildStep04SuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id: projectId,
+    record_id: recordId,
+    current_step: "STEP_04_SHORT_SCRIPT_BUILD",
+    timestamp: new Date().toISOString(),
+    app_log: `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep04FailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id: projectId,
+    record_id: recordId,
+    current_step: "STEP_04_SHORT_SCRIPT_BUILD",
+    timestamp: new Date().toISOString(),
+    app_log: `[ERROR][${errorType}] ${message}`,
+  };
+}

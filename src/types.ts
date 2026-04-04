@@ -218,6 +218,139 @@ export interface AppLogRow {
   app_log: string; // "[LEVEL][error_type] message" 形式で log_level/error_type を含む
 }
 
+// ─── 02_Scenes (read) ─────────────────────────────────────────────────────────
+
+/**
+ * 02_Scenes から読み込む参照用 row（STEP_04/05 が参照）
+ * generation_status = "GENERATED" の行のみを対象とする。
+ * scene_no は表示用通し番号であり upsert キーには使わない。
+ */
+export interface SceneReadRow {
+  project_id:         string;
+  record_id:          string;   // STEP_04/05 の upsert キーとして引き継ぐ
+  scene_no:           string;   // 表示用通し番号（"1","2","3"...）。キーに使わない。
+  chapter:            string;
+  scene_title:        string;
+  scene_summary:      string;
+  scene_goal:         string;
+  visual_focus:       string;
+  emotion:            string;   // 論点1: コード側で ScriptRow にそのまま引き継ぐ
+  short_use:          string;   // "Y" | "N"
+  full_use:           string;   // "Y" | "N"
+  est_duration_short: string;
+  est_duration_full:  string;
+  difficult_words:    string;
+  easy_rewrite:       string;
+  qa_seed:            string;
+  continuity_note:    string;
+}
+
+// ─── 03_Script_Short ──────────────────────────────────────────────────────────
+
+/**
+ * STEP_04 Short Script Build — AI が返す 1 scene 分の row
+ * スキーマ: script_short_schema_ai_v1.json
+ *
+ * emotion は AI 出力に含めない（論点1: 02_Scenes.emotion をコード側でコピー）。
+ * duration_sec は AI 出力に含めない（不明点3: narration_tts 文字数 ÷ 5.5 でコード側が計算）。
+ * short_use=N の scene は入力に含めないため、AI も short_use=Y の scene 分のみ返す。
+ */
+export interface ScriptShortAiRow {
+  record_id:        string;   // 02_Scenes.record_id をそのまま返させる（紐付け用）
+  narration_draft:  string;
+  narration_tts:    string;
+  subtitle_short_1: string;
+  subtitle_short_2: string;
+  emphasis_word:    string;   // optional / 空文字可
+  transition_note:  string;
+}
+
+/**
+ * Google Sheets 03_Script_Short 書き込み行（script_short_schema_full_v1）
+ *
+ * record_id は 02_Scenes.record_id をそのまま流用する（新規採番なし）。
+ * upsert キー: record_id 単体（シート名固定で一意性を担保）。
+ * emotion はコード側が 02_Scenes.emotion をコピー（論点1）。
+ * duration_sec はコード側が narration_tts 文字数 ÷ 5.5 で計算（不明点3）。
+ */
+export interface ScriptShortRow extends ScriptShortAiRow {
+  project_id:        string;
+  generation_status: "GENERATED" | "FAILED" | "SKIPPED" | "PENDING";
+  approval_status:   "PENDING" | "APPROVED" | "REJECTED";
+  step_id:           string;   // 固定: "STEP_04_SHORT_SCRIPT_BUILD"
+  scene_no:          string;   // 参照用・表示用（キーに使わない）
+  related_version:   string;   // 固定: "short"
+  duration_sec:      number;   // コード側計算: Math.ceil(narration_tts.length / 5.5)
+  emotion:           string;   // 02_Scenes.emotion をコード側でコピー（論点1）
+  hook_flag:         string;   // "Y" | "N" | ""（optional）
+  tts_ready:         string;   // "Y" | "N" | ""（optional）
+  updated_at:        string;
+  updated_by:        string;
+  notes:             string;
+}
+
+// ─── 04_Script_Full ───────────────────────────────────────────────────────────
+
+/**
+ * STEP_05 Full Script Build — AI が返す 1 scene 分の row
+ * スキーマ: script_full_schema_ai_v1.json
+ *
+ * emotion は AI 出力に含めない（論点1: 02_Scenes.emotion をコード側でコピー）。
+ * duration_sec は AI 出力に含めない（不明点3: narration_tts 文字数 ÷ 5.5 でコード側が計算）。
+ * subtitle_short_1/2 は列名に "short" があるが Full版でも同列を使用（論点4: GSS Field_Master 準拠）。
+ */
+export interface ScriptFullAiRow {
+  record_id:        string;   // 02_Scenes.record_id をそのまま返させる（紐付け用）
+  narration_draft:  string;
+  narration_tts:    string;
+  subtitle_short_1: string;   // 論点4: Full版でも同列名を使用
+  subtitle_short_2: string;   // 論点4: Full版でも同列名を使用
+  visual_emphasis:  string;   // optional / 空文字可
+  pause_hint:       string;
+}
+
+/**
+ * Google Sheets 04_Script_Full 書き込み行（script_full_schema_full_v1）
+ *
+ * record_id は 02_Scenes.record_id をそのまま流用する（新規採番なし）。
+ * upsert キー: record_id 単体（シート名固定で一意性を担保）。
+ * emotion はコード側が 02_Scenes.emotion をコピー（論点1）。
+ * duration_sec はコード側が narration_tts 文字数 ÷ 5.5 で計算（不明点3）。
+ */
+export interface ScriptFullRow extends ScriptFullAiRow {
+  project_id:        string;
+  generation_status: "GENERATED" | "FAILED" | "SKIPPED" | "PENDING";
+  approval_status:   "PENDING" | "APPROVED" | "REJECTED";
+  step_id:           string;   // 固定: "STEP_05_FULL_SCRIPT_BUILD"
+  scene_no:          string;   // 参照用・表示用（キーに使わない）
+  related_version:   string;   // 固定: "full"
+  duration_sec:      number;   // コード側計算: Math.ceil(narration_tts.length / 5.5)
+  emotion:           string;   // 02_Scenes.emotion をコード側でコピー（論点1）
+  hook_flag:         string;   // "Y" | "N" | ""（optional）
+  tts_ready:         string;   // "Y" | "N" | ""（optional）
+  updated_at:        string;
+  updated_by:        string;
+  notes:             string;
+}
+
+// ─── 04_Script_Full (read) ────────────────────────────────────────────────────
+
+/**
+ * 04_Script_Full から読み込む参照用 row（STEP_04 Short 生成時の任意参照）
+ * video_format = "short+full" のときのみ使用。
+ * generation_status = "GENERATED" の行のみを対象とする。
+ */
+export interface ScriptFullReadRow {
+  project_id:       string;
+  record_id:        string;
+  narration_draft:  string;
+  narration_tts:    string;
+  subtitle_short_1: string;
+  subtitle_short_2: string;
+  emotion:          string;
+  pause_hint:       string;
+}
+
 // ─── Workflow Payload ─────────────────────────────────────────────────────────
 
 export interface WorkflowPayload {

@@ -339,3 +339,77 @@ export function buildGeminiOptionsStep03(configMap: RuntimeConfigMap): GeminiCal
 
   return { apiKey, primaryModel, secondaryModel, tertiaryModel };
 }
+
+/**
+ * STEP_05 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
+ *
+ * Full Script は全 scene を 1 呼び出しで一括生成するため、
+ * maxOutputTokens は STEP_03 の 2 倍（32768）に設定する（不明点2）。
+ *
+ * fallback 構成:
+ *   primary      : step_05_model_role           (デフォルト: gemini-2.5-pro)
+ *   1st fallback : model_role_text_pro          (デフォルト: gemini-2.0-pro)
+ *   2nd fallback : model_role_text_flash_seconday (デフォルト: gemini-2.0-flash)
+ */
+export function buildGeminiOptionsStep05(configMap: RuntimeConfigMap): GeminiCallOptions {
+  const apiKey = getConfigValue(configMap, "gemini_api_key");
+  const primaryModel = getConfigValue(
+    configMap,
+    "step_05_model_role",
+    DEFAULT_PRIMARY_MODEL
+  );
+  const secondaryModel = getConfigValue(
+    configMap,
+    "model_role_text_pro",
+    "gemini-2.0-pro"
+  );
+  const tertiaryModel = getConfigValue(
+    configMap,
+    "model_role_text_flash_seconday",
+    "gemini-2.0-flash"
+  );
+
+  console.info(`[INFO] Gemini options resolved (STEP_05)`);
+  console.info(`  primaryModel:   '${primaryModel}'`);
+  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.info(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
+
+  return { apiKey, primaryModel, secondaryModel, tertiaryModel };
+}
+
+/**
+ * STEP_04 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
+ *
+ * Short Script は short_use=Y の scene のみを一括生成する。
+ * maxOutputTokens は 32768。
+ *
+ * fallback 構成:
+ *   primary      : step_04_model_role           (デフォルト: gemini-2.5-pro)
+ *   1st fallback : model_role_text_pro          (デフォルト: gemini-2.0-pro)
+ *   2nd fallback : model_role_text_flash_seconday (デフォルト: gemini-2.0-flash)
+ */
+export function buildGeminiOptionsStep04(configMap: RuntimeConfigMap): GeminiCallOptions {
+  const apiKey = getConfigValue(configMap, "gemini_api_key");
+  const primaryModel = getConfigValue(
+    configMap,
+    "step_04_model_role",
+    DEFAULT_PRIMARY_MODEL
+  );
+  const secondaryModel = getConfigValue(
+    configMap,
+    "model_role_text_pro",
+    "gemini-2.0-pro"
+  );
+  const tertiaryModel = getConfigValue(
+    configMap,
+    "model_role_text_flash_seconday",
+    "gemini-2.0-flash"
+  );
+
+  console.info(`[INFO] Gemini options resolved (STEP_04)`);
+  console.info(`  primaryModel:   '${primaryModel}'`);
+  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.info(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
+
+  return { apiKey, primaryModel, secondaryModel, tertiaryModel };
+}

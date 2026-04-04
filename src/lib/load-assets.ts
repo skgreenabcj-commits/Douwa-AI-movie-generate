@@ -31,6 +31,20 @@
  * - schemas/scene_build_schema_ai_v1.json
  * - schemas/scene_build_schema_full_v1.json
  * - examples/scene_build_ai_response_example_v1.json
+ *
+ * 読み込み対象（STEP_05 Full）:
+ * - prompts/script_full_prompt_v1.md
+ * - prompts/fragments/script_output_field_guide_full_v1.md
+ * - schemas/script_full_schema_ai_v1.json
+ * - schemas/script_full_schema_full_v1.json
+ * - examples/script_full_ai_response_example_v1.json
+ *
+ * 読み込み対象（STEP_04 Short）:
+ * - prompts/script_short_prompt_v1.md
+ * - prompts/fragments/script_output_field_guide_short_v1.md
+ * - schemas/script_short_schema_ai_v1.json
+ * - schemas/script_short_schema_full_v1.json
+ * - examples/script_short_ai_response_example_v1.json
  */
 
 import { readFileSync } from "fs";
@@ -179,5 +193,71 @@ export function loadStep01Assets(): Step01Assets {
       repoPath("examples", "rights_validation_ai_response_example_v1.json")
     ),
     fastPassLogic: readText(repoPath("config", "fast_pass_logic_v1.md")),
+  };
+}
+
+// ─── STEP_05 Assets (Full Script) ─────────────────────────────────────────────
+
+export interface Step05Assets {
+  promptTemplate: string;
+  outputFieldGuide: string;
+  aiSchema: string;          // JSON string
+  fullSchema: string;        // JSON string
+  aiResponseExample: string; // JSON string
+}
+
+/**
+ * STEP_05 に必要な全ファイルを読み込んで返す。
+ */
+export function loadStep05Assets(): Step05Assets {
+  return {
+    promptTemplate: readText(
+      repoPath("prompts", "script_full_prompt_v1.md")
+    ),
+    outputFieldGuide: readText(
+      repoPath("prompts", "fragments", "script_output_field_guide_full_v1.md")
+    ),
+    aiSchema: readText(
+      repoPath("schemas", "script_full_schema_ai_v1.json")
+    ),
+    fullSchema: readText(
+      repoPath("schemas", "script_full_schema_full_v1.json")
+    ),
+    aiResponseExample: readText(
+      repoPath("examples", "script_full_ai_response_example_v1.json")
+    ),
+  };
+}
+
+// ─── STEP_04 Assets (Short Script) ────────────────────────────────────────────
+
+export interface Step04Assets {
+  promptTemplate: string;
+  outputFieldGuide: string;
+  aiSchema: string;          // JSON string
+  fullSchema: string;        // JSON string
+  aiResponseExample: string; // JSON string
+}
+
+/**
+ * STEP_04 に必要な全ファイルを読み込んで返す。
+ */
+export function loadStep04Assets(): Step04Assets {
+  return {
+    promptTemplate: readText(
+      repoPath("prompts", "script_short_prompt_v1.md")
+    ),
+    outputFieldGuide: readText(
+      repoPath("prompts", "fragments", "script_output_field_guide_short_v1.md")
+    ),
+    aiSchema: readText(
+      repoPath("schemas", "script_short_schema_ai_v1.json")
+    ),
+    fullSchema: readText(
+      repoPath("schemas", "script_short_schema_full_v1.json")
+    ),
+    aiResponseExample: readText(
+      repoPath("examples", "script_short_ai_response_example_v1.json")
+    ),
   };
 }
