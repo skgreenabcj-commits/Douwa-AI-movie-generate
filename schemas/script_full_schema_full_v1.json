@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "script_full_schema_full_v1",
+  "description": "STEP_05 Full Script Build の Google Sheets 書き込み行スキーマ（AI出力 + GitHub補完フィールドを含む full row 定義）。GSS 04_Script_Full の実際の列順に準拠。record_id は 02_Scenes.record_id をそのまま流用（新規採番なし）。emotion はシステム側が 02_Scenes.emotion をコピー。duration_sec はシステム側が narration_tts 文字数から計算（÷5.5、切り上げ整数）。subtitle_short_1/2 は列名が short だが Full版でも同列を使用（GSS Field_Master 準拠）。",
+  "type": "object",
+  "required": [
+    "project_id",
+    "record_id",
+    "generation_status",
+    "approval_status",
+    "step_id",
+    "narration_draft",
+    "narration_tts",
+    "subtitle_short_1",
+    "subtitle_short_2",
+    "pause_hint",
+    "emotion",
+    "updated_at",
+    "updated_by"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "description": "案件ID。例: PJT-001"
+    },
+    "record_id": {
+      "type": "string",
+      "description": "02_Scenes.record_id をそのまま流用。例: PJT-001-SCN-001。upsert キー。"
+    },
+    "generation_status": {
+      "type": "string",
+      "enum": ["GENERATED", "FAILED", "SKIPPED", "PENDING"],
+      "description": "生成状態。初期値: GENERATED"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": ["PENDING", "APPROVED", "REJECTED"],
+      "description": "承認状態。初期値: PENDING"
+    },
+    "step_id": {
+      "type": "string",
+      "description": "固定値: STEP_05_FULL_SCRIPT_BUILD"
+    },
+    "scene_no": {
+      "type": "string",
+      "description": "02_Scenes.scene_no の通し番号（参照用・表示用。upsert キーには使わない）。例: 1, 2, 3"
+    },
+    "related_version": {
+      "type": "string",
+      "description": "固定値: full"
+    },
+    "duration_sec": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "script 実体ベースの概算秒数。コード側が narration_tts 文字数 ÷ 5.5 で計算（切り上げ）。AI は出力しない。"
+    },
+    "narration_draft": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 800,
+      "description": "読み物として自然な文章（Full版の script 基準文）。Full版は narrative richness を優先。"
+    },
+    "narration_tts": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 800,
+      "description": "読み上げ最適化版。narration_draft と意味同一を原則とする。"
+    },
+    "subtitle_short_1": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "scene の主要短文字幕ブロック1。列名は subtitle_short_1 だが Full版でも使用（GSS Field_Master 準拠）。意味・感情・読みやすさを優先した自然な分割。"
+    },
+    "subtitle_short_2": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "scene の主要短文字幕ブロック2。列名は subtitle_short_2 だが Full版でも使用（GSS Field_Master 準拠）。空文字可。"
+    },
+    "visual_emphasis": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "映像上の強調点・演出メモ。任意。空文字可。STEP_06 Visual Bible が参照する。"
+    },
+    "pause_hint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "description": "間・余白・感情の溜め・読みのリズムを支えるメモ。Full版の narrative depth を活かした演出補助情報。"
+    },
+    "emotion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "scene 感情トーン。AI は出力しない。コード側が 02_Scenes.emotion をそのままコピーする（論点1）。"
+    },
+    "hook_flag": {
+      "type": "string",
+      "enum": ["Y", "N", ""],
+      "description": "hook 判定フラグ。任意。"
+    },
+    "tts_ready": {
+      "type": "string",
+      "enum": ["Y", "N", ""],
+      "description": "TTS 利用準備フラグ。任意。"
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "更新日時（ISO8601形式）。GitHub 側で補完。"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "更新者。固定値: github_actions"
+    },
+    "notes": {
+      "type": "string",
+      "description": "補足メモ。人レビュー用。任意。"
+    }
+  }
+}
