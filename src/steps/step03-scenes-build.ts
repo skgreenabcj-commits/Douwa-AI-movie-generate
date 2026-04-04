@@ -231,6 +231,10 @@ export async function runStep03ScenesBuild(
       );
 
       if (!validationResult.success) {
+        // デバッグ: 先頭 500 文字と末尾 200 文字をログに残す
+        const raw = geminiResult.text;
+        logInfo(`[DEBUG] raw response head (500): ${raw.slice(0, 500)}`);
+        logInfo(`[DEBUG] raw response tail (200): ${raw.slice(-200)}`);
         await handleStep03Failure(
           spreadsheetId, projectId, sourceRow.record_id, now,
           "schema_validation_failure",
