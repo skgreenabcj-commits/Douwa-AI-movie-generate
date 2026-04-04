@@ -115,3 +115,34 @@ export function buildStep02FailureLog(
     app_log: `[ERROR][${errorType}] ${message}`,
   };
 }
+
+// ─── STEP_03 ログビルダー ─────────────────────────────────────────────────────
+
+export function buildStep03SuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id: projectId,
+    record_id: recordId,
+    current_step: "STEP_03_SCENES_BUILD",
+    timestamp: new Date().toISOString(),
+    app_log: `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep03FailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id: projectId,
+    record_id: recordId,
+    current_step: "STEP_03_SCENES_BUILD",
+    timestamp: new Date().toISOString(),
+    app_log: `[ERROR][${errorType}] ${message}`,
+  };
+}

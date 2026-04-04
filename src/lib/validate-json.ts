@@ -10,7 +10,7 @@
  */
 
 import Ajv from "ajv";
-import type { RightsValidationAiRow, SourceAiRow } from "../types.js";
+import type { RightsValidationAiRow, SourceAiRow, SceneAiRow } from "../types.js";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
@@ -163,6 +163,80 @@ export function validateSourceAiResponse(
   }
 
   return { success: true, row: response.rows[0] };
+}
+
+// ─── STEP_03 用バリデーター ───────────────────────────────────────────────────
+
+export interface SceneValidationResult {
+  success: true;
+  scenes: SceneAiRow[];
+}
+
+export interface SceneValidationFailure {
+  success: false;
+  errors: string;
+  rawText: string;
+}
+
+export type ValidateSceneResult = SceneValidationResult | SceneValidationFailure;
+
+/**
+ * STEP_03 AI レスポンスを parse / validate して SceneAiRow[] を返す。
+ * AI 出力は { scenes: [...] } 形式（rows ではなく scenes キー）。
+ */
+export function validateSceneAiResponse(
+  rawText: string,
+  schema: string
+): ValidateSceneResult {
+  const extracted = extractJson(rawText);
+  if (extracted === null) {
+    return {
+      success: false,
+      errors: "Could not extract valid JSON from AI response.",
+      rawText,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted);
+  } catch (e) {
+    return {
+      success: false,
+      errors: `JSON.parse failed: ${e instanceof Error ? e.message : String(e)}`,
+      rawText,
+    };
+  }
+
+  let schemaObj: unknown;
+  try {
+    schemaObj = JSON.parse(schema);
+  } catch {
+    return {
+      success: false,
+      errors: "Failed to parse AI schema JSON file.",
+      rawText,
+    };
+  }
+
+  const validate = ajv.compile(schemaObj as object);
+  const valid = validate(parsed);
+
+  if (!valid) {
+    const errors = ajv.errorsText(validate.errors, { separator: "; " });
+    return { success: false, errors, rawText };
+  }
+
+  const response = parsed as { scenes: SceneAiRow[] };
+  if (!response.scenes || response.scenes.length === 0) {
+    return {
+      success: false,
+      errors: "scenes array is empty after validation.",
+      rawText,
+    };
+  }
+
+  return { success: true, scenes: response.scenes };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

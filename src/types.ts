@@ -1,4 +1,4 @@
-export type StepId = "STEP_01" | "STEP_02";
+export type StepId = "STEP_01" | "STEP_02" | "STEP_03";
 
 // ─── Runtime Config ──────────────────────────────────────────────────────────
 
@@ -127,6 +127,49 @@ export interface SourceFullRow extends SourceAiRow {
   original_text: string;
   legal_check_status: string;
   legal_check_notes: string;
+  updated_at: string;
+  updated_by: string;
+  notes: string;
+}
+
+// ─── 01_Source (read) ─────────────────────────────────────────────────────────
+
+/** 01_Source から読み込む参照用 row（STEP_03 が参照） */
+export interface SourceReadRow {
+  project_id: string;
+  record_id: string;
+  approval_status: string;
+  adaptation_policy: string;
+  language_style: string;
+  difficult_terms?: string;
+  credit_text?: string;
+  base_text_notes?: string;
+}
+
+// ─── 02_Scenes ────────────────────────────────────────────────────────────────
+
+/** AI が返す Scenes Build の scene 1件（スキーマ: scene_build_schema_ai_v1） */
+export interface SceneAiRow {
+  scene_id: string;
+  scene_order: number;
+  scene_title: string;
+  scene_summary: string;
+  scene_purpose: string;
+  scene_type: "intro" | "development" | "climax" | "resolution" | "ending";
+  scene_target_sec: number;
+  key_characters: string;
+  key_events: string;
+  visual_notes: string;
+  narration_style: string;
+}
+
+/** Google Sheets に書き込む full row（スキーマ: scene_build_schema_full_v1） */
+export interface SceneFullRow extends SceneAiRow {
+  project_id: string;
+  record_id: string;
+  generation_status: "GENERATED" | "FAILED" | "SKIPPED" | "PENDING";
+  approval_status: "PENDING" | "APPROVED" | "REJECTED";
+  step_id: string;
   updated_at: string;
   updated_by: string;
   notes: string;

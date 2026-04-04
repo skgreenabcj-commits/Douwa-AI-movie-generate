@@ -55,7 +55,7 @@ STEP_01 / STEP_02 と同一の実行経路を採用する。
 5. **`01_Source` の `approval_status` が `APPROVED` でない場合はエラー停止**
 6. Prompt / Schema / Example / Field Guide / Policy を読み込む
 7. `required_scene_count` を算出する（§6.2 参照）
-8. Gemini を実行する（primary → secondary fallback）
+8. Gemini を実行する（primary → 1st fallback → 2nd fallback の 3 段構成）
 9. AI 出力を schema 検証する
 10. `02_Scenes` に scene 行を upsert する（`project_id` + `scene_id` 複合キー）
 11. `00_Project` の `current_step` 等を最小更新する
@@ -215,8 +215,9 @@ const requiredSceneCount = Math.ceil(fullTargetSec / sceneMaxSec);
 | `01_Source` 行が見つからない | エラー停止 + `approval_status=UNKNOWN` + ログ |
 | `01_Source.approval_status != APPROVED` | エラー停止 + `approval_status=UNKNOWN` + ログ |
 | `scene_max_sec_{target_age}` キーが未設定 | デフォルト値でフォールバック + 警告ログ |
-| Gemini API 失敗（primary） | secondary fallback |
-| Gemini API 失敗（secondary） | `approval_status=UNKNOWN` + ログ |
+| Gemini API 失敗（primary） | 1st fallback（`model_role_text_pro`）へ続行 |
+| Gemini API 失敗（1st fallback） | 2nd fallback（`model_role_text_flash_seconday`）へ続行 |
+| Gemini API 失敗（2nd fallback） | `approval_status=UNKNOWN` + ログ |
 | schema validation 失敗 | `approval_status=UNKNOWN` + ログ |
 | scene 数が 0 または極端に多い（>20） | 警告ログ + schema validation で棄却 |
 | GSS 書き込み失敗 | ログ出力（処理続行） |
@@ -229,13 +230,19 @@ const requiredSceneCount = Math.ceil(fullTargetSec / sceneMaxSec);
 |---|---|---|
 | `gemini_api_key` | Gemini API Key | STEP_01/02 と共通 |
 | `step_03_model_role` | STEP_03 primary model | **独立キー**、未設定時: `gemini-2.5-pro` |
-| `model_role_text_pro` | STEP_03 seconday model | **独立キー**、未設定時: `gemini-3.1-pro-preview` |
-| `model_role_text_flash_seconday` | secondary model | STEP_02 と共通キー |
+| `model_role_text_pro` | 1st fallback model | STEP_01 と共通キー、未設定時: `gemini-3.1-pro-preview` |
+| `model_role_text_flash_seconday` | 2nd fallback model（最終手段） | STEP_02 と共通キー、未設定時: `gemini-2.0-flash` |
 | `scene_max_sec_2-3` | 2-3歳向け 1 scene 最大秒数 | 未設定時: `15` |
 | `scene_max_sec_4-6` | 4-6歳向け 1 scene 最大秒数 | 未設定時: `20` |
 | `scene_max_sec_6-8` | 6-8歳向け 1 scene 最大秒数 | 未設定時: `30` |
 
 > **GSS 対応**: `94_Runtime_Config` に `step_03_model_role` および `scene_max_sec_*` 3キーを実装着手前に追加すること。
+>
+> **モデル fallback 構成（3 段）**:
+> 1. **Primary**: `step_03_model_role`（デフォルト: `gemini-2.5-pro`）
+> 2. **1st fallback**: `model_role_text_pro`（デフォルト: `gemini-3.1-pro-preview`）← STEP_01 と共通キー
+> 3. **2nd fallback**: `model_role_text_flash_seconday`（デフォルト: `gemini-2.0-flash`）← STEP_02 と共通キー・最終手段
+> Spending Cap 超過時はいかなる fallback も行わずに即時停止する。
 
 ---
 
@@ -272,27 +279,27 @@ const requiredSceneCount = Math.ceil(fullTargetSec / sceneMaxSec);
 ## 11. 実装着手前チェックリスト
 
 **GSS 対応（ユーザー実施）**
-- [ ] `94_Runtime_Config` に `step_03_model_role = gemini-2.5-pro` を追加
+- [ ] `94_Runtime_Config` に `step_03_model_role = gemini-2.5-pro` を追加（`model_role_text_pro` および `model_role_text_flash_seconday` は STEP_01/02 で設定済の場合は追加不要）
 - [ ] `94_Runtime_Config` に `scene_max_sec_2-3 = 15` を追加
-- [ ] `94_Runtime_Config` に `scene_max_sec_4-6 = 25` を追加
-- [ ] `94_Runtime_Config` に `scene_max_sec_6-8 = 40` を追加
+- [ ] `94_Runtime_Config` に `scene_max_sec_4-6 = 20` を追加
+- [ ] `94_Runtime_Config` に `scene_max_sec_6-8 = 30` を追加
 - [ ] `02_Scenes` シートを GSS に作成し、ヘッダー行（row 5）に列定義を設定
 - [ ] `02_Scenes` シートに 999 行の空行を挿入
 
 **リポジトリ対応（実装と同時）**
-- [ ] `prompts/scene_build_prompt_v1.md` 作成
-- [ ] `prompts/fragments/scene_build_output_field_guide_v1.md` 作成
-- [ ] `schemas/scene_build_schema_ai_v1.json` 作成
-- [ ] `schemas/scene_build_schema_full_v1.json` 作成
-- [ ] `examples/scene_build_ai_response_example_v1.json` 作成
+- [x] `prompts/scene_build_prompt_v1.md` 作成済
+- [x] `prompts/fragments/scene_build_output_field_guide_v1.md` 作成済
+- [x] `schemas/scene_build_schema_ai_v1.json` 作成済
+- [x] `schemas/scene_build_schema_full_v1.json` 作成済
+- [x] `examples/scene_build_ai_response_example_v1.json` 作成済
 
 **実装フェーズ**
-- [ ] Phase 1: `src/types.ts` 拡張
-- [ ] Phase 2: `src/lib/load-source.ts` 新規作成
-- [ ] Phase 3: `src/lib/write-scenes.ts` 新規作成
-- [ ] Phase 4: `src/lib/build-prompt.ts` 拡張
-- [ ] Phase 5: `src/lib/load-assets.ts` 拡張
-- [ ] Phase 6: `src/lib/validate-json.ts` 拡張
-- [ ] Phase 7: `src/steps/step03-scenes-build.ts` 新規作成
-- [ ] Phase 8: `src/index.ts` 拡張
-- [ ] Phase 9: `src/lib/write-app-log.ts` 拡張
+- [x] Phase 1: `src/types.ts` 拡張
+- [x] Phase 2: `src/lib/load-source.ts` 新規作成
+- [x] Phase 3: `src/lib/write-scenes.ts` 新規作成
+- [x] Phase 4: `src/lib/build-prompt.ts` 拡張
+- [x] Phase 5: `src/lib/load-assets.ts` 拡張
+- [x] Phase 6: `src/lib/validate-json.ts` 拡張
+- [x] Phase 7: `src/steps/step03-scenes-build.ts` 新規作成（3 段 fallback 対応）
+- [x] Phase 8: `src/index.ts` 拡張
+- [x] Phase 9: `src/lib/write-app-log.ts` 拡張

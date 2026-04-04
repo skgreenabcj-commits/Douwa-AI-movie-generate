@@ -22,6 +22,15 @@
  * - schemas/source_build_schema_ai_v1.json
  * - schemas/source_build_schema_full_v1.json
  * - examples/source_build_ai_response_example_v1.json
+ *
+ * 読み込み対象（STEP_03）:
+ * - prompts/scene_build_prompt_v1.md
+ * - prompts/scene_count_and_duration_policy_v1.md
+ * - prompts/age_band_scene_guidline_v1.md
+ * - prompts/fragments/scene_build_output_field_guide_v1.md
+ * - schemas/scene_build_schema_ai_v1.json
+ * - schemas/scene_build_schema_full_v1.json
+ * - examples/scene_build_ai_response_example_v1.json
  */
 
 import { readFileSync } from "fs";
@@ -94,6 +103,47 @@ export function loadStep02Assets(): Step02Assets {
     ),
     aiResponseExample: readText(
       repoPath("examples", "source_build_ai_response_example_v1.json")
+    ),
+  };
+}
+
+// ─── STEP_03 Assets ───────────────────────────────────────────────────────────
+
+export interface Step03Assets {
+  promptTemplate: string;
+  sceneCountAndDurationPolicy: string;
+  ageBandSceneGuideline: string;
+  outputFieldGuide: string;
+  aiSchema: string;         // JSON string
+  fullSchema: string;       // JSON string
+  aiResponseExample: string; // JSON string
+}
+
+/**
+ * STEP_03 に必要な全ファイルを読み込んで返す。
+ */
+export function loadStep03Assets(): Step03Assets {
+  return {
+    promptTemplate: readText(
+      repoPath("prompts", "scene_build_prompt_v1.md")
+    ),
+    sceneCountAndDurationPolicy: readText(
+      repoPath("prompts", "scene_count_and_duration_policy_v1.md")
+    ),
+    ageBandSceneGuideline: readText(
+      repoPath("prompts", "age_band_scene_guidline_v1.md")
+    ),
+    outputFieldGuide: readText(
+      repoPath("prompts", "fragments", "scene_build_output_field_guide_v1.md")
+    ),
+    aiSchema: readText(
+      repoPath("schemas", "scene_build_schema_ai_v1.json")
+    ),
+    fullSchema: readText(
+      repoPath("schemas", "scene_build_schema_full_v1.json")
+    ),
+    aiResponseExample: readText(
+      repoPath("examples", "scene_build_ai_response_example_v1.json")
     ),
   };
 }
