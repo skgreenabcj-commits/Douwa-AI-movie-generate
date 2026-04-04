@@ -1,0 +1,13 @@
+## Age Band Scene Guideline
+- STEP_03 は `target_age` に応じて、scene の粒度・複雑さ・説明密度を調整する。
+- 年齢帯は `2-3`, `4-6`, `6-8` の 3 区分とする。
+- 各年齢帯の scene 最大秒数は `94_Runtime_Config` の以下 key を参照する。
+  - `2-3` → `scene_max_sec_2-3`
+  - `4-6` → `scene_max_sec_4-6`
+  - `6-8` → `scene_max_sec_6-8`
+- `2-3` 向けは、短く単純で反復しやすい scene を優先し、理解負荷の高い転換を避ける。
+- `4-6` 向けは、導入・展開・山場・結びの役割が分かりやすい scene 構成を優先する。
+- `6-8` 向けは、因果関係や感情変化をより明確に含む scene 構成を許容する。
+- scene 数は `full_target_sec` と年齢帯別 `scene_max_sec` から算出した `required_scene_count` を基準とする。
+- 年齢帯ごとの推奨 scene 数レンジは運用で調整可能とし、初期実装では hard rule ではなく guideline として扱う。
+- STEP_03 は、年齢適合性を保ちながら、尺整合・最大秒数制約・後工程での再利用性を優先して scene を設計する。
