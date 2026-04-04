@@ -154,7 +154,8 @@ async function callGeminiOnce(
     generationConfig: {
       temperature: 0.1,
       topP: 0.95,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 16384,
+      response_mime_type: "application/json",
     },
   };
 
