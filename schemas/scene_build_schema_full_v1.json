@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "scene_build_schema_full_v1",
+  "description": "STEP_03 Scenes Build の Google Sheets 書き込み行スキーマ（AI出力 + GitHub補完フィールドを含む full row 定義）",
+  "type": "object",
+  "required": [
+    "project_id",
+    "record_id",
+    "generation_status",
+    "approval_status",
+    "step_id",
+    "scene_id",
+    "scene_order",
+    "scene_title",
+    "scene_summary",
+    "scene_purpose",
+    "scene_type",
+    "scene_target_sec",
+    "key_characters",
+    "key_events",
+    "visual_notes",
+    "narration_style",
+    "updated_at",
+    "updated_by",
+    "notes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "description": "案件ID（例: PJT-001）"
+    },
+    "record_id": {
+      "type": "string",
+      "description": "scene 行ID（例: PJT-001-SCN-001）。GitHub が採番する。"
+    },
+    "generation_status": {
+      "type": "string",
+      "enum": ["GENERATED", "FAILED", "SKIPPED", "PENDING"],
+      "description": "生成ステータス。STEP_03完了時は GENERATED 固定。"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": ["PENDING", "APPROVED", "REJECTED"],
+      "description": "人手承認ステータス。生成直後は PENDING 固定。"
+    },
+    "step_id": {
+      "type": "string",
+      "description": "生成ステップID。固定: STEP_03_SCENES_BUILD"
+    },
+    "scene_id": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "scene 識別子（例: SC-001-01）"
+    },
+    "scene_order": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "scene の順序（1始まりの整数）"
+    },
+    "scene_title": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "scene タイトル"
+    },
+    "scene_summary": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "scene の内容サマリー（後続AI入力に使用）"
+    },
+    "scene_purpose": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "scene の物語的役割・目的（後続AI入力に使用）"
+    },
+    "scene_type": {
+      "type": "string",
+      "enum": ["intro", "development", "climax", "resolution", "ending"],
+      "description": "scene 種別（後続AI入力に使用）"
+    },
+    "scene_target_sec": {
+      "type": "integer",
+      "minimum": 5,
+      "description": "この scene の推奨尺（秒、後続AI入力に使用）"
+    },
+    "key_characters": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "登場する主要キャラクター（全角「、」区切り）"
+    },
+    "key_events": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "scene 内で起こる主要な出来事（後続AI入力に使用）"
+    },
+    "visual_notes": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "映像化の方向性ヒント（STEP_06 Visual Bible 用、後続AI入力に使用）"
+    },
+    "narration_style": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "このscene のナレーション・語りのトーン（後続AI入力に使用）"
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "更新日時（ISO8601形式）。GitHub が補完する。"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "更新者。固定: github_actions"
+    },
+    "notes": {
+      "type": "string",
+      "description": "補足メモ。生成直後は空文字。"
+    }
+  }
+}
