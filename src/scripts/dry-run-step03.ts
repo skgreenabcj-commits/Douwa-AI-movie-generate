@@ -367,14 +367,15 @@ async function main(): Promise<void> {
       console.log(`    est_duration_short 合計: ${estShortTotal}s (目標: ${shortTargetSec}s ±15% = ${Math.floor(shortTargetSec*0.85)}〜${Math.ceil(shortTargetSec*1.15)}s)`);
       console.log(`    short_use=Y        件数: ${shortUseCount} / ${aiScenes.length}`);
 
-      // scene_id / scene_order をシステム側で付与して表示
-      console.log(`\n  【scene 一覧 (system-assigned IDs)】`);
+      // scene_no / scene_order をシステム側で付与して表示
+      // scene_no = GSS の scene_no カラムに書き込む値（SC-001-01 形式）
+      console.log(`\n  【scene 一覧 (system-assigned scene_no)】`);
       for (let i = 0; i < aiScenes.length; i++) {
         const sc = aiScenes[i];
         const sceneOrder = i + 1;
-        const sceneId = generateSceneId(projectId, sceneOrder);
+        const sceneNo = generateSceneId(projectId, sceneOrder);
         console.log(
-          `    ${sceneId}  [${sc.short_use === "Y" ? "S✓" : "S✗"}/${sc.full_use === "Y" ? "F✓" : "F✗"}]` +
+          `    ${sceneNo}  [${sc.short_use === "Y" ? "S✓" : "S✗"}/${sc.full_use === "Y" ? "F✓" : "F✗"}]` +
           `  short=${String(sc.est_duration_short).padStart(3)}s  full=${String(sc.est_duration_full).padStart(3)}s` +
           `  ${sc.chapter} / ${sc.scene_title}`
         );
@@ -398,8 +399,8 @@ async function main(): Promise<void> {
           generated_at:             new Date().toISOString(),
         },
         scenes: aiScenes.map((sc, i) => ({
-          scene_id:    generateSceneId(projectId, i + 1),
-          scene_order: i + 1,
+          scene_no:    generateSceneId(projectId, i + 1),  // GSS scene_no カラム用
+          scene_order: i + 1,                               // 内部連番
           ...sc,
         })),
       };
