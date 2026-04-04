@@ -160,20 +160,23 @@ AI には、各フィールドに対して以下の役割を求める。
 - `est_duration_full`
   - Full版の rough な尺感を示す
 - `difficult_words`
-  - 対象年齢に対して難しい語を抽出する
+  - 対象年齢に対して難しい語を抽出し、全角「、」区切りで列挙する（難語がない場合は空文字）
 - `easy_rewrite`
-  - 難しい語を自然でやさしい表現に言い換える
+  - `difficult_words` の各語に対応する言い換えを全角「、」区切り・順序対応で列挙する（`difficult_words` が空文字の場合は空文字）
 - `qa_seed`
   - QA や理解確認に使える問いの種を置く
 - `continuity_note`
   - 次工程で scene 間のつながりを壊さないための注意点を残す
 
 ### 8.3 フィールド要件
-- `short_use` は `Y/N` フラグ
-- `full_use` は `Y/N` フラグ
-- 初期実装では `full_use` は原則 `Y`
-- `est_duration_short` は rough estimate
-- `est_duration_full` は Full版 scene の想定時間
+- `short_use` は厳密に `"Y"` または `"N"` のみ（他の値・説明文不可）
+- `full_use` は厳密に `"Y"` または `"N"` のみ（初期実装では原則 `"Y"`）
+- `est_duration_short` は rough estimate の整数。`short_use = N` の場合は必ず `0` を設定する
+- `est_duration_full` は Full版 scene の rough estimate 秒数（整数・`scene_max_sec` 以内）。全 scene の合計が `full_target_sec` の ±15% 以内を目安とし、最終調整は STEP_04_05_COMBINED で行う
+- `difficult_words` と `easy_rewrite` は全角「、」区切りの文字列型（配列型は不可）
+  - `difficult_words` に複数語がある場合は全角「、」で区切って列挙する（例: `「どんぶらこ、家来、退治」`）
+  - `easy_rewrite` は `difficult_words` の順序と対応させる（例: `「ぷかぷか流れてくる、なかま、やっつける」`）
+  - 難語がない場合は両方とも空文字
 - `qa_seed` は STEP_09 で再利用できる問いの種
 - `continuity_note` は前後 scene の接続や持ち物・感情・構図の連続性を支える
 
@@ -256,5 +259,6 @@ STEP_03 の出力には以下を期待する。
 - `Full版`
 - `target_sec は品質優先の目標値`
 - `scene_id`, `scene_order` はシステム側付与
-- `short_use`, `full_use` は Y/N フラグ
-- `est_duration_short` は rough estimate
+- `short_use`, `full_use` は `"Y"` / `"N"` のみ（厳密な文字列型 Y/N フラグ）
+- `est_duration_short` は rough estimate（整数・`short_use = N` のとき 0）
+- `difficult_words`, `easy_rewrite` は全角「、」区切りの文字列型（配列型不可）・順序対応必須

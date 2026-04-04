@@ -81,13 +81,13 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 480,
-            "description": "Short版での概算秒数（rough estimate）。short_use=N の場合は 0 を設定。最終調整は STEP_04_05_COMBINED で行う。"
+            "description": "Short版での概算秒数（rough estimate）。short_use=N の場合は 0 を設定すること。short_use=Y の場合は Short版でのおおよその尺感を示す。あくまで rough estimate であり、最終的な尺調整は STEP_04_05_COMBINED で行う。"
           },
           "est_duration_full": {
             "type": "integer",
             "minimum": 5,
             "maximum": 480,
-            "description": "Full版での概算秒数（rough estimate）。scene_max_sec を超えないこと。全scene の合計が full_target_sec の ±15% 以内を目安とする。"
+            "description": "Full版での概算秒数（rough estimate）。scene_max_sec を超えないこと。全 scene の合計が full_target_sec の ±15% 以内を目安とする（rough estimate）。最終的な尺調整は STEP_04_05_COMBINED で行う。"
           },
           "difficult_words": {
             "type": "string",

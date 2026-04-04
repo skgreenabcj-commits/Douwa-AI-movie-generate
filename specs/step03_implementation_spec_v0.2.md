@@ -2,7 +2,7 @@
 
 > **ステータス**: 確定（ユーザー確認済み 2026-04-04 / 要件正本改訂反映 2026-04-04）
 > **正本要件**: `specs/step03_implementation_ai_requirement.md`
-> **修正指示**: `specs/step_03_update_request_for_calude.md`
+> **修正指示**: `specs/step_03_update_request_for_claude.md`（旧ファイル名: `step_03_update_request_for_calude.md`）
 > **前提**: STEP_01 / STEP_02 実装仕様 v0.2 の構造・パターンを継承する
 
 ---
@@ -27,7 +27,7 @@ STEP_02 で生成した `01_Source`（底本・脚色方針）をもとに、AI 
 - scene は `target_age` と動画尺（`short_target_sec` / `full_target_sec`）を前提に設計する
 - scene の粒度は「年齢適合性・理解しやすさ・映像化しやすさ・脚本化しやすさ」を満たすこと
 - 初期実装では、**後工程側での scene 分割・統合・並べ替えは禁止**（STEP_03 が正本）
-- scene 数・尺は `prompts/scene_count_and_duration_policy_v1.md` および `prompts/age_band_scene_guidline_v1.md` に従う
+- scene 数・尺は `prompts/scene_count_and_duration_policy_v1.md` および `prompts/age_band_scene_guideline_v1.md` に従う
 - `scene_id`, `scene_order` はシステム側（GitHub）で付与し、AI には scene 内容の構造化に集中させる
 
 ---
@@ -310,6 +310,11 @@ const requiredSceneCountBase = Math.ceil(fullTargetSec / sceneMaxSec);
 > 2. **1st fallback**: `model_role_text_pro`（デフォルト: `gemini-3.1-pro-preview`）← STEP_01 と共通キー
 > 3. **2nd fallback**: `model_role_text_flash_seconday`（デフォルト: `gemini-2.0-flash`）← STEP_02 と共通キー・最終手段
 > Spending Cap 超過時はいかなる fallback も行わずに即時停止する。
+>
+> **⚠️ `model_role_text_flash_seconday` についての注記**:
+> このキー名は `secondary` の誤記（`seconday`）であるが、GSS `94_Runtime_Config` および STEP_01/02 のコードで**すでに確定済みのキー名**として使用されている。
+> コード・GSS 両方の同時移行なしに単独修正すると実行時エラーとなるため、現時点では**意図的にそのまま維持**する。
+> 将来的に `model_role_text_flash_secondary`（正しいスペル）へリネームする場合は、`94_Runtime_Config` の GSS 変更とコード変更を同一リリースで実施すること。
 
 ---
 
@@ -320,7 +325,7 @@ const requiredSceneCountBase = Math.ceil(fullTargetSec / sceneMaxSec);
 | `prompts/scene_build_prompt_v1.md` | 本仕様と同時改訂 | STEP_03 メインプロンプト |
 | `prompts/fragments/scene_build_output_field_guide_v1.md` | 本仕様と同時改訂 | 出力フィールドガイド |
 | `prompts/scene_count_and_duration_policy_v1.md` | 本仕様と同時改訂 | scene 数・尺ポリシー |
-| `prompts/age_band_scene_guidline_v1.md` | 既存（commit 818d701）| 年齢帯別 scene ガイドライン |
+| `prompts/age_band_scene_guideline_v1.md` | 既存（commit 818d701）からファイル名修正 | 年齢帯別 scene ガイドライン |
 | `schemas/scene_build_schema_ai_v1.json` | 本仕様と同時改訂 | AI出力スキーマ |
 | `schemas/scene_build_schema_full_v1.json` | 本仕様と同時改訂 | GSS書き込み full スキーマ |
 | `examples/scene_build_ai_response_example_v1.json` | 本仕様と同時改訂 | AI出力サンプル（桃太郎 Full480秒/Short240秒前提）|
@@ -360,3 +365,5 @@ const requiredSceneCountBase = Math.ceil(fullTargetSec / sceneMaxSec);
 - [x] `schemas/scene_build_schema_ai_v1.json` 改訂済
 - [x] `schemas/scene_build_schema_full_v1.json` 改訂済
 - [x] `examples/scene_build_ai_response_example_v1.json` 改訂済
+- [x] `prompts/age_band_scene_guideline_v1.md` ファイル名修正済（旧: `age_band_scene_guidline_v1.md`）
+- [x] `src/lib/load-assets.ts` ファイル名参照を `age_band_scene_guideline_v1.md` に更新済

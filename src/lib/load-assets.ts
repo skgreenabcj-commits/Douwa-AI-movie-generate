@@ -26,7 +26,7 @@
  * 読み込み対象（STEP_03）:
  * - prompts/scene_build_prompt_v1.md
  * - prompts/scene_count_and_duration_policy_v1.md
- * - prompts/age_band_scene_guidline_v1.md
+ * - prompts/age_band_scene_guideline_v1.md
  * - prompts/fragments/scene_build_output_field_guide_v1.md
  * - schemas/scene_build_schema_ai_v1.json
  * - schemas/scene_build_schema_full_v1.json
@@ -131,7 +131,7 @@ export function loadStep03Assets(): Step03Assets {
       repoPath("prompts", "scene_count_and_duration_policy_v1.md")
     ),
     ageBandSceneGuideline: readText(
-      repoPath("prompts", "age_band_scene_guidline_v1.md")
+      repoPath("prompts", "age_band_scene_guideline_v1.md")
     ),
     outputFieldGuide: readText(
       repoPath("prompts", "fragments", "scene_build_output_field_guide_v1.md")
