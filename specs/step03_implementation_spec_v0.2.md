@@ -239,13 +239,13 @@ const requiredSceneCountBase = Math.ceil(fullTargetSec / sceneMaxSec);
 
 - `STEP_04_05_COMBINED` は STEP_03 の `02_Scenes` を scene master として参照する
 - 初期実装では scene の増減・分割・統合・並び替えは禁止
-- 各 script row は少なくとも `project_id`, `scene_id`, `scene_order` を保持する
+- 各 script row は少なくとも `project_id`, `scene_no`（内部管理用: `scene_order`）を保持する
 - Short版 / Full版 の違いは scene 構造ではなく、採用可否・記述密度・尺配分で調整する
 - `short_use` / `full_use` は Y/N フラグであり、STEP_04_05_COMBINED での Short / Full 分岐の基準となる
 - GitHub 側では後段バリデーションとして以下を検証する:
   - scene count の一致
-  - `scene_id` 集合の整合
-  - `scene_order` の整合
+  - `scene_no` 集合の整合
+  - scene_order の整合
   - 重複の有無
 
 ---

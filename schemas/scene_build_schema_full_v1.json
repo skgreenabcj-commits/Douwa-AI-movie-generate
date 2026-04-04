@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "scene_build_schema_full_v1",
-  "description": "STEP_03 Scene Build の Google Sheets 書き込み行スキーマ（AI出力 + GitHub補完フィールドを含む full row 定義）",
+  "description": "STEP_03 Scene Build の Google Sheets 書き込み行スキーマ（AI出力 + GitHub補完フィールドを含む full row 定義）。GSS 02_Scenes の実際の列順に準拠。scene_id / scene_order は廃止し、scene_no（例: SC-001-01）1カラムに統合済み。",
   "type": "object",
   "required": [
     "project_id",
@@ -9,8 +9,7 @@
     "generation_status",
     "approval_status",
     "step_id",
-    "scene_id",
-    "scene_order",
+    "scene_no",
     "chapter",
     "scene_title",
     "scene_summary",
@@ -53,15 +52,10 @@
       "type": "string",
       "description": "生成ステップID。固定: STEP_03_SCENES_BUILD"
     },
-    "scene_id": {
+    "scene_no": {
       "type": "string",
       "maxLength": 50,
-      "description": "scene 識別子（例: SC-001-01）。システム側（GitHub）で付与する。形式: SC-{project_num:3桁}-{scene_order:2桁}"
-    },
-    "scene_order": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "scene の順序（1始まりの整数）。システム側（GitHub）で付与する。後工程は scene_order 昇順で参照する。"
+      "description": "scene 識別子（例: SC-001-01）。システム側（GitHub）で付与する。形式: SC-{project_num:3桁}-{scene_order:2桁}。GSS 02_Scenes の scene_no 列に対応（旧 scene_id + scene_order を1カラムに統合）。"
     },
     "chapter": {
       "type": "string",
