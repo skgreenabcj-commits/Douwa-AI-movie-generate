@@ -18,6 +18,7 @@ import { runStep01RightsValidation } from "./steps/step01-rights-validation.js";
 import { runStep02SourceBuild } from "./steps/step02-source-build.js";
 import { runStep03ScenesBuild } from "./steps/step03-scenes-build.js";
 import { runStep04_05ScriptBuild } from "./steps/step04-05-script-build.js";
+import { runStep06VisualBible } from "./steps/step06-visual-bible.js";
 import type { WorkflowPayload } from "./types.js";
 
 async function main(): Promise<void> {
@@ -66,6 +67,10 @@ async function main(): Promise<void> {
 
     case "STEP_04_05":
       await runStep04_05ScriptBuild(payload, spreadsheetId);
+      break;
+
+    case "STEP_06":
+      await runStep06VisualBible(payload, spreadsheetId);
       break;
 
     default:

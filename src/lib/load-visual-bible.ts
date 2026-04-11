@@ -1,0 +1,46 @@
+/**
+ * load-visual-bible.ts
+ *
+ * 05_Visual_Bible シートから対象 project_id の行を読み込む。
+ * STEP_06 の再実行時に既存の record_id を引き継ぐために使用する。
+ *
+ * 返却仕様:
+ * - generation_status = "GENERATED" の行のみを返す
+ * - シート上の行順（挿入順）で返す
+ * - 0 件の場合は空配列（初回実行では正常）
+ */
+
+import { readSheet } from "./sheets-client.js";
+import type { VisualBibleReadRow } from "../types.js";
+
+const SHEET_NAME = "05_Visual_Bible";
+
+/**
+ * 指定 project_id の Visual Bible 行を全件取得する。
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param projectId     - 検索する project_id
+ * @returns VisualBibleReadRow[]（シート行順）
+ */
+export async function loadVisualBibleByProjectId(
+  spreadsheetId: string,
+  projectId: string
+): Promise<VisualBibleReadRow[]> {
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  const target = projectId.trim();
+
+  const result: VisualBibleReadRow[] = [];
+  for (const row of rows) {
+    if ((row["project_id"] ?? "").trim() !== target) continue;
+    if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
+
+    result.push({
+      project_id: row["project_id"] ?? "",
+      record_id:  row["record_id"]  ?? "",
+      category:   row["category"]   ?? "",
+      key_name:   row["key_name"]   ?? "",
+    });
+  }
+
+  return result;
+}

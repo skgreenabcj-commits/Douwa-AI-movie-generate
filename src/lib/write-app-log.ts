@@ -278,6 +278,39 @@ export function buildStep04SuccessLog(
   };
 }
 
+// ─── STEP_06 ログビルダー（Visual Bible Build）───────────────────────────────
+
+export function buildStep06SuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_06_VISUAL_BIBLE",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep06FailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_06_VISUAL_BIBLE",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[ERROR][${errorType}] ${message}`,
+  };
+}
+
+// ─── STEP_04 ログビルダー（Short Script Build）───────────────────────────────
+
 export function buildStep04FailureLog(
   projectId: string,
   recordId: string,

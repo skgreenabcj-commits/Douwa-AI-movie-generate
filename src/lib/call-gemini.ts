@@ -422,3 +422,27 @@ export function buildGeminiOptionsStep04(configMap: RuntimeConfigMap): GeminiCal
 
   return { apiKey, primaryModel, secondaryModel, tertiaryModel };
 }
+
+/**
+ * STEP_06 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
+ *
+ * Visual Bible はプロジェクト全体を 1 プロンプトで一括生成する。
+ * maxOutputTokens は呼び出し側で 32768 を指定する。
+ *
+ * fallback 構成:
+ *   primary      : step_06_model_role  (未登録時は model_role_text_pro の値にフォールバック)
+ *   1st fallback : model_role_text_pro (デフォルト: gemini-2.0-pro)
+ */
+export function buildGeminiOptionsStep06(configMap: RuntimeConfigMap): GeminiCallOptions {
+  const apiKey = getConfigValue(configMap, "gemini_api_key");
+  // step_06_model_role 未登録時は model_role_text_pro の値を primary に使う
+  const fallbackPrimary = getConfigValue(configMap, "model_role_text_pro", DEFAULT_PRIMARY_MODEL);
+  const primaryModel = getConfigValue(configMap, "step_06_model_role", fallbackPrimary);
+  const secondaryModel = getConfigValue(configMap, "model_role_text_pro", "gemini-2.0-pro");
+
+  console.info(`[INFO] Gemini options resolved (STEP_06)`);
+  console.info(`  primaryModel:   '${primaryModel}'`);
+  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+
+  return { apiKey, primaryModel, secondaryModel };
+}

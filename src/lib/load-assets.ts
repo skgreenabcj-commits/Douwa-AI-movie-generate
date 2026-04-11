@@ -45,6 +45,12 @@
  * - schemas/script_short_schema_ai_v1.json
  * - schemas/script_short_schema_full_v1.json
  * - examples/script_short_ai_response_example_v1.json
+ *
+ * 読み込み対象（STEP_06 Visual Bible）:
+ * - prompts/visual_bible_prompt_v1.md
+ * - schemas/visual_bible_schema_ai_v1.json
+ * - schemas/visual_bible_schema_full_v1.json
+ * - examples/visual_bible_ai_response_example_v1.json
  */
 
 import { readFileSync } from "fs";
@@ -237,6 +243,35 @@ export interface Step04Assets {
   aiSchema: string;          // JSON string
   fullSchema: string;        // JSON string
   aiResponseExample: string; // JSON string
+}
+
+// ─── STEP_06 Assets (Visual Bible) ───────────────────────────────────────────
+
+export interface Step06Assets {
+  promptTemplate:    string;  // visual_bible_prompt_v1.md
+  aiSchema:          string;  // visual_bible_schema_ai_v1.json（JSON string）
+  fullSchema:        string;  // visual_bible_schema_full_v1.json（JSON string）
+  aiResponseExample: string;  // visual_bible_ai_response_example_v1.json（JSON string）
+}
+
+/**
+ * STEP_06 に必要な全ファイルを読み込んで返す。
+ */
+export function loadStep06Assets(): Step06Assets {
+  return {
+    promptTemplate: readText(
+      repoPath("prompts", "visual_bible_prompt_v1.md")
+    ),
+    aiSchema: readText(
+      repoPath("schemas", "visual_bible_schema_ai_v1.json")
+    ),
+    fullSchema: readText(
+      repoPath("schemas", "visual_bible_schema_full_v1.json")
+    ),
+    aiResponseExample: readText(
+      repoPath("examples", "visual_bible_ai_response_example_v1.json")
+    ),
+  };
 }
 
 /**

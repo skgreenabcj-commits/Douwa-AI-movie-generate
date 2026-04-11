@@ -7,7 +7,7 @@
  */
 
 import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow } from "../types.js";
-import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets } from "./load-assets.js";
+import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets, Step06Assets } from "./load-assets.js";
 
 /**
  * プレースホルダーを一括置換する汎用関数。
@@ -304,5 +304,47 @@ export function buildStep04Prompt(
     OUTPUT_JSON_SCHEMA: assets.aiSchema,
     OUTPUT_FIELD_GUIDE: assets.outputFieldGuide,
     OUTPUT_EXAMPLE:     assets.aiResponseExample,
+  });
+}
+
+/**
+ * STEP_06 用のプロンプトを組み立てる（Visual Bible Build）。
+ *
+ * テンプレート内のプレースホルダー:
+ * - {{PROJECT_JSON}} : project 情報 + video_format でフィルタ済みの scenes 配列
+ *
+ * scenes 配列に含めるフィールド（論点3: 02_Scenes のみ）:
+ * - scene_no, chapter, scene_title, scene_summary, visual_focus, emotion
+ * - narration_* / subtitle_* / difficult_words / easy_rewrite / est_duration_* は含めない
+ */
+export function buildStep06Prompt(
+  assets: Step06Assets,
+  project: ProjectRow,
+  scenes: SceneReadRow[]   // video_format に応じてフィルタ済みであること
+): string {
+  const scenesInput = scenes.map((s) => ({
+    scene_no:      s.scene_no,
+    chapter:       s.chapter,
+    scene_title:   s.scene_title,
+    scene_summary: s.scene_summary,
+    visual_focus:  s.visual_focus,
+    emotion:       s.emotion,
+  }));
+
+  const projectJson = JSON.stringify(
+    {
+      project_id:   project.project_id,
+      title_jp:     project.title_jp     ?? "",
+      target_age:   project.target_age   ?? "",
+      visual_style: project.visual_style ?? "",
+      video_format: project.video_format ?? "",
+      scenes:       scenesInput,
+    },
+    null,
+    2
+  );
+
+  return buildPrompt(assets.promptTemplate, {
+    PROJECT_JSON: projectJson,
   });
 }
