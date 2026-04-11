@@ -9,7 +9,8 @@ export type StepId =
   | "STEP_04_05"                    // Short + Full Script Build (combined)
   | "STEP_04_SHORT_SCRIPT_BUILD"    // GSS step_id / current_step 値（Short 完了）
   | "STEP_05_FULL_SCRIPT_BUILD"     // GSS step_id / current_step 値（Full 完了）
-  | "STEP_04_05_COMBINED";          // current_step 値（Short+Full 両方完了）
+  | "STEP_04_05_COMBINED"           // current_step 値（Short+Full 両方完了）
+  | "STEP_06_VISUAL_BIBLE";         // Visual Bible Build
 
 // ─── Runtime Config ──────────────────────────────────────────────────────────
 
@@ -365,6 +366,67 @@ export interface ScriptFullReadRow {
   subtitle_short_2: string;
   emotion:          string;
   pause_hint:       string;
+}
+
+// ─── 05_Visual_Bible ──────────────────────────────────────────────────────────
+
+/** 05_Visual_Bible の category 固定 enum（スキーマと同期） */
+export type VisualBibleCategory =
+  | "character"
+  | "background"
+  | "color_theme"
+  | "lighting"
+  | "style_global"
+  | "avoid";
+
+/**
+ * STEP_06 Visual Bible — AI が返す 1 element 分の row
+ * スキーマ: visual_bible_schema_ai_v1.json
+ *
+ * record_id は AI 出力に含めない（システム側で採番: PJT-001-VB-001 形式）。
+ * scene_no は含めない（論点C: Visual Bible は scene と切り離したプロジェクト辞書）。
+ */
+export interface VisualBibleAiRow {
+  category:         VisualBibleCategory;  // 固定 enum
+  key_name:         string;               // AI が自由記述（例: "桃太郎", "川辺", "全体配色"）
+  description:      string;               // 要素の概要・役割説明
+  color_palette:    string;               // 色指定（空文字可）
+  line_style:       string;               // 線・タッチのスタイル（空文字可）
+  lighting:         string;               // 照明・明暗指定（空文字可）
+  composition_rule: string;               // 構図・フレーミングルール（空文字可）
+  crop_rule:        string;               // クロップ・トリミングルール（空文字可）
+  expression_rule:  string;               // 表情・動きの表現ルール（空文字可）
+  character_rule:   string;               // キャラクターデザインルール（空文字可）
+  background_rule:  string;               // 背景描写ルール（空文字可）
+  avoid_rule:       string;               // 禁止表現・回避要素（空文字可）
+  reference_note:   string;               // 参考メモ・補足（空文字可）
+  [key: string]: unknown;                 // AJV バリデーション互換
+}
+
+/**
+ * Google Sheets 05_Visual_Bible 書き込み行（visual_bible_schema_full_v1）
+ *
+ * record_id はシステム側で採番する（形式: PJT-001-VB-001）。
+ * upsert キー: record_id 単体（シート名固定で一意性を担保）。
+ * 再実行時は既存行を record_id で上書き UPDATE する。
+ */
+export interface VisualBibleRow extends VisualBibleAiRow {
+  project_id:        string;
+  record_id:         string;   // システム採番: {project_id}-VB-{index:03d}
+  generation_status: "GENERATED" | "FAILED" | "PENDING";
+  approval_status:   "PENDING" | "APPROVED" | "REJECTED";
+  step_id:           string;   // 固定: "STEP_06_VISUAL_BIBLE"
+  updated_at:        string;
+  updated_by:        string;
+  notes:             string;
+}
+
+/** 05_Visual_Bible から読み込む参照用 row（再実行時の既存行取得用） */
+export interface VisualBibleReadRow {
+  project_id:  string;
+  record_id:   string;
+  category:    string;
+  key_name:    string;
 }
 
 // ─── Workflow Payload ─────────────────────────────────────────────────────────

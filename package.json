@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npx esbuild src/index.ts src/types.ts src/lib/sheets-client.ts src/lib/load-runtime-config.ts src/lib/load-project-input.ts src/lib/write-rights-validation.ts src/lib/write-source.ts src/lib/write-scenes.ts src/lib/write-script-full.ts src/lib/write-script-short.ts src/lib/load-rights-validation.ts src/lib/load-source.ts src/lib/load-scenes.ts src/lib/load-script.ts src/lib/update-project.ts src/lib/write-app-log.ts src/lib/load-assets.ts src/lib/build-prompt.ts src/lib/call-gemini.ts src/lib/validate-json.ts src/lib/normalize-ai-row.ts src/lib/apply-fast-pass.ts src/lib/logger.ts src/lib/load-step-mapping.ts src/steps/step01-rights-validation.ts src/steps/step02-source-build.ts src/steps/step03-scenes-build.ts src/steps/step04-05-script-build.ts src/scripts/dry-run-step03.ts src/scripts/dry-run-step04-05.ts src/scripts/gemini-run-step03.ts --bundle=false --format=esm --platform=node --target=node20 --outdir=dist --out-extension:.js=.js",
+    "build": "npx esbuild src/index.ts src/types.ts src/lib/sheets-client.ts src/lib/load-runtime-config.ts src/lib/load-project-input.ts src/lib/write-rights-validation.ts src/lib/write-source.ts src/lib/write-scenes.ts src/lib/write-script-full.ts src/lib/write-script-short.ts src/lib/load-rights-validation.ts src/lib/load-source.ts src/lib/load-scenes.ts src/lib/load-script.ts src/lib/update-project.ts src/lib/write-app-log.ts src/lib/load-assets.ts src/lib/build-prompt.ts src/lib/call-gemini.ts src/lib/validate-json.ts src/lib/normalize-ai-row.ts src/lib/apply-fast-pass.ts src/lib/logger.ts src/lib/load-step-mapping.ts src/steps/step01-rights-validation.ts src/steps/step02-source-build.ts src/steps/step03-scenes-build.ts src/steps/step04-05-script-build.ts src/steps/step06-visual-bible.ts src/lib/write-visual-bible.ts src/lib/load-visual-bible.ts src/scripts/dry-run-step03.ts src/scripts/dry-run-step04-05.ts src/scripts/dry-run-step06.ts src/scripts/gemini-run-step03.ts --bundle=false --format=esm --platform=node --target=node20 --outdir=dist --out-extension:.js=.js",
     "dry-run:step03": "node dist/scripts/dry-run-step03.js",
     "dry-run:step03:tsx": "npx tsx scripts/dry-run-step03.ts",
     "dry-run:step04-05": "node dist/scripts/dry-run-step04-05.js",
+    "dry-run:step06": "node dist/scripts/dry-run-step06.js",
     "gemini-run:step03": "node dist/scripts/gemini-run-step03.js",
     "gemini-run:step03:multi": "PROJECT_IDS=PJT-001,PJT-002 node dist/scripts/gemini-run-step03.js",
     "typecheck": "tsc --noEmit",
