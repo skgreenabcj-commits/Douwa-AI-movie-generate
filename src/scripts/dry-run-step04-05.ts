@@ -207,6 +207,7 @@ for (const projectId of projectIds) {
         const options: GeminiCallOptions = {
           apiKey: geminiApiKey,
           primaryModel: "gemini-2.5-pro",
+          secondaryModel: "gemini-2.5-pro",
           maxOutputTokens: 32768,
         };
         console.log("[GEMINI] Calling Gemini for Full Script...");
@@ -274,6 +275,7 @@ for (const projectId of projectIds) {
         const options: GeminiCallOptions = {
           apiKey: geminiApiKey,
           primaryModel: "gemini-2.5-pro",
+          secondaryModel: "gemini-2.5-pro",
           maxOutputTokens: 32768,
         };
         console.log("[GEMINI] Calling Gemini for Short Script...");

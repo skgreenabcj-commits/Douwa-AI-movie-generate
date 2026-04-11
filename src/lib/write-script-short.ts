@@ -31,7 +31,7 @@ import type { ScriptShortRow } from "../types.js";
 const SHEET_NAME = "03_Script_Short";
 
 // 03_Script_Short の書き込み列順（GSS の実ヘッダー順に厳密に合わせる）
-const SCRIPT_SHORT_HEADERS: Array<keyof ScriptShortRow> = [
+const SCRIPT_SHORT_HEADERS: Array<Extract<keyof ScriptShortRow, string>> = [
   "project_id",
   "record_id",
   "generation_status",

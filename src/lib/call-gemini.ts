@@ -29,6 +29,8 @@ export interface GeminiCallOptions {
   secondaryModel: string;
   /** STEP_03 専用: 2nd fallback モデル（省略時は secondaryModel で止まる） */
   tertiaryModel?: string;
+  /** 最大出力トークン数。未指定時は callGeminiOnce のデフォルト (16384) を使用。 */
+  maxOutputTokens?: number;
 }
 
 export interface GeminiResult {
@@ -49,13 +51,16 @@ export async function callGemini(
   prompt: string,
   options: GeminiCallOptions
 ): Promise<GeminiResult> {
+  const maxOutputTokens = options.maxOutputTokens ?? 16384;
+
   // Primary model を試みる
   try {
     const text = await callGeminiModel(
       prompt,
       options.primaryModel,
       options.apiKey,
-      MAX_RETRIES
+      MAX_RETRIES,
+      maxOutputTokens
     );
     return { text, modelUsed: options.primaryModel, usedFallback: false };
   } catch (primaryError) {
@@ -79,7 +84,8 @@ export async function callGemini(
       prompt,
       options.secondaryModel,
       options.apiKey,
-      MAX_RETRIES
+      MAX_RETRIES,
+      maxOutputTokens
     );
     return { text, modelUsed: options.secondaryModel, usedFallback: true };
   } catch (secondaryError) {
@@ -101,7 +107,8 @@ export async function callGemini(
     prompt,
     options.tertiaryModel!,
     options.apiKey,
-    MAX_RETRIES
+    MAX_RETRIES,
+    maxOutputTokens
   );
   return { text, modelUsed: options.tertiaryModel!, usedFallback: true };
 }
@@ -114,13 +121,14 @@ async function callGeminiModel(
   prompt: string,
   model: string,
   apiKey: string,
-  retries: number
+  retries: number,
+  maxOutputTokens = 16384
 ): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await callGeminiOnce(prompt, model, apiKey);
+      return await callGeminiOnce(prompt, model, apiKey, maxOutputTokens);
     } catch (err) {
       lastError = err;
       if (attempt < retries) {
@@ -140,7 +148,8 @@ async function callGeminiModel(
 async function callGeminiOnce(
   prompt: string,
   model: string,
-  apiKey: string
+  apiKey: string,
+  maxOutputTokens = 16384
 ): Promise<string> {
   const url = `${GEMINI_API_BASE}/${model}:generateContent?key=${apiKey}`;
 
@@ -154,7 +163,7 @@ async function callGeminiOnce(
     generationConfig: {
       temperature: 0.1,
       topP: 0.95,
-      maxOutputTokens: 16384,
+      maxOutputTokens,
       response_mime_type: "application/json",
     },
   };

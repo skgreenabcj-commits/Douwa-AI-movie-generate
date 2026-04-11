@@ -31,7 +31,7 @@ import type { ScriptFullRow } from "../types.js";
 const SHEET_NAME = "04_Script_Full";
 
 // 04_Script_Full の書き込み列順（GSS の実ヘッダー順に厳密に合わせる）
-const SCRIPT_FULL_HEADERS: Array<keyof ScriptFullRow> = [
+const SCRIPT_FULL_HEADERS: Array<Extract<keyof ScriptFullRow, string>> = [
   "project_id",
   "record_id",
   "generation_status",

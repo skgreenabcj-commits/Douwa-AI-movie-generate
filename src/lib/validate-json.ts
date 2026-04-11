@@ -20,7 +20,7 @@
  *     expectedCount を受け取り、AI 出力件数と一致しない場合は fail を返す
  */
 
-import Ajv from "ajv";
+import Ajv, { type ValidateFunction } from "ajv";
 import type {
   RightsValidationAiRow,
   SourceAiRow,
@@ -29,13 +29,21 @@ import type {
   ScriptShortAiRow,
 } from "../types.js";
 
+// NodeNext + AJV8 でデフォルトエクスポートがコンストラクタとして解決されない場合の型キャスト。
+// InstanceType<typeof Ajv> は NodeNext 環境で型解決が失敗するため、使用するメソッドを直接定義する。
+type AjvLike = {
+  compile: (schema: object) => ValidateFunction;
+  errorsText: (errors: unknown, opts?: { separator?: string }) => string;
+};
+type AjvConstructor = new (opts?: object) => AjvLike;
+
 // Ajv インスタンスはモジュール単位で1つ（Fix #9: 再利用）
-const ajv = new Ajv({ allErrors: true, strict: false });
+const ajv = new (Ajv as unknown as AjvConstructor)({ allErrors: true, strict: false });
 
 // ─── スキーマキャッシュ（Fix #9: compile の再利用） ────────────────────────────
-const schemaCache = new Map<string, ReturnType<typeof ajv.compile>>();
+const schemaCache = new Map<string, ValidateFunction>();
 
-function getValidator(schemaStr: string): ReturnType<typeof ajv.compile> | null {
+function getValidator(schemaStr: string): ValidateFunction | null {
   if (schemaCache.has(schemaStr)) {
     return schemaCache.get(schemaStr)!;
   }
@@ -286,7 +294,9 @@ export function validateScriptFullAiResponse(
       "subtitle_short_1",
       "pause_hint",
     ] as const) {
-      if (!s[field] || s[field].trim() === "") {
+      // index signature により s[field] は unknown になるため string にキャスト
+      const val = s[field] as string;
+      if (!val || val.trim() === "") {
         return {
           success: false,
           errors: `scripts[${i}].${field} is empty (empty_required_field).`,
@@ -385,7 +395,9 @@ export function validateScriptShortAiResponse(
       "subtitle_short_1",
       "transition_note",
     ] as const) {
-      if (!s[field] || s[field].trim() === "") {
+      // index signature により s[field] は unknown になるため string にキャスト
+      const val = s[field] as string;
+      if (!val || val.trim() === "") {
         return {
           success: false,
           errors: `scripts[${i}].${field} is empty (empty_required_field).`,

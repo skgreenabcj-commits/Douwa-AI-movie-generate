@@ -277,6 +277,7 @@ export interface ScriptShortAiRow {
   subtitle_short_2: string;   // required・空文字可（"" は許容。長い scene は 2 行使用、短い scene は "" で返す）
   emphasis_word:    string;   // optional / 空文字可
   transition_note:  string;
+  [key: string]: unknown;     // matchAiOutputToScenes<T extends AiRow> との互換性のため
 }
 
 /**
@@ -321,6 +322,7 @@ export interface ScriptFullAiRow {
   subtitle_short_2: string;   // 論点4: required・空文字可（短い scene は "" で返す）
   visual_emphasis:  string;   // optional / 空文字可
   pause_hint:       string;
+  [key: string]: unknown;     // matchAiOutputToScenes<T extends AiRow> との互換性のため
 }
 
 /**
