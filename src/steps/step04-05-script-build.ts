@@ -14,7 +14,8 @@
  * video_format = "short+full":
  *   STEP_05（Full）→ STEP_04（Short）の順で実行。
  *   ⚠️ STEP_04 は STEP_05 の成功を前提とする。
- *   Full が失敗した場合、Short は「依存関係失敗」として実行しない（Fix #1）。
+ *   Full が失敗した場合、または Full script 読み込み（loadFullScriptByProjectId）に
+ *   失敗・0件の場合、Short は「依存関係失敗」として実行しない（Fix #1）。
  *   理由: short+full モードの Short は Full script を参照しながら tuning する成果物であり、
  *         Full 参照がない状態では intended design を満たさない。
  *
@@ -25,7 +26,9 @@
  * - AI 出力の record_id が全て一致する場合: ID マップで突合（正常ケース）。
  * - record_id 不一致が 1 件でも存在する場合:
  *   - 全 record_id が不一致 → fail（インデックス順フォールバック禁止）
- *   - 不一致が全体の 20% 以下かつ件数一致 → 警告ログを出してインデックス順フォールバック許容
+ *   - 不一致が全体の 20% 以下かつ件数一致 → デフォルト fail-fast。
+ *     94_Runtime_Config の allow_record_id_index_fallback = "true" の場合のみ
+ *     警告ログを出してインデックス順フォールバックを許容。
  *   - 上記以外 → fail
  *
  * ─── short_use=Y 0 件（Fix #6）───────────────────────────────────────────────
@@ -60,7 +63,7 @@ import type {
   ScriptShortRow,
   ScriptFullReadRow,
 } from "../types.js";
-import { loadRuntimeConfig } from "../lib/load-runtime-config.js";
+import { loadRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
 import { readProjectsByIds } from "../lib/load-project-input.js";
 import { loadScenesByProjectId } from "../lib/load-scenes.js";
 import { loadFullScriptByProjectId } from "../lib/load-script.js";
@@ -110,7 +113,8 @@ type AiRow = { record_id: string; [key: string]: unknown };
 function matchAiOutputToScenes<T extends AiRow>(
   aiRows: T[],
   sceneRows: SceneReadRow[],
-  stepLabel: string
+  stepLabel: string,
+  allowIndexFallback: boolean
 ): Array<{ ai: T; scene: SceneReadRow }> | null {
   // 件数は validateScript*AiResponse(expectedCount) で事前に保証済み。
   // 万一ここで不一致になった場合も fail-fast とする。
@@ -143,9 +147,9 @@ function matchAiOutputToScenes<T extends AiRow>(
     return result; // 正常ケース
   }
 
-  // 不一致が 20% 以下 かつ 件数一致 → インデックス順フォールバック許容
+  // index fallback は allowIndexFallback が有効 かつ mismatch ≤ 20% の場合のみ許容
   const mismatchRate = mismatches.length / aiRows.length;
-  if (mismatchRate <= 0.2) {
+  if (allowIndexFallback && mismatchRate <= 0.2) {
     logError(
       `[${stepLabel}] record_id mismatch: ${mismatches.length}/${aiRows.length} rows ` +
       `(${(mismatchRate * 100).toFixed(0)}%). Falling back to index order for mismatched rows.`
@@ -169,10 +173,13 @@ function matchAiOutputToScenes<T extends AiRow>(
     return fallbackResult;
   }
 
-  // 20% 超 → fail
+  // index fallback 無効、または 20% 超 → fail
   logError(
-    `[${stepLabel}] record_id mismatch rate too high: ${mismatches.length}/${aiRows.length}. ` +
-    `Refusing to upsert to prevent data corruption.`
+    `[${stepLabel}] record_id mismatch: ${mismatches.length}/${aiRows.length}. ` +
+    (!allowIndexFallback
+      ? "Index fallback is disabled (allow_record_id_index_fallback not set in 94_Runtime_Config). "
+      : "Mismatch rate too high (>20%). ") +
+    "Refusing to upsert to prevent data corruption."
   );
   return null;
 }
@@ -194,6 +201,11 @@ export async function runStep04_05ScriptBuild(
 
   const geminiOptionsStep05 = buildGeminiOptionsStep05(configMap);
   const geminiOptionsStep04 = buildGeminiOptionsStep04(configMap);
+
+  // record_id mismatch fallback is disabled by default (fail-fast).
+  // Enable only when 94_Runtime_Config has allow_record_id_index_fallback = "true".
+  const allowIndexFallback =
+    getConfigValue(configMap, "allow_record_id_index_fallback", "false") === "true";
 
   const targetIds = payload.project_ids.slice(0, payload.max_items);
   const projects = await readProjectsByIds(spreadsheetId, targetIds);
@@ -314,7 +326,7 @@ export async function runStep04_05ScriptBuild(
               buildStep05FailureLog(projectId, projectRecordId, "schema_validation_failure", msg)
             );
           } else {
-            const matched = matchAiOutputToScenes(validation.scripts, fullScenes, "STEP_05");
+            const matched = matchAiOutputToScenes(validation.scripts, fullScenes, "STEP_05", allowIndexFallback);
             if (!matched) {
               const msg = "[STEP_05] record_id_mismatch: match failed. Aborting Full upsert.";
               logError(msg);
@@ -444,13 +456,41 @@ export async function runStep04_05ScriptBuild(
               try {
                 fullScripts = await loadFullScriptByProjectId(spreadsheetId, projectId);
                 hasFullScript = fullScripts.length > 0;
-              } catch (_) {
-                logInfo("[STEP_04] loadFullScriptByProjectId failed. Proceeding without Full reference.");
-                hasFullScript = false;
+                if (!hasFullScript) {
+                  // Full rows が 0 件 → Short は Full 参照前提のため dependency failure として skip
+                  const msg =
+                    "[STEP_04] loadFullScriptByProjectId returned 0 rows. " +
+                    "Short Script requires Full reference in short+full mode. Skipping.";
+                  logError(msg);
+                  try {
+                    await appendAppLog(
+                      spreadsheetId,
+                      buildStep04DependencySkippedLog(projectId, projectRecordId, msg)
+                    );
+                  } catch (_) { /* ignore */ }
+                  shortResult = "skipped";
+                }
+              } catch (err) {
+                // load 失敗 → Full 参照不能 → dependency failure として skip
+                const msg =
+                  `[STEP_04] loadFullScriptByProjectId failed: ` +
+                  `${err instanceof Error ? err.message : String(err)}. ` +
+                  "Short Script requires Full reference in short+full mode. Skipping.";
+                logError(msg);
+                try {
+                  await appendAppLog(
+                    spreadsheetId,
+                    buildStep04DependencySkippedLog(projectId, projectRecordId, msg)
+                  );
+                } catch (_) { /* ignore */ }
+                shortResult = "skipped";
               }
             }
             // video_format = "short" → hasFullScript = false（仕様 §4.5）
 
+            if (shortResult === "skipped") {
+              // Full 参照不能による dependency skip は上で AppLog 記録済み
+            } else {
             logInfo(
               `[STEP_04] Starting Short Script Build. ` +
               `short_use_count=${shortUseCount}, has_full_script=${hasFullScript}`
@@ -494,7 +534,7 @@ export async function runStep04_05ScriptBuild(
                 );
                 shortResult = "fail";
               } else {
-                const matched = matchAiOutputToScenes(validation.scripts, shortScenes, "STEP_04");
+                const matched = matchAiOutputToScenes(validation.scripts, shortScenes, "STEP_04", allowIndexFallback);
                 if (!matched) {
                   const msg = "[STEP_04] record_id_mismatch: match failed. Aborting Short upsert.";
                   logError(msg);
@@ -565,6 +605,7 @@ export async function runStep04_05ScriptBuild(
                 }
               }
             }
+            } // closes: if (shortResult === "skipped") else
           }
         } catch (e) {
           if (e instanceof GeminiSpendingCapError) {

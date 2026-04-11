@@ -8,3 +8,4 @@
 - step_01_prompt_version
 - copyright_policy_jp_v1
 - rights_review_policy_v1
+- allow_record_id_index_fallback  # "true" のときのみ 20% index fallback を許容。デフォルト無効（fail-fast）

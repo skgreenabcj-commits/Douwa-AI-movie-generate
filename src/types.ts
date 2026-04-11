@@ -163,8 +163,9 @@ export interface SourceReadRow {
  * AI が返す Scenes Build の scene 1件（スキーマ: scene_build_schema_ai_v1）
  *
  * scene_no はシステム側（write-scenes.ts）で付与する（project_id ごとの通し番号）。
- * scene_order も AI 出力に含まれず、システム内部で採番する（record_id 生成用）。
- * どちらも GSS Field_Master に存在する列ではあるが、AI には返させない。
+ *   - GSS 02_Scenes に存在する列。AI には返させない。
+ * scene_order はシステム内部専用の整数インデックス（record_id 生成用）。
+ *   - GSS 02_Scenes には存在しない列。write-scenes.ts で採番し、GSS には書き込まない。
  * short_use / full_use は "Y" | "N" のみ（スキーマ enum 準拠）。
  */
 export interface SceneAiRow {
