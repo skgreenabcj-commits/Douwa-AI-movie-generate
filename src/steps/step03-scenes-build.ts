@@ -110,7 +110,7 @@ export async function runStep03ScenesBuild(
       const fullTargetSec = parseInt(fullTargetSecStr, 10);
       if (isNaN(fullTargetSec) || fullTargetSec <= 0) {
         throw new Error(
-          `project_id "${projectId}": full_target_sec is invalid ("${fullTargetSecStr}"). Expected 60-480.`
+          `project_id "${projectId}": full_target_sec is invalid ("${fullTargetSecStr}"). Expected 60-1200.`
         );
       }
       if (shortTargetSecStr && isNaN(parseInt(shortTargetSecStr, 10))) {

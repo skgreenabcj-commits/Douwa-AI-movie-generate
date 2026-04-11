@@ -94,8 +94,8 @@ STEP_01 / STEP_02 と同一の実行経路を採用する。
 | `project_id` | **Mandatory** | 案件識別 |
 | `title_jp` | **Mandatory** | 作品タイトル |
 | `target_age` | **Mandatory** | scene 粒度・語彙・尺算出に直結（2-3 / 4-6 / 6-8 の3区分） |
-| `short_target_sec` | **Mandatory** | Short版 動画尺（60〜480秒、30秒刻み）。rough estimate の基準。 |
-| `full_target_sec` | **Mandatory** | Full版 動画尺（60〜480秒、30秒刻み）。scene 数算出の基準。 |
+| `short_target_sec` | **Mandatory** | Short版 動画尺（60〜1200秒、30秒刻み）。rough estimate の基準。 |
+| `full_target_sec` | **Mandatory** | Full版 動画尺（60〜1200秒、30秒刻み）。scene 数算出の基準。 |
 | `visual_style` | Optional | 映像化方針の補足 |
 
 **`01_Source` から渡す列**:

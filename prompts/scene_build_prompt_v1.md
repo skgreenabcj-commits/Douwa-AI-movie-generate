@@ -25,8 +25,8 @@ STEP_03 Scene Build（後工程を支える scene master 生成）
 - project_id: 案件ID
 - title_jp: 日本語タイトル（作品名）
 - target_age: 対象年齢区分（2-3 / 4-6 / 6-8 の3区分）
-- short_target_sec: Short版 動画の目標尺（秒、60〜480、30秒刻み）。rough estimate の基準。
-- full_target_sec: Full版 動画の目標尺（秒、60〜480、30秒刻み）。scene 数算出の基準。
+- short_target_sec: Short版 動画の目標尺（秒、60〜1200、30秒刻み）。rough estimate の基準。
+- full_target_sec: Full版 動画の目標尺（秒、60〜1200、30秒刻み）。scene 数算出の基準。
 - visual_style: 映像化の方向性（参考情報）
 - adaptation_policy: 現代語化・脚色方針（最重要 — scene 設計の根幹）
 - language_style: 言語スタイル方針
