@@ -47,13 +47,6 @@ export async function loadRuntimeConfig(
   // 各 Secret が設定されている場合、GSS の値を上書きする。
   // GitHub Secret を run-step.yml 経由で渡すことで GSS を編集せずに切り替えられる。
 
-  // API キーのオーバーライド
-  const geminiKeyOverride = (process.env["GEMINI_API_KEY_OVERRIDE"] ?? "").trim();
-  if (geminiKeyOverride) {
-    console.log("[INFO] GEMINI_API_KEY_OVERRIDE detected — overriding gemini_api_key from environment.");
-    configMap.set("gemini_api_key", geminiKeyOverride);
-  }
-
   // プライマリモデルのオーバーライド（RPD 上限枯渇時などに使用）
   // step_01_model_role / step_02_model_role の両方を同じ値で上書きする
   const primaryModelOverride = (process.env["GEMINI_PRIMARY_MODEL_OVERRIDE"] ?? "").trim();
