@@ -204,6 +204,7 @@ async function callGeminiOnce(
   const requestBody = {
     contents: [
       {
+        role: "user",
         parts: [{ text: prompt }],
       },
     ],
@@ -502,6 +503,7 @@ export async function generateImageStep07(
   const requestBody = {
     contents: [
       {
+        role: "user",
         parts: [{ text: fullPromptText }],
       },
     ],
