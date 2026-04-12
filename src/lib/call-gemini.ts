@@ -1,30 +1,85 @@
 /**
  * call-gemini.ts
  *
- * Gemini API クライアント。
- * - 94_Runtime_Config から取得した API key / model 名を使用
- * - primary model で失敗した場合のみ secondary model に fallback
+ * Gemini API クライアント（Vertex AI エンドポイント）。
+ * - 認証: GOOGLE_SERVICE_ACCOUNT_JSON によるサービスアカウント Bearer トークン
+ * - エンドポイント: {LOCATION}-aiplatform.googleapis.com
+ * - primary model で失敗した場合のみ secondary / tertiary model に fallback
  * - タイムアウト / 最小リトライを実装
  *
- * 制約（指示書 §3, §7）:
- * - gemini_api_key: 94_Runtime_Config の "gemini_api_key" から取得
- * - primary model : "step_01_model_role" key の value（フォールバック: "gemini-2.5-pro"）
- * - secondary model: "model_role_text_pro" key の value（フォールバック: "gemini-2.0-pro"）
- *
- * 指示書 §7 のモデル方針:
- *   primary   = gemini-2.5-pro
- *   secondary = gemini-2.0-pro  ← flash ではなく pro
+ * 環境変数:
+ *   GOOGLE_CLOUD_PROJECT  - GCP プロジェクト ID
+ *   GOOGLE_CLOUD_LOCATION - Vertex AI リージョン（デフォルト: asia-northeast1）
+ *   GOOGLE_SERVICE_ACCOUNT_JSON - サービスアカウント認証情報 JSON
  */
 
-const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_PRIMARY_MODEL = "gemini-2.5-pro";
-const DEFAULT_SECONDARY_MODEL = "gemini-2.0-pro"; // 指示書 §7 に従い pro を使用
-const REQUEST_TIMEOUT_MS = 120_000; // 2 分
-const MAX_RETRIES = 1;
-const RETRY_BACKOFF_MS = 10_000; // 429 レート制限対策: リトライ前に 10 秒待機
+import { google } from "googleapis";
+import type { RuntimeConfigMap } from "../types.js";
+import { getConfigValue } from "./load-runtime-config.js";
+
+// ─── Vertex AI 設定 ───────────────────────────────────────────────────────────
+
+const VERTEX_AI_LOCATION = process.env["GOOGLE_CLOUD_LOCATION"] ?? "asia-northeast1";
+const VERTEX_AI_PROJECT  = process.env["GOOGLE_CLOUD_PROJECT"]  ?? "";
+
+function buildVertexAiUrl(model: string): string {
+  if (!VERTEX_AI_PROJECT) {
+    throw new Error("GOOGLE_CLOUD_PROJECT environment variable is not set.");
+  }
+  return (
+    `https://${VERTEX_AI_LOCATION}-aiplatform.googleapis.com/v1` +
+    `/projects/${VERTEX_AI_PROJECT}` +
+    `/locations/${VERTEX_AI_LOCATION}` +
+    `/publishers/google/models/${model}:generateContent`
+  );
+}
+
+// ─── アクセストークンキャッシュ ───────────────────────────────────────────────
+
+let _tokenCache: { token: string; expiresAt: number } | null = null;
+
+/**
+ * GOOGLE_SERVICE_ACCOUNT_JSON からサービスアカウントの Bearer トークンを取得する。
+ * 有効期限の 1 分前までキャッシュを使い回す。
+ */
+async function getAccessToken(): Promise<string> {
+  const now = Date.now();
+  if (_tokenCache && now < _tokenCache.expiresAt - 60_000) {
+    return _tokenCache.token;
+  }
+
+  const raw = process.env["GOOGLE_SERVICE_ACCOUNT_JSON"];
+  if (!raw) {
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set.");
+  }
+
+  const credentials = JSON.parse(raw) as object;
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+
+  const token = await auth.getAccessToken();
+  if (!token) {
+    throw new Error("Failed to obtain Vertex AI access token from service account.");
+  }
+
+  // アクセストークンの有効期間は通常 1 時間（3600 秒）
+  _tokenCache = { token, expiresAt: now + 3_600_000 };
+  return token;
+}
+
+// ─── 定数 ─────────────────────────────────────────────────────────────────────
+
+const DEFAULT_PRIMARY_MODEL   = "gemini-2.5-pro";
+const DEFAULT_SECONDARY_MODEL = "gemini-2.0-pro";
+const REQUEST_TIMEOUT_MS      = 120_000; // 2 分
+const MAX_RETRIES              = 1;
+const RETRY_BACKOFF_MS         = 10_000; // 429 レート制限対策: リトライ前に 10 秒待機
+
+// ─── 公開インターフェース ─────────────────────────────────────────────────────
 
 export interface GeminiCallOptions {
-  apiKey: string;
   primaryModel: string;
   secondaryModel: string;
   /** STEP_03 専用: 2nd fallback モデル（省略時は secondaryModel で止まる） */
@@ -40,12 +95,8 @@ export interface GeminiResult {
 }
 
 /**
- * Gemini API を呼び出す。
- * primary model 失敗時のみ secondary model に fallback する。
- *
- * @param prompt  - アセンブル済みのプロンプト文字列
- * @param options - API key / model 設定
- * @returns Gemini の応答テキストと使用モデル情報
+ * Gemini API（Vertex AI）を呼び出す。
+ * primary model 失敗時のみ secondary / tertiary model に fallback する。
  */
 export async function callGemini(
   prompt: string,
@@ -58,13 +109,11 @@ export async function callGemini(
     const text = await callGeminiModel(
       prompt,
       options.primaryModel,
-      options.apiKey,
       MAX_RETRIES,
       maxOutputTokens
     );
     return { text, modelUsed: options.primaryModel, usedFallback: false };
   } catch (primaryError) {
-    // Spending Cap は全モデル共通のブロックなのでフォールバック不要
     if (primaryError instanceof GeminiSpendingCapError) {
       console.error(
         `[ERROR] Spending Cap exceeded — skipping fallback. ` +
@@ -78,12 +127,11 @@ export async function callGemini(
     );
   }
 
-  // Secondary model (1st fallback) — RPM/RPD 超過時のみここへ到達
+  // Secondary model (1st fallback)
   try {
     const text = await callGeminiModel(
       prompt,
       options.secondaryModel,
-      options.apiKey,
       MAX_RETRIES,
       maxOutputTokens
     );
@@ -92,7 +140,6 @@ export async function callGemini(
     if (secondaryError instanceof GeminiSpendingCapError) {
       throw secondaryError;
     }
-    // tertiaryModel が設定されていなければここで諦める
     if (!options.tertiaryModel) {
       throw secondaryError;
     }
@@ -102,11 +149,10 @@ export async function callGemini(
     );
   }
 
-  // Tertiary model (2nd fallback) — STEP_03 専用: flash 系への最終フォールバック
+  // Tertiary model (2nd fallback) — STEP_03 専用
   const text = await callGeminiModel(
     prompt,
     options.tertiaryModel!,
-    options.apiKey,
     MAX_RETRIES,
     maxOutputTokens
   );
@@ -114,13 +160,11 @@ export async function callGemini(
 }
 
 /**
- * 指定モデルで Gemini API を呼び出す。
- * retries 回数だけリトライする（最初の試みを含む）。
+ * 指定モデルで Gemini API を呼び出す。retries 回数だけリトライする。
  */
 async function callGeminiModel(
   prompt: string,
   model: string,
-  apiKey: string,
   retries: number,
   maxOutputTokens = 16384
 ): Promise<string> {
@@ -128,11 +172,10 @@ async function callGeminiModel(
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await callGeminiOnce(prompt, model, apiKey, maxOutputTokens);
+      return await callGeminiOnce(prompt, model, maxOutputTokens);
     } catch (err) {
       lastError = err;
       if (attempt < retries) {
-        // 簡易バックオフ（RETRY_BACKOFF_MS 待機: 429 レート制限対策）
         await sleep(RETRY_BACKOFF_MS);
       }
     }
@@ -142,17 +185,15 @@ async function callGeminiModel(
 }
 
 /**
- * Gemini API を 1 回呼び出す。
- * タイムアウト付き fetch を使用する。
+ * Gemini API（Vertex AI）を 1 回呼び出す。タイムアウト付き fetch を使用する。
  */
 async function callGeminiOnce(
   prompt: string,
   model: string,
-  apiKey: string,
   maxOutputTokens = 16384
 ): Promise<string> {
-  const url = `${GEMINI_API_BASE}/${model}:generateContent?key=${apiKey}`;
-
+  const url = buildVertexAiUrl(model);
+  const token = await getAccessToken();
 
   const requestBody = {
     contents: [
@@ -175,7 +216,10 @@ async function callGeminiOnce(
   try {
     response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
@@ -186,11 +230,7 @@ async function callGeminiOnce(
   if (!response.ok) {
     const errorBody = await response.text().catch(() => "(no body)");
 
-    // Spending Cap 超過を個別に識別して明確なメッセージを出す
-    if (
-      response.status === 429 &&
-      errorBody.includes("spending cap")
-    ) {
+    if (response.status === 429 && errorBody.includes("spending cap")) {
       throw new GeminiSpendingCapError(
         `Gemini API: Spending Cap exceeded (HTTP 429). ` +
         `Please raise the cap in Google Cloud Console. ` +
@@ -199,7 +239,7 @@ async function callGeminiOnce(
     }
 
     throw new Error(
-      `Gemini API returned HTTP ${response.status}: ${errorBody}`
+      `Gemini API (Vertex AI) returned HTTP ${response.status}: ${errorBody}`
     );
   }
 
@@ -217,8 +257,6 @@ async function callGeminiOnce(
 
 /**
  * Google Cloud プロジェクトの Spending Cap（支出上限）超過エラー。
- * RPM/RPD 制限とは異なり、上限引き上げまで全モデルで発生するため
- * フォールバックを行わず即座に上位へ伝播させる。
  */
 export class GeminiSpendingCapError extends Error {
   constructor(message: string) {
@@ -242,7 +280,6 @@ interface GeminiApiResponse {
 }
 
 function extractTextFromGeminiResponse(json: GeminiApiResponse): string {
-  // promptFeedback でブロックされた場合
   if (json.promptFeedback?.blockReason) {
     throw new Error(
       `Gemini response was blocked: ${json.promptFeedback.blockReason}`
@@ -264,14 +301,10 @@ function sleep(ms: number): Promise<void> {
 
 // ─── Model key resolver ───────────────────────────────────────────────────────
 
-import type { RuntimeConfigMap } from "../types.js";
-import { getConfigValue } from "./load-runtime-config.js";
-
 /**
  * STEP_01 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
  */
 export function buildGeminiOptions(configMap: RuntimeConfigMap): GeminiCallOptions {
-  const apiKey = getConfigValue(configMap, "gemini_api_key");
   const primaryModel = getConfigValue(
     configMap,
     "step_01_model_role",
@@ -283,23 +316,18 @@ export function buildGeminiOptions(configMap: RuntimeConfigMap): GeminiCallOptio
     DEFAULT_SECONDARY_MODEL
   );
 
-  return { apiKey, primaryModel, secondaryModel };
+  return { primaryModel, secondaryModel };
 }
 
 /**
  * STEP_02 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
- * primary model キー  : step_02_model_role   (デフォルト: gemini-2.5-pro)
- * secondary model キー: model_role_text_flash_seconday (デフォルト: gemini-2.0-flash)
- *   ※ pro 系が RPM 429 になった場合に flash 系へフォールバックする。
  */
 export function buildGeminiOptionsStep02(configMap: RuntimeConfigMap): GeminiCallOptions {
-  const apiKey = getConfigValue(configMap, "gemini_api_key");
   const primaryModel = getConfigValue(
     configMap,
     "step_02_model_role",
     DEFAULT_PRIMARY_MODEL
   );
-  // フォールバックは flash 系（軽量・独立したレート制限枠）
   const secondaryModel = getConfigValue(
     configMap,
     "model_role_text_flash_seconday",
@@ -310,31 +338,28 @@ export function buildGeminiOptionsStep02(configMap: RuntimeConfigMap): GeminiCal
   console.info(`  primaryModel: '${primaryModel}',`);
   console.info(`  secondaryModel: '${secondaryModel}'`);
 
-  return { apiKey, primaryModel, secondaryModel };
+  return { primaryModel, secondaryModel };
 }
 
 /**
  * STEP_03 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
  *
  * fallback 構成（仕様書 §8 準拠）:
- *   primary   : step_03_model_role          (デフォルト: gemini-2.5-pro)
- *   1st fallback: model_role_text_pro       (デフォルト: gemini-2.0-pro)
- *   2nd fallback: model_role_text_flash_seconday (デフォルト: gemini-2.0-flash)
+ *   primary      : step_03_model_role
+ *   1st fallback : model_role_text_pro
+ *   2nd fallback : model_role_text_flash_seconday
  */
 export function buildGeminiOptionsStep03(configMap: RuntimeConfigMap): GeminiCallOptions {
-  const apiKey = getConfigValue(configMap, "gemini_api_key");
   const primaryModel = getConfigValue(
     configMap,
     "step_03_model_role",
     DEFAULT_PRIMARY_MODEL
   );
-  // 1st fallback: pro 系（STEP_01 と共通キー）
   const secondaryModel = getConfigValue(
     configMap,
     "model_role_text_pro",
     "gemini-3.1-pro-preview"
   );
-  // 2nd fallback: flash 系（最終手段）
   const tertiaryModel = getConfigValue(
     configMap,
     "model_role_text_flash_seconday",
@@ -346,22 +371,16 @@ export function buildGeminiOptionsStep03(configMap: RuntimeConfigMap): GeminiCal
   console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
   console.info(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
 
-  return { apiKey, primaryModel, secondaryModel, tertiaryModel };
+  return { primaryModel, secondaryModel, tertiaryModel };
 }
 
 /**
  * STEP_05 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
  *
  * Full Script は全 scene を 1 呼び出しで一括生成するため、
- * maxOutputTokens は STEP_03 の 2 倍（32768）に設定する（不明点2）。
- *
- * fallback 構成:
- *   primary      : step_05_model_role           (デフォルト: gemini-2.5-pro)
- *   1st fallback : model_role_text_pro          (デフォルト: gemini-2.0-pro)
- *   2nd fallback : model_role_text_flash_seconday (デフォルト: gemini-2.0-flash)
+ * maxOutputTokens は STEP_03 の 2 倍（32768）に設定する。
  */
 export function buildGeminiOptionsStep05(configMap: RuntimeConfigMap): GeminiCallOptions {
-  const apiKey = getConfigValue(configMap, "gemini_api_key");
   const primaryModel = getConfigValue(
     configMap,
     "step_05_model_role",
@@ -383,22 +402,13 @@ export function buildGeminiOptionsStep05(configMap: RuntimeConfigMap): GeminiCal
   console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
   console.info(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
 
-  return { apiKey, primaryModel, secondaryModel, tertiaryModel };
+  return { primaryModel, secondaryModel, tertiaryModel };
 }
 
 /**
  * STEP_04 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
- *
- * Short Script は short_use=Y の scene のみを一括生成する。
- * maxOutputTokens は 32768。
- *
- * fallback 構成:
- *   primary      : step_04_model_role           (デフォルト: gemini-2.5-pro)
- *   1st fallback : model_role_text_pro          (デフォルト: gemini-2.0-pro)
- *   2nd fallback : model_role_text_flash_seconday (デフォルト: gemini-2.0-flash)
  */
 export function buildGeminiOptionsStep04(configMap: RuntimeConfigMap): GeminiCallOptions {
-  const apiKey = getConfigValue(configMap, "gemini_api_key");
   const primaryModel = getConfigValue(
     configMap,
     "step_04_model_role",
@@ -420,22 +430,13 @@ export function buildGeminiOptionsStep04(configMap: RuntimeConfigMap): GeminiCal
   console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
   console.info(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
 
-  return { apiKey, primaryModel, secondaryModel, tertiaryModel };
+  return { primaryModel, secondaryModel, tertiaryModel };
 }
 
 /**
  * STEP_06 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
- *
- * Visual Bible はプロジェクト全体を 1 プロンプトで一括生成する。
- * maxOutputTokens は呼び出し側で 32768 を指定する。
- *
- * fallback 構成:
- *   primary      : step_06_model_role  (未登録時は model_role_text_pro の値にフォールバック)
- *   1st fallback : model_role_text_pro (デフォルト: gemini-2.0-pro)
  */
 export function buildGeminiOptionsStep06(configMap: RuntimeConfigMap): GeminiCallOptions {
-  const apiKey = getConfigValue(configMap, "gemini_api_key");
-  // step_06_model_role 未登録時は model_role_text_pro の値を primary に使う
   const fallbackPrimary = getConfigValue(configMap, "model_role_text_pro", DEFAULT_PRIMARY_MODEL);
   const primaryModel = getConfigValue(configMap, "step_06_model_role", fallbackPrimary);
   const secondaryModel = getConfigValue(configMap, "model_role_text_pro", "gemini-2.0-pro");
@@ -444,7 +445,7 @@ export function buildGeminiOptionsStep06(configMap: RuntimeConfigMap): GeminiCal
   console.info(`  primaryModel:   '${primaryModel}'`);
   console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
 
-  return { apiKey, primaryModel, secondaryModel };
+  return { primaryModel, secondaryModel };
 }
 
 /**
@@ -452,13 +453,8 @@ export function buildGeminiOptionsStep06(configMap: RuntimeConfigMap): GeminiCal
  *
  * Image Prompts のプロンプトパーツ生成（テキスト）に使用する。
  * 画像生成自体は generateImageStep07() で別途呼び出す。
- *
- * fallback 構成:
- *   primary      : step_07_model_role  (未登録時は model_role_text_pro にフォールバック)
- *   1st fallback : model_role_text_pro (デフォルト: gemini-2.0-pro)
  */
 export function buildGeminiOptionsStep07(configMap: RuntimeConfigMap): GeminiCallOptions {
-  const apiKey = getConfigValue(configMap, "gemini_api_key");
   const fallbackPrimary = getConfigValue(configMap, "model_role_text_pro", DEFAULT_PRIMARY_MODEL);
   const primaryModel = getConfigValue(configMap, "step_07_model_role", fallbackPrimary);
   const secondaryModel = getConfigValue(configMap, "model_role_text_pro", "gemini-2.0-pro");
@@ -467,34 +463,32 @@ export function buildGeminiOptionsStep07(configMap: RuntimeConfigMap): GeminiCal
   console.info(`  primaryModel:   '${primaryModel}'`);
   console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
 
-  return { apiKey, primaryModel, secondaryModel };
+  return { primaryModel, secondaryModel };
 }
 
 // ─── Image Generation ─────────────────────────────────────────────────────────
 
-const IMAGE_GEN_MODEL = "gemini-2.0-flash-preview-image-generation";
+const IMAGE_GEN_MODEL      = "gemini-2.0-flash-preview-image-generation";
 const IMAGE_GEN_TIMEOUT_MS = 120_000; // 2 分
 
 /**
- * Gemini Image Generation API を呼び出し PNG バッファを返す。
+ * Gemini Image Generation API（Vertex AI）を呼び出し PNG バッファを返す。
  *
- * モデル: gemini-2.0-flash-preview-image-generation（Nano Banana 2 / Gemini 3.1 Flash Image）
+ * モデル: gemini-2.0-flash-preview-image-generation
  * アスペクト比: 16:9（prompt_base に "16:9 landscape" を含むため prompt 側でも担保済み）
  * レスポンス: candidates[0].content.parts に inlineData（base64 PNG）が含まれる
  *
  * @param promptFull     - 画像生成プロンプト（prompt_full）
  * @param negativePrompt - 禁止要素（negative_prompt）
- * @param apiKey         - Gemini API key
  * @returns PNG バイナリ Buffer
  */
 export async function generateImageStep07(
   promptFull: string,
   negativePrompt: string,
-  apiKey: string
 ): Promise<Buffer> {
-  const url = `${GEMINI_API_BASE}/${IMAGE_GEN_MODEL}:generateContent?key=${apiKey}`;
+  const url = buildVertexAiUrl(IMAGE_GEN_MODEL);
+  const token = await getAccessToken();
 
-  // negative_prompt は prompt テキストの末尾に "Avoid:" として付加する
   const fullPromptText = negativePrompt
     ? `${promptFull}\nAvoid: ${negativePrompt}`
     : promptFull;
@@ -517,7 +511,10 @@ export async function generateImageStep07(
   try {
     response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
@@ -533,13 +530,12 @@ export async function generateImageStep07(
       );
     }
     throw new Error(
-      `Gemini Image API returned HTTP ${response.status}: ${errorBody}`
+      `Gemini Image API (Vertex AI) returned HTTP ${response.status}: ${errorBody}`
     );
   }
 
   const json = (await response.json()) as GeminiApiResponse;
 
-  // レスポンスから base64 画像データを抽出
   const parts = json.candidates?.[0]?.content?.parts;
   if (!parts || parts.length === 0) {
     throw new Error("Gemini Image API returned no parts in response.");
@@ -560,18 +556,9 @@ export async function generateImageStep07(
 /**
  * STEP_09 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
  *
- * Q&A Build は Full / Short それぞれ 1 プロンプトで一括生成する。
- * maxOutputTokens は呼び出し側で 8192 を指定する。
- *
- * fallback 構成:
- *   primary      : step_09_model_role       (未登録時は model_role_text_flash_seconday にフォールバック)
- *   1st fallback : model_role_text_flash_seconday (デフォルト: gemini-2.5-flash)
- *
  * ※ 94_Runtime_Config のキー名は "model_role_text_flash_seconday"（typo のまま使用）
  */
 export function buildGeminiOptionsStep09(configMap: RuntimeConfigMap): GeminiCallOptions {
-  const apiKey = getConfigValue(configMap, "gemini_api_key");
-  // step_09_model_role 未登録時は model_role_text_flash_seconday の値を primary に使う
   const fallbackPrimary = getConfigValue(configMap, "model_role_text_flash_seconday", "gemini-2.5-flash");
   const primaryModel = getConfigValue(configMap, "step_09_model_role", fallbackPrimary);
   const secondaryModel = getConfigValue(configMap, "model_role_text_flash_seconday", "gemini-2.5-flash");
@@ -580,5 +567,5 @@ export function buildGeminiOptionsStep09(configMap: RuntimeConfigMap): GeminiCal
   console.info(`  primaryModel:   '${primaryModel}'`);
   console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
 
-  return { apiKey, primaryModel, secondaryModel };
+  return { primaryModel, secondaryModel };
 }

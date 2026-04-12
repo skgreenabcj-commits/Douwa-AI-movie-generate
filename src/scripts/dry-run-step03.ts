@@ -175,7 +175,6 @@ const MOCK_SOURCES: Record<string, SourceReadRow> = {
 function parseArgs(): {
   projectIds: string[];
   dryRun: boolean;
-  geminiApiKey: string;
   outputDir: string;
 } {
   // CLI 引数で project_id が渡されたら優先
@@ -192,10 +191,9 @@ function parseArgs(): {
   }
 
   const dryRun = (process.env.DRY_RUN ?? "true").toLowerCase() !== "false";
-  const geminiApiKey = (process.env.GEMINI_API_KEY ?? "").trim();
   const outputDir = (process.env.OUTPUT_DIR ?? "").trim();
 
-  return { projectIds, dryRun, geminiApiKey, outputDir };
+  return { projectIds, dryRun, outputDir };
 }
 
 // ─── scene_max_sec / required_scene_count_base の算出 ─────────────────────────
@@ -231,7 +229,7 @@ const LINE_THIN = "-".repeat(80);
 
 // ─── メイン ──────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
-  const { projectIds, dryRun, geminiApiKey, outputDir } = parseArgs();
+  const { projectIds, dryRun, outputDir } = parseArgs();
 
   console.log(LINE);
   console.log(`  STEP_03 テスト実行 — ${dryRun ? "DRY-RUN（プロンプトプレビューのみ）" : "GEMINI 呼び出しあり（GSS 書き込みなし）"}`);
@@ -239,16 +237,9 @@ async function main(): Promise<void> {
   console.log(`  対象 project_ids : ${projectIds.join(", ")}`);
   console.log(`  DRY_RUN          : ${dryRun}`);
   if (!dryRun) {
-    console.log(`  GEMINI_API_KEY   : ${geminiApiKey ? "***設定済み***" : "⚠️  未設定（GEMINI_API_KEY が必要です）"}`);
     if (outputDir) console.log(`  OUTPUT_DIR       : ${outputDir}`);
   }
   console.log(LINE);
-
-  if (!dryRun && !geminiApiKey) {
-    console.error("\n[ERROR] DRY_RUN=false の場合は GEMINI_API_KEY 環境変数が必要です。");
-    console.error("  例: GEMINI_API_KEY=your_key DRY_RUN=false PROJECT_IDS=PJT-001 npm run dry-run:step03\n");
-    process.exit(1);
-  }
 
   // アセットを一度だけ読み込む
   const assets = loadStep03Assets();
@@ -319,7 +310,6 @@ async function main(): Promise<void> {
       console.log(`\n  Gemini を呼び出しています... (${projectId})`);
 
       const geminiOptions: GeminiCallOptions = {
-        apiKey:         geminiApiKey,
         primaryModel:   "gemini-2.5-pro",
         secondaryModel: "gemini-2.0-pro",
         tertiaryModel:  "gemini-2.0-flash",

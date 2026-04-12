@@ -255,8 +255,6 @@ export async function runStep07ImagePrompts(
       const now = new Date();
       const dateStr = toDateString(now);
       const nowIso = now.toISOString();
-      const apiKey = getConfigValue(configMap, "gemini_api_key", "");
-
       let firstUpsertedId = "";
       let successCount = 0;
       let failCount = 0;
@@ -309,7 +307,6 @@ export async function runStep07ImagePrompts(
               const pngBuffer = await generateImageStep07(
                 promptFull,
                 aiRow.negative_prompt,
-                apiKey
               );
               const versionLabel = resolveVersionLabel(scene.short_use, scene.full_use);
               const fileName = `${scene.record_id}_${versionLabel}_${dateStr}.png`;

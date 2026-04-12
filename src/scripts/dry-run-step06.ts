@@ -138,7 +138,6 @@ const projectIds = rawProjectIds
 const isDryRun = (process.env.DRY_RUN ?? "true").toLowerCase() !== "false";
 const videoFormatOverride = (process.env.VIDEO_FORMAT ?? "").trim();
 const outputDir = (process.env.OUTPUT_DIR ?? "").trim();
-const geminiApiKey = (process.env.GEMINI_API_KEY ?? "").trim();
 
 // ─── メイン ───────────────────────────────────────────────────────────────────
 console.log("═".repeat(70));
@@ -204,11 +203,7 @@ for (const projectId of projectIds) {
       console.log("[DRY_RUN] Gemini call skipped.");
       totalPassed++;
     } else {
-      if (!geminiApiKey) {
-        throw new Error("GEMINI_API_KEY is required for DRY_RUN=false");
-      }
       const options: GeminiCallOptions = {
-        apiKey: geminiApiKey,
         primaryModel: "gemini-2.5-pro",
         secondaryModel: "gemini-2.5-pro",
         maxOutputTokens: 32768,
