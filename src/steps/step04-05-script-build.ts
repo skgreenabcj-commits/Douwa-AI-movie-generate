@@ -338,6 +338,7 @@ export async function runStep04_05ScriptBuild(
               const nowStr = new Date().toISOString();
               let scriptCount = 0;
               let durationTotal = 0;
+              let firstUpsertedIdFull = "";
 
               for (const { ai, scene } of matched) {
                 const durationSec = calcDurationSec(ai.narration_tts);
@@ -367,6 +368,7 @@ export async function runStep04_05ScriptBuild(
                 };
 
                 const upsertedId = await upsertScriptFull(spreadsheetId, fullRow);
+                if (!firstUpsertedIdFull) firstUpsertedIdFull = upsertedId;
                 logInfo(`[STEP_05] upserted record_id="${upsertedId}", scene_no="${scene.scene_no}"`);
                 scriptCount++;
               }
@@ -385,7 +387,7 @@ export async function runStep04_05ScriptBuild(
                 `script_count=${scriptCount}, duration_sec_total=${durationTotal}`;
               await appendAppLog(
                 spreadsheetId,
-                buildStep05SuccessLog(projectId, projectRecordId, successMsg)
+                buildStep05SuccessLog(projectId, firstUpsertedIdFull || projectRecordId, successMsg)
               );
 
               logInfo(`[STEP_05] Success. ${successMsg}`);
@@ -546,6 +548,7 @@ export async function runStep04_05ScriptBuild(
                 } else {
                   const nowStr = new Date().toISOString();
                   let scriptCount = 0;
+                  let firstUpsertedIdShort = "";
 
                   for (const { ai, scene } of matched) {
                     const durationSec = calcDurationSec(ai.narration_tts);
@@ -574,6 +577,7 @@ export async function runStep04_05ScriptBuild(
                     };
 
                     const upsertedId = await upsertScriptShort(spreadsheetId, shortRow);
+                    if (!firstUpsertedIdShort) firstUpsertedIdShort = upsertedId;
                     logInfo(`[STEP_04] upserted record_id="${upsertedId}", scene_no="${scene.scene_no}"`);
                     scriptCount++;
                   }
@@ -597,7 +601,7 @@ export async function runStep04_05ScriptBuild(
                     `script_count=${scriptCount}, has_full_script=${hasFullScript}`;
                   await appendAppLog(
                     spreadsheetId,
-                    buildStep04SuccessLog(projectId, projectRecordId, successMsg)
+                    buildStep04SuccessLog(projectId, firstUpsertedIdShort || projectRecordId, successMsg)
                   );
 
                   logInfo(`[STEP_04] Success. ${successMsg}`);

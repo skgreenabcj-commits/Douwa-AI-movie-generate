@@ -277,15 +277,16 @@ export async function runStep06VisualBible(
       logInfo(`[STEP_06] ${summaryMsg}`);
 
       try {
+        const firstRecordId = assigned[0]?.record_id || projectRecordId;
         if (failCount > 0 && successCount === 0) {
           await appendAppLog(
             spreadsheetId,
-            buildStep06FailureLog(projectId, projectRecordId, "all_upsert_failed", summaryMsg)
+            buildStep06FailureLog(projectId, firstRecordId, "all_upsert_failed", summaryMsg)
           );
         } else {
           await appendAppLog(
             spreadsheetId,
-            buildStep06SuccessLog(projectId, projectRecordId, summaryMsg)
+            buildStep06SuccessLog(projectId, firstRecordId, summaryMsg)
           );
         }
       } catch (_) {}
