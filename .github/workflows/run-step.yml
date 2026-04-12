@@ -49,9 +49,9 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          # GSS 94_Runtime_Config の値をシークレットで上書きする（任意）
-          # Secret が空の場合は GSS の値をそのまま使用する
-          GEMINI_API_KEY_OVERRIDE: ${{ secrets.GEMINI_API_KEY }}
+          # Vertex AI エンドポイント設定
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: asia-northeast1
           # プライマリモデルを上書きする（RPD 上限枯渇時などに使用）
           # 例: gemini-2.0-flash (RPD 無制限) / gemini-2.5-pro-exp (RPD 10000)
           GEMINI_PRIMARY_MODEL_OVERRIDE: ${{ secrets.GEMINI_PRIMARY_MODEL }}
