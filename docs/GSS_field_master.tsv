@@ -267,9 +267,9 @@ sheet_name	field_name	field_label	data_type	is_required	role_category	used_as_ai
 10_QA	answer_short	answer_short	string	N	AI_OUTPUT	Y	Y	N	N	N	all	AI生成結果であり、後続AIの入力にもなる		role_sync=done
 10_QA	answer_narration	answer_narration	string	N	AI_OUTPUT	Y	Y	N	N	N	all	AI生成結果であり、後続AIの入力にもなる		role_sync=done
 10_QA	subtitle	subtitle	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
-10_QA	card_visual	card_visual	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
-10_QA	duration_sec	duration_sec	number	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
-10_QA	learning_goal	learning_goal	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
+10_QA	card_visual	card_visual	string	N	UNUSED	N	N	N	N	N	all	STEP_09では使用しない		role_sync=done
+10_QA	duration_sec	duration_sec	number	N	UNUSED	N	N	N	N	N	all	STEP_09では使用しない		role_sync=done
+10_QA	learning_goal	learning_goal	string	N	UNUSED	N	N	N	N	N	all	STEP_09では使用しない		role_sync=done
 10_QA	updated_at	updated_at	datetime	Y	SYSTEM_CONTROL	Y	N	N	N	Y	all	システム制御または案件識別に使う		role_sync=done
 10_QA	updated_by	updated_by	string	Y	SYSTEM_CONTROL	Y	N	N	N	Y	all	システム制御または案件識別に使う		role_sync=done
 10_QA	notes	notes	string	N	HUMAN_REVIEW	Y	N	N	N	N	all	運用上の補助列		role_sync=done

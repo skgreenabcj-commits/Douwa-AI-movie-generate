@@ -6,8 +6,8 @@
  * テンプレート内の {{KEY}} を replacements[KEY] で置換する。
  */
 
-import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow } from "../types.js";
-import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets } from "./load-assets.js";
+import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, QaAiRow } from "../types.js";
+import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets, Step06Assets, Step09Assets } from "./load-assets.js";
 
 /**
  * プレースホルダーを一括置換する汎用関数。
@@ -304,5 +304,135 @@ export function buildStep04Prompt(
     OUTPUT_JSON_SCHEMA: assets.aiSchema,
     OUTPUT_FIELD_GUIDE: assets.outputFieldGuide,
     OUTPUT_EXAMPLE:     assets.aiResponseExample,
+  });
+}
+
+/**
+ * STEP_06 用のプロンプトを組み立てる（Visual Bible Build）。
+ *
+ * テンプレート内のプレースホルダー:
+ * - {{PROJECT_JSON}} : project 情報 + video_format でフィルタ済みの scenes 配列
+ *
+ * scenes 配列に含めるフィールド（論点3: 02_Scenes のみ）:
+ * - scene_no, chapter, scene_title, scene_summary, visual_focus, emotion
+ * - narration_* / subtitle_* / difficult_words / easy_rewrite / est_duration_* は含めない
+ */
+export function buildStep06Prompt(
+  assets: Step06Assets,
+  project: ProjectRow,
+  scenes: SceneReadRow[]   // video_format に応じてフィルタ済みであること
+): string {
+  const scenesInput = scenes.map((s) => ({
+    scene_no:      s.scene_no,
+    chapter:       s.chapter,
+    scene_title:   s.scene_title,
+    scene_summary: s.scene_summary,
+    visual_focus:  s.visual_focus,
+    emotion:       s.emotion,
+  }));
+
+  const projectJson = JSON.stringify(
+    {
+      project_id:   project.project_id,
+      title_jp:     project.title_jp     ?? "",
+      target_age:   project.target_age   ?? "",
+      visual_style: project.visual_style ?? "",
+      video_format: project.video_format ?? "",
+      scenes:       scenesInput,
+    },
+    null,
+    2
+  );
+
+  return buildPrompt(assets.promptTemplate, {
+    PROJECT_JSON: projectJson,
+  });
+}
+
+/**
+ * STEP_09 Full QA 用のプロンプトを組み立てる。
+ *
+ * テンプレート内のプレースホルダー:
+ * - {{INPUT_DATA}} : project 情報 + full_use=Y でフィルタ済みの scenes 配列
+ *
+ * scenes 配列に含めるフィールド:
+ * - scene_no, chapter, scene_title, scene_summary, emotion, qa_seed
+ */
+export function buildStep09FullPrompt(
+  assets: Step09Assets,
+  project: ProjectRow,
+  scenes: SceneReadRow[]   // full_use=Y でフィルタ済みであること
+): string {
+  const scenesInput = scenes.map((s) => ({
+    scene_no:      s.scene_no,
+    chapter:       s.chapter,
+    scene_title:   s.scene_title,
+    scene_summary: s.scene_summary,
+    emotion:       s.emotion,
+    qa_seed:       s.qa_seed,
+  }));
+
+  const inputData = JSON.stringify(
+    {
+      project_id:             project.project_id,
+      title_jp:               project.title_jp ?? "",
+      target_age:             project.target_age ?? "",
+      video_format:           project.video_format ?? "",
+      version:                "full",
+      target_question_count:  10,
+      scenes:                 scenesInput,
+    },
+    null,
+    2
+  );
+
+  return buildPrompt(assets.promptTemplate, {
+    INPUT_DATA: inputData,
+  });
+}
+
+/**
+ * STEP_09 Short QA 用のプロンプトを組み立てる。
+ *
+ * テンプレート内のプレースホルダー:
+ * - {{INPUT_DATA}} : project 情報 + short_use=Y でフィルタ済みの scenes 配列 + Full QA 参照
+ *
+ * fullQaRows: Full で生成した QaAiRow[]。Short 生成時の参照コンテキストとして渡す。
+ * 空配列の場合は reference_full_qa を含めない（video_format=short の場合）。
+ */
+export function buildStep09ShortPrompt(
+  assets: Step09Assets,
+  project: ProjectRow,
+  scenes: SceneReadRow[],    // short_use=Y でフィルタ済みであること
+  fullQaRows: QaAiRow[]      // Full QA 生成結果（参照用）
+): string {
+  const scenesInput = scenes.map((s) => ({
+    scene_no:      s.scene_no,
+    chapter:       s.chapter,
+    scene_title:   s.scene_title,
+    scene_summary: s.scene_summary,
+    emotion:       s.emotion,
+    qa_seed:       s.qa_seed,
+  }));
+
+  const targetCount = Math.max(3, Math.min(scenes.length * 2, 10));
+
+  const inputDataObj: Record<string, unknown> = {
+    project_id:             project.project_id,
+    title_jp:               project.title_jp ?? "",
+    target_age:             project.target_age ?? "",
+    video_format:           project.video_format ?? "",
+    version:                "short",
+    target_question_count:  targetCount,
+    min_question_count:     3,
+    scenes:                 scenesInput,
+  };
+
+  if (fullQaRows.length > 0) {
+    inputDataObj["reference_full_qa"] = fullQaRows;
+  }
+
+  return buildPrompt(assets.promptTemplate, {
+    INPUT_DATA: JSON.stringify(inputDataObj, null, 2),
   });
 }

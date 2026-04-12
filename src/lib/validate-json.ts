@@ -27,6 +27,8 @@ import type {
   SceneAiRow,
   ScriptFullAiRow,
   ScriptShortAiRow,
+  VisualBibleAiRow,
+  QaAiRow,
 } from "../types.js";
 
 // NodeNext + AJV8 でデフォルトエクスポートがコンストラクタとして解決されない場合の型キャスト。
@@ -416,6 +418,127 @@ export function validateScriptShortAiResponse(
   }
 
   return { success: true, scripts: response.scripts };
+}
+
+// ─── STEP_06 用バリデーター（Visual Bible）───────────────────────────────────
+
+export interface VisualBibleValidationResult {
+  success: true;
+  items: VisualBibleAiRow[];
+}
+
+export interface VisualBibleValidationFailure {
+  success: false;
+  errors: string;
+  rawText: string;
+}
+
+export type ValidateVisualBibleResult =
+  | VisualBibleValidationResult
+  | VisualBibleValidationFailure;
+
+/**
+ * STEP_06 AI レスポンスを parse / validate して VisualBibleAiRow[] を返す。
+ *
+ * - expectedCount は不要（AI が判断した件数を受け入れる）
+ * - category / key_name / description の必須チェックはスキーマ（minLength:1 / enum）が保証
+ * - 他フィールドは空文字可（string 型のみ強制）
+ */
+export function validateVisualBibleAiResponse(
+  rawText: string,
+  schema: string
+): ValidateVisualBibleResult {
+  const extracted = extractJson(rawText);
+  if (extracted === null) {
+    return { success: false, errors: "Could not extract valid JSON from AI response.", rawText };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted);
+  } catch (e) {
+    return { success: false, errors: `JSON.parse failed: ${e instanceof Error ? e.message : String(e)}`, rawText };
+  }
+
+  const validate = getValidator(schema);
+  if (!validate) {
+    return { success: false, errors: "Failed to parse AI schema JSON file.", rawText };
+  }
+
+  if (!validate(parsed)) {
+    return { success: false, errors: ajv.errorsText(validate.errors, { separator: "; " }), rawText };
+  }
+
+  const response = parsed as { visual_bible: VisualBibleAiRow[] };
+  if (!response.visual_bible || response.visual_bible.length === 0) {
+    return { success: false, errors: "visual_bible array is empty after validation.", rawText };
+  }
+
+  return { success: true, items: response.visual_bible };
+}
+
+// ─── STEP_09 用バリデーター（Q&A Build）──────────────────────────────────────
+
+export interface QaValidationResult {
+  success: true;
+  items: QaAiRow[];
+}
+
+export interface QaValidationFailure {
+  success: false;
+  errors: string;
+  rawText: string;
+}
+
+export type ValidateQaResult = QaValidationResult | QaValidationFailure;
+
+/**
+ * STEP_09 AI レスポンスを parse / validate して QaAiRow[] を返す。
+ *
+ * - minItems は Full: 1（スキーマ既定）、Short: 3（呼び出し元で確認）
+ * - qa_type / question / answer_short / answer_narration / subtitle の空文字はスキーマが保証
+ * - maxItems: 10（スキーマ既定）
+ */
+export function validateQaAiResponse(
+  rawText: string,
+  schema: string,
+  minItems = 1
+): ValidateQaResult {
+  const extracted = extractJson(rawText);
+  if (extracted === null) {
+    return { success: false, errors: "Could not extract valid JSON from AI response.", rawText };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted);
+  } catch (e) {
+    return { success: false, errors: `JSON.parse failed: ${e instanceof Error ? e.message : String(e)}`, rawText };
+  }
+
+  const validate = getValidator(schema);
+  if (!validate) {
+    return { success: false, errors: "Failed to parse AI schema JSON file.", rawText };
+  }
+
+  if (!validate(parsed)) {
+    return { success: false, errors: ajv.errorsText(validate.errors, { separator: "; " }), rawText };
+  }
+
+  const response = parsed as { qa: QaAiRow[] };
+  if (!response.qa || response.qa.length === 0) {
+    return { success: false, errors: "qa array is empty after validation.", rawText };
+  }
+
+  if (response.qa.length < minItems) {
+    return {
+      success: false,
+      errors: `qa array has ${response.qa.length} items, but minimum required is ${minItems}.`,
+      rawText,
+    };
+  }
+
+  return { success: true, items: response.qa };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

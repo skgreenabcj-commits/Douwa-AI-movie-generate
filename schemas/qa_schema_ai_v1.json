@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QaAiResponse",
+  "description": "Schema for STEP_09 Q&A Build AI output. Used for both full_qa and short_qa responses.",
+  "type": "object",
+  "required": ["qa"],
+  "properties": {
+    "qa": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["qa_type", "question", "answer_short", "answer_narration", "subtitle"],
+        "properties": {
+          "qa_type": {
+            "type": "string",
+            "enum": ["comprehension", "emotion", "vocabulary", "moral"]
+          },
+          "question":         { "type": "string", "minLength": 1 },
+          "answer_short":     { "type": "string", "minLength": 1 },
+          "answer_narration": { "type": "string", "minLength": 1 },
+          "subtitle":         { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
