@@ -26,8 +26,14 @@ function buildVertexAiUrl(model: string): string {
   if (!VERTEX_AI_PROJECT) {
     throw new Error("GOOGLE_CLOUD_PROJECT environment variable is not set.");
   }
+  // "global" location uses the base hostname without location prefix.
+  // Regional locations (e.g. us-central1) use "{location}-aiplatform.googleapis.com".
+  const host =
+    VERTEX_AI_LOCATION === "global"
+      ? "aiplatform.googleapis.com"
+      : `${VERTEX_AI_LOCATION}-aiplatform.googleapis.com`;
   return (
-    `https://${VERTEX_AI_LOCATION}-aiplatform.googleapis.com/v1` +
+    `https://${host}/v1` +
     `/projects/${VERTEX_AI_PROJECT}` +
     `/locations/${VERTEX_AI_LOCATION}` +
     `/publishers/google/models/${model}:generateContent`
