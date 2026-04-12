@@ -267,6 +267,7 @@ export async function runStep03ScenesBuild(
           approval_status: "PENDING",
           step_id: "STEP_03_SCENES_BUILD",
           scene_no: sceneNo,      // GSS の scene_no カラムへ書き込む
+          scene_type: "normal",   // 新規生成は常に "normal"。ユーザーが GSS で手動変更する。
           scene_order: sceneOrder, // システム内部用（record_id 採番）
           updated_at: now,
           updated_by: "github_actions",

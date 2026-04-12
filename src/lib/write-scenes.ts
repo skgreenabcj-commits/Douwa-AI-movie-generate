@@ -36,7 +36,7 @@ const SHEET_NAME = "02_Scenes";
 
 // 02_Scenes の書き込み列順（GSS の実ヘッダー順に厳密に合わせる）
 // GSS ヘッダー: project_id, record_id, generation_status, approval_status, step_id,
-//               scene_no, chapter, scene_title, scene_summary, scene_goal,
+//               scene_no, scene_type, chapter, scene_title, scene_summary, scene_goal,
 //               visual_focus, emotion, short_use, full_use, est_duration_short,
 //               est_duration_full, difficult_words, easy_rewrite, qa_seed,
 //               continuity_note, updated_at, updated_by, notes
@@ -47,6 +47,7 @@ const SCN_HEADERS: Array<keyof SceneFullRow> = [
   "approval_status",
   "step_id",
   "scene_no",        // GSS の scene_no カラム（project_id ごとの通し番号: "1", "2", "3"...）
+  "scene_type",      // "normal"（デフォルト）/ "thought_bubble"。STEP_03 では "normal" 固定で書き込む。
   "chapter",
   "scene_title",
   "scene_summary",

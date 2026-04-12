@@ -10,6 +10,7 @@
     "approval_status",
     "step_id",
     "scene_no",
+    "scene_type",
     "chapter",
     "scene_title",
     "scene_summary",
@@ -56,6 +57,11 @@
       "type": "string",
       "maxLength": 50,
       "description": "scene 識別子（例: "1", "2", "3"...（通し番号））。システム側（GitHub）で付与する。形式: project_id ごとの通し番号（"1", "2", "3"...）。GSS 02_Scenes の scene_no 列に対応（旧 scene_id + scene_order を1カラムに統合）。"
+    },
+    "scene_type": {
+      "type": "string",
+      "enum": ["normal", "thought_bubble"],
+      "description": "シーンの演出タイプ。STEP_03 では常に \"normal\" で書き込む。ユーザーが GSS を直接編集して \"thought_bubble\" に変更することで、STEP_07 が雲形吹き出しを含む構図を生成する。"
     },
     "chapter": {
       "type": "string",

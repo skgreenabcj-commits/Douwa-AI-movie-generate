@@ -448,6 +448,116 @@ export function buildGeminiOptionsStep06(configMap: RuntimeConfigMap): GeminiCal
 }
 
 /**
+ * STEP_07 用: RuntimeConfigMap から Gemini テキスト生成オプションを組み立てる。
+ *
+ * Image Prompts のプロンプトパーツ生成（テキスト）に使用する。
+ * 画像生成自体は generateImageStep07() で別途呼び出す。
+ *
+ * fallback 構成:
+ *   primary      : step_07_model_role  (未登録時は model_role_text_pro にフォールバック)
+ *   1st fallback : model_role_text_pro (デフォルト: gemini-2.0-pro)
+ */
+export function buildGeminiOptionsStep07(configMap: RuntimeConfigMap): GeminiCallOptions {
+  const apiKey = getConfigValue(configMap, "gemini_api_key");
+  const fallbackPrimary = getConfigValue(configMap, "model_role_text_pro", DEFAULT_PRIMARY_MODEL);
+  const primaryModel = getConfigValue(configMap, "step_07_model_role", fallbackPrimary);
+  const secondaryModel = getConfigValue(configMap, "model_role_text_pro", "gemini-2.0-pro");
+
+  console.info(`[INFO] Gemini options resolved (STEP_07 text)`);
+  console.info(`  primaryModel:   '${primaryModel}'`);
+  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+
+  return { apiKey, primaryModel, secondaryModel };
+}
+
+// ─── Image Generation ─────────────────────────────────────────────────────────
+
+const IMAGE_GEN_MODEL = "gemini-2.0-flash-preview-image-generation";
+const IMAGE_GEN_TIMEOUT_MS = 120_000; // 2 分
+
+/**
+ * Gemini Image Generation API を呼び出し PNG バッファを返す。
+ *
+ * モデル: gemini-2.0-flash-preview-image-generation（Nano Banana 2 / Gemini 3.1 Flash Image）
+ * アスペクト比: 16:9（prompt_base に "16:9 landscape" を含むため prompt 側でも担保済み）
+ * レスポンス: candidates[0].content.parts に inlineData（base64 PNG）が含まれる
+ *
+ * @param promptFull     - 画像生成プロンプト（prompt_full）
+ * @param negativePrompt - 禁止要素（negative_prompt）
+ * @param apiKey         - Gemini API key
+ * @returns PNG バイナリ Buffer
+ */
+export async function generateImageStep07(
+  promptFull: string,
+  negativePrompt: string,
+  apiKey: string
+): Promise<Buffer> {
+  const url = `${GEMINI_API_BASE}/${IMAGE_GEN_MODEL}:generateContent?key=${apiKey}`;
+
+  // negative_prompt は prompt テキストの末尾に "Avoid:" として付加する
+  const fullPromptText = negativePrompt
+    ? `${promptFull}\nAvoid: ${negativePrompt}`
+    : promptFull;
+
+  const requestBody = {
+    contents: [
+      {
+        parts: [{ text: fullPromptText }],
+      },
+    ],
+    generationConfig: {
+      responseModalities: ["IMAGE"],
+    },
+  };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), IMAGE_GEN_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "(no body)");
+    if (response.status === 429 && errorBody.includes("spending cap")) {
+      throw new GeminiSpendingCapError(
+        `Gemini Image API: Spending Cap exceeded (HTTP 429). Raw: ${errorBody}`
+      );
+    }
+    throw new Error(
+      `Gemini Image API returned HTTP ${response.status}: ${errorBody}`
+    );
+  }
+
+  const json = (await response.json()) as GeminiApiResponse;
+
+  // レスポンスから base64 画像データを抽出
+  const parts = json.candidates?.[0]?.content?.parts;
+  if (!parts || parts.length === 0) {
+    throw new Error("Gemini Image API returned no parts in response.");
+  }
+
+  for (const part of parts) {
+    const inlineData = (part as Record<string, unknown>)["inlineData"] as
+      | { mimeType: string; data: string }
+      | undefined;
+    if (inlineData?.data) {
+      return Buffer.from(inlineData.data, "base64");
+    }
+  }
+
+  throw new Error("Gemini Image API returned no inlineData (image) in response.");
+}
+
+/**
  * STEP_09 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
  *
  * Q&A Build は Full / Short それぞれ 1 プロンプトで一括生成する。

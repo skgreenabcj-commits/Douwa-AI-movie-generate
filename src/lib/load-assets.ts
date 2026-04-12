@@ -52,6 +52,11 @@
  * - schemas/visual_bible_schema_full_v1.json
  * - examples/visual_bible_ai_response_example_v1.json
  *
+ * 読み込み対象（STEP_07 Image Prompts）:
+ * - prompts/image_prompt_prompt_v1.md
+ * - schemas/image_prompt_schema_ai_v1.json
+ * - schemas/image_prompt_schema_full_v1.json
+ *
  * 読み込み対象（STEP_09 Q&A Build）:
  * - prompts/qa_prompt_v1.md
  * - schemas/qa_schema_ai_v1.json
@@ -276,6 +281,31 @@ export function loadStep06Assets(): Step06Assets {
     ),
     aiResponseExample: readText(
       repoPath("examples", "visual_bible_ai_response_example_v1.json")
+    ),
+  };
+}
+
+// ─── STEP_07 Assets (Image Prompts) ──────────────────────────────────────────
+
+export interface Step07Assets {
+  promptTemplate: string;  // image_prompt_prompt_v1.md
+  aiSchema:       string;  // image_prompt_schema_ai_v1.json（JSON string）
+  fullSchema:     string;  // image_prompt_schema_full_v1.json（JSON string）
+}
+
+/**
+ * STEP_07 に必要な全ファイルを読み込んで返す。
+ */
+export function loadStep07Assets(): Step07Assets {
+  return {
+    promptTemplate: readText(
+      repoPath("prompts", "image_prompt_prompt_v1.md")
+    ),
+    aiSchema: readText(
+      repoPath("schemas", "image_prompt_schema_ai_v1.json")
+    ),
+    fullSchema: readText(
+      repoPath("schemas", "image_prompt_schema_full_v1.json")
     ),
   };
 }
