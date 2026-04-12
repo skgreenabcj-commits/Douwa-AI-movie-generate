@@ -309,7 +309,7 @@ export function buildStep06FailureLog(
   };
 }
 
-// ─── STEP_04 ログビルダー（Short Script Build）───────────────────────────────
+// ─── STEP_04 ログビルダー（Short Script Build）────────���──────────────────────
 
 export function buildStep04FailureLog(
   projectId: string,
@@ -323,5 +323,36 @@ export function buildStep04FailureLog(
     current_step: "STEP_04_SHORT_SCRIPT_BUILD",
     timestamp: new Date().toISOString(),
     app_log: `[ERROR][${errorType}] ${message}`,
+  };
+}
+
+// ─── STEP_09 ログビルダー（Q&A Build）────────────────────────────���───────────
+
+export function buildStep09SuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_09_QA_BUILD",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep09FailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_09_QA_BUILD",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[ERROR][${errorType}] ${message}`,
   };
 }

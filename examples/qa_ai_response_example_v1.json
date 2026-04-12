@@ -1,0 +1,74 @@
+{
+  "qa": [
+    {
+      "qa_type": "comprehension",
+      "question": "桃の中から何が出てきたかな？",
+      "answer_short": "男の子",
+      "answer_narration": "大きな桃をわると、中から元気な男の子が飛び出してきたよ。おじいさんとおばあさんはびっくりして、この子を桃太郎と名付けたんだ。",
+      "subtitle": "桃から生まれた子"
+    },
+    {
+      "qa_type": "emotion",
+      "question": "おばあさんは桃を見つけたとき、どんな気持ちだったと思う？",
+      "answer_short": "びっくりした気持ち",
+      "answer_narration": "川にこんなに大きな桃が流れてきたから、おばあさんはとても驚いたね。うれしくてドキドキした気持ちもあったかもしれないよ。",
+      "subtitle": "おばあさんの気持ち"
+    },
+    {
+      "qa_type": "comprehension",
+      "question": "桃太郎は何をするために旅に出たの？",
+      "answer_short": "鬼退治",
+      "answer_narration": "村の人たちを困らせていた鬼を退治するために、桃太郎は鬼ヶ島へと旅立ったんだよ。",
+      "subtitle": "旅立ちの理由"
+    },
+    {
+      "qa_type": "comprehension",
+      "question": "桃太郎の仲間になった動物はだれかな？",
+      "answer_short": "犬・サル・キジ",
+      "answer_narration": "桃太郎はきびだんごをわたして、犬とサルとキジを仲間にしたよ。みんなで力を合わせて鬼ヶ島に向かったんだ。",
+      "subtitle": "桃太郎の仲間たち"
+    },
+    {
+      "qa_type": "vocabulary",
+      "question": "「退治」ってどういう意味かな？",
+      "answer_short": "やっつけること",
+      "answer_narration": "退治というのは、悪いものをやっつけてなくすことだよ。桃太郎は村の人たちを困らせていた鬼を退治しに行ったんだね。",
+      "subtitle": "「退治」の意味"
+    },
+    {
+      "qa_type": "emotion",
+      "question": "鬼ヶ島に着いた桃太郎はどんな気持ちだったと思う？",
+      "answer_short": "こわくてもがんばる気持ち",
+      "answer_narration": "こわい鬼がたくさんいるから、ドキドキしていたかもしれないね。でも仲間が一緒だから、勇気を出してがんばれたんだよ。",
+      "subtitle": "桃太郎の勇気"
+    },
+    {
+      "qa_type": "comprehension",
+      "question": "鬼はどうなったかな？",
+      "answer_short": "降参した",
+      "answer_narration": "桃太郎と仲間たちに負けた鬼は、「もう悪いことはしません」と約束して降参したよ。奪ったたからものも全部返したんだ。",
+      "subtitle": "鬼のその後"
+    },
+    {
+      "qa_type": "vocabulary",
+      "question": "「きびだんご」って何かな？",
+      "answer_short": "きびで作ったお団子",
+      "answer_narration": "きびだんごはきびというお米に似た植物で作ったお団子だよ。桃太郎はこれを仲間への贈りものにしたんだね。",
+      "subtitle": "きびだんごとは"
+    },
+    {
+      "qa_type": "moral",
+      "question": "桃太郎のお話から、どんなことが大切だと思った？",
+      "answer_short": "仲間と力を合わせること",
+      "answer_narration": "桃太郎は一人では難しかったかもしれないけれど、仲間と力を合わせることで鬼を退治できたね。みんなで協力することが大切だということが学べるよ。",
+      "subtitle": "お話の教え"
+    },
+    {
+      "qa_type": "moral",
+      "question": "桃太郎はなぜ村の人たちのために戦えたと思う？",
+      "answer_short": "みんなを守りたかったから",
+      "answer_narration": "自分のためだけじゃなく、困っている人たちを助けたいという気持ちが桃太郎を強くしたんだよ。大切な人を守ることがとても大事だということを教えてくれるね。",
+      "subtitle": "戦う理由"
+    }
+  ]
+}

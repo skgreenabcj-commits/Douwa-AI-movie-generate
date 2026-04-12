@@ -51,6 +51,12 @@
  * - schemas/visual_bible_schema_ai_v1.json
  * - schemas/visual_bible_schema_full_v1.json
  * - examples/visual_bible_ai_response_example_v1.json
+ *
+ * 読み込み対象（STEP_09 Q&A Build）:
+ * - prompts/qa_prompt_v1.md
+ * - schemas/qa_schema_ai_v1.json
+ * - schemas/qa_schema_full_v1.json
+ * - examples/qa_ai_response_example_v1.json
  */
 
 import { readFileSync } from "fs";
@@ -270,6 +276,35 @@ export function loadStep06Assets(): Step06Assets {
     ),
     aiResponseExample: readText(
       repoPath("examples", "visual_bible_ai_response_example_v1.json")
+    ),
+  };
+}
+
+// ─── STEP_09 Assets (Q&A Build) ──────────────────────────────────────────────
+
+export interface Step09Assets {
+  promptTemplate:    string;  // qa_prompt_v1.md
+  aiSchema:          string;  // qa_schema_ai_v1.json（JSON string）
+  fullSchema:        string;  // qa_schema_full_v1.json（JSON string）
+  aiResponseExample: string;  // qa_ai_response_example_v1.json（JSON string）
+}
+
+/**
+ * STEP_09 に必要な全ファイルを読み込んで返す。
+ */
+export function loadStep09Assets(): Step09Assets {
+  return {
+    promptTemplate: readText(
+      repoPath("prompts", "qa_prompt_v1.md")
+    ),
+    aiSchema: readText(
+      repoPath("schemas", "qa_schema_ai_v1.json")
+    ),
+    fullSchema: readText(
+      repoPath("schemas", "qa_schema_full_v1.json")
+    ),
+    aiResponseExample: readText(
+      repoPath("examples", "qa_ai_response_example_v1.json")
     ),
   };
 }

@@ -446,3 +446,29 @@ export function buildGeminiOptionsStep06(configMap: RuntimeConfigMap): GeminiCal
 
   return { apiKey, primaryModel, secondaryModel };
 }
+
+/**
+ * STEP_09 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
+ *
+ * Q&A Build は Full / Short それぞれ 1 プロンプトで一括生成する。
+ * maxOutputTokens は呼び出し側で 8192 を指定する。
+ *
+ * fallback 構成:
+ *   primary      : step_09_model_role       (未登録時は model_role_text_flash_seconday にフォールバック)
+ *   1st fallback : model_role_text_flash_seconday (デフォルト: gemini-2.5-flash)
+ *
+ * ※ 94_Runtime_Config のキー名は "model_role_text_flash_seconday"（typo のまま使用）
+ */
+export function buildGeminiOptionsStep09(configMap: RuntimeConfigMap): GeminiCallOptions {
+  const apiKey = getConfigValue(configMap, "gemini_api_key");
+  // step_09_model_role 未登録時は model_role_text_flash_seconday の値を primary に使う
+  const fallbackPrimary = getConfigValue(configMap, "model_role_text_flash_seconday", "gemini-2.5-flash");
+  const primaryModel = getConfigValue(configMap, "step_09_model_role", fallbackPrimary);
+  const secondaryModel = getConfigValue(configMap, "model_role_text_flash_seconday", "gemini-2.5-flash");
+
+  console.info(`[INFO] Gemini options resolved (STEP_09)`);
+  console.info(`  primaryModel:   '${primaryModel}'`);
+  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+
+  return { apiKey, primaryModel, secondaryModel };
+}
