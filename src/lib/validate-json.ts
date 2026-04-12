@@ -29,6 +29,7 @@ import type {
   ScriptShortAiRow,
   VisualBibleAiRow,
   QaAiRow,
+  ImagePromptAiRow,
 } from "../types.js";
 
 // NodeNext + AJV8 でデフォルトエクスポートがコンストラクタとして解決されない場合の型キャスト。
@@ -539,6 +540,63 @@ export function validateQaAiResponse(
   }
 
   return { success: true, items: response.qa };
+}
+
+// ─── STEP_07 用バリデーター（Image Prompts）──────────────────────────────────
+
+export interface ImagePromptValidationResult {
+  success: true;
+  item: ImagePromptAiRow;
+}
+
+export interface ImagePromptValidationFailure {
+  success: false;
+  errors: string;
+  rawText: string;
+}
+
+export type ValidateImagePromptResult =
+  | ImagePromptValidationResult
+  | ImagePromptValidationFailure;
+
+/**
+ * STEP_07 AI レスポンスを parse / validate して ImagePromptAiRow を返す。
+ *
+ * - 1 リクエスト = 1 シーン → image_prompts 配列は必ず 1 要素
+ * - scene_record_id / prompt_base / prompt_character / prompt_scene /
+ *   prompt_composition / negative_prompt はすべて必須・空文字不可
+ */
+export function validateImagePromptAiResponse(
+  rawText: string,
+  schema: string
+): ValidateImagePromptResult {
+  const extracted = extractJson(rawText);
+  if (extracted === null) {
+    return { success: false, errors: "Could not extract valid JSON from AI response.", rawText };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted);
+  } catch (e) {
+    return { success: false, errors: `JSON.parse failed: ${e instanceof Error ? e.message : String(e)}`, rawText };
+  }
+
+  const validate = getValidator(schema);
+  if (!validate) {
+    return { success: false, errors: "Failed to parse AI schema JSON file.", rawText };
+  }
+
+  if (!validate(parsed)) {
+    return { success: false, errors: ajv.errorsText(validate.errors, { separator: "; " }), rawText };
+  }
+
+  const response = parsed as { image_prompts: ImagePromptAiRow[] };
+  if (!response.image_prompts || response.image_prompts.length === 0) {
+    return { success: false, errors: "image_prompts array is empty after validation.", rawText };
+  }
+
+  return { success: true, item: response.image_prompts[0] };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

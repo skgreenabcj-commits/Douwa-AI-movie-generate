@@ -326,7 +326,52 @@ export function buildStep04FailureLog(
   };
 }
 
-// ─── STEP_09 ログビルダー（Q&A Build）────────────────────────────���───────────
+// ─── STEP_07 ログビルダー（Image Prompts Build）──────────────────────────────
+
+export function buildStep07SuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_07_IMAGE_PROMPTS",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep07PartialSuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_07_IMAGE_PROMPTS",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[WARN][partial_success] ${message}`,
+  };
+}
+
+export function buildStep07FailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_07_IMAGE_PROMPTS",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[ERROR][${errorType}] ${message}`,
+  };
+}
+
+// ─── STEP_09 ログビルダー（Q&A Build）────────────────────────────────────────
 
 export function buildStep09SuccessLog(
   projectId: string,

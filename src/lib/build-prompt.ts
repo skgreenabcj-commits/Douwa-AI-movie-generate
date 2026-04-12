@@ -6,8 +6,8 @@
  * テンプレート内の {{KEY}} を replacements[KEY] で置換する。
  */
 
-import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, QaAiRow } from "../types.js";
-import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets, Step06Assets, Step09Assets } from "./load-assets.js";
+import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, QaAiRow, VisualBibleReadRow } from "../types.js";
+import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets, Step06Assets, Step07Assets, Step09Assets } from "./load-assets.js";
 
 /**
  * プレースホルダーを一括置換する汎用関数。
@@ -346,6 +346,63 @@ export function buildStep06Prompt(
 
   return buildPrompt(assets.promptTemplate, {
     PROJECT_JSON: projectJson,
+  });
+}
+
+/**
+ * STEP_07 用のプロンプトを組み立てる（Image Prompts Build）。
+ *
+ * テンプレート内のプレースホルダー:
+ * - {{INPUT_DATA}} : project 情報 + 対象 1 シーン + Visual Bible 全要素
+ *
+ * 1 リクエスト = 1 シーン。シーンごとに呼び出す。
+ */
+export function buildStep07Prompt(
+  assets: Step07Assets,
+  project: ProjectRow,
+  scene: SceneReadRow,
+  visualBible: VisualBibleReadRow[]
+): string {
+  // Visual Bible は全フィールドをそのまま渡す
+  const vbInput = visualBible.map((vb) => ({
+    category:         vb.category,
+    key_name:         vb.key_name,
+    description:      (vb as unknown as Record<string, string>)["description"]       ?? "",
+    color_palette:    (vb as unknown as Record<string, string>)["color_palette"]     ?? "",
+    line_style:       (vb as unknown as Record<string, string>)["line_style"]        ?? "",
+    lighting:         (vb as unknown as Record<string, string>)["lighting"]          ?? "",
+    composition_rule: (vb as unknown as Record<string, string>)["composition_rule"]  ?? "",
+    expression_rule:  (vb as unknown as Record<string, string>)["expression_rule"]   ?? "",
+    character_rule:   (vb as unknown as Record<string, string>)["character_rule"]    ?? "",
+    background_rule:  (vb as unknown as Record<string, string>)["background_rule"]   ?? "",
+    avoid_rule:       (vb as unknown as Record<string, string>)["avoid_rule"]        ?? "",
+  }));
+
+  const inputData = JSON.stringify(
+    {
+      project: {
+        project_id:   project.project_id,
+        title_jp:     project.title_jp     ?? "",
+        target_age:   project.target_age   ?? "",
+        visual_style: project.visual_style ?? "",
+      },
+      scene: {
+        scene_no:        scene.scene_no,
+        scene_record_id: scene.record_id,
+        scene_type:      scene.scene_type ?? "normal",
+        scene_title:     scene.scene_title,
+        scene_summary:   scene.scene_summary,
+        visual_focus:    scene.visual_focus,
+        emotion:         scene.emotion,
+      },
+      visual_bible: vbInput,
+    },
+    null,
+    2
+  );
+
+  return buildPrompt(assets.promptTemplate, {
+    INPUT_DATA: inputData,
   });
 }
 

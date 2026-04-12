@@ -11,6 +11,7 @@ export type StepId =
   | "STEP_05_FULL_SCRIPT_BUILD"     // GSS step_id / current_step 値（Full 完了）
   | "STEP_04_05_COMBINED"           // current_step 値（Short+Full 両方完了）
   | "STEP_06_VISUAL_BIBLE"          // Visual Bible Build
+  | "STEP_07_IMAGE_PROMPTS"         // Image Prompts Build
   | "STEP_09_QA_BUILD";             // Q&A Build
 
 // ─── Runtime Config ──────────────────────────────────────────────────────────
@@ -204,6 +205,7 @@ export interface SceneFullRow extends SceneAiRow {
   approval_status: "PENDING" | "APPROVED" | "REJECTED";
   step_id: string;
   scene_no: string;     // GSS 書き込み用: project_id ごとの通し番号 ("1", "2", "3"...)
+  scene_type: string;   // "normal"（デフォルト）/ "thought_bubble"。STEP_03 では "normal" 固定で書き込む。
   scene_order: number;  // ⚠️ 内部専用: record_id 採番に使用。GSS には書き込まない。
   updated_at: string;
   updated_by: string;
@@ -245,6 +247,7 @@ export interface SceneReadRow {
   project_id:         string;
   record_id:          string;   // STEP_04/05 の upsert キーとして引き継ぐ
   scene_no:           string;   // 表示用通し番号（"1","2","3"...）。キーに使わない。
+  scene_type?:        string;   // "normal"（省略時）/ "thought_bubble"。STEP_07 画像演出制御用。
   chapter:            string;
   scene_title:        string;
   scene_summary:      string;
@@ -428,6 +431,66 @@ export interface VisualBibleReadRow {
   record_id:   string;
   category:    string;
   key_name:    string;
+}
+
+// ─── 06_Image_Prompts ────────────────────────────────────────────────────────
+
+/**
+ * STEP_07 Image Prompts — AI が返す 1 scene 分の row
+ * スキーマ: image_prompt_schema_ai_v1.json
+ *
+ * record_id / prompt_full は AI 出力に含めない。
+ * - record_id: システム側で採番（PJT-001-IMG-001 形式）
+ * - prompt_full: コード側で buildPromptFull() により組み立て
+ * scene_record_id は 02_Scenes.record_id と突合するためのキー。
+ */
+export interface ImagePromptAiRow {
+  scene_record_id:    string;  // 対応する 02_Scenes.record_id（突合用）
+  prompt_base:        string;  // 基礎スタイル指示（画風・全体トーン・"16:9 landscape" 含む）
+  prompt_character:   string;  // キャラクター描写
+  prompt_scene:       string;  // 背景・場所描写
+  prompt_composition: string;  // 構図・フレーミング
+  negative_prompt:    string;  // 禁止要素（画像生成 API の negativePrompt パラメータに渡す）
+  [key: string]: unknown;      // AJV バリデーション互換
+}
+
+/**
+ * Google Sheets 06_Image_Prompts 書き込み行（image_prompt_schema_full_v1）
+ *
+ * record_id はシステム側で採番する（形式: PJT-001-IMG-001）。
+ * upsert キー: record_id 単体。
+ * related_version には 02_Scenes.record_id の値を格納する。
+ */
+export interface ImagePromptRow {
+  project_id:              string;
+  record_id:               string;    // システム採番: {projectId}-IMG-{index:03d}
+  generation_status:       "GENERATED" | "FAILED" | "PENDING";
+  approval_status:         "PENDING" | "APPROVED" | "REJECTED";
+  step_id:                 string;    // 固定: "STEP_07_IMAGE_PROMPTS"
+  scene_no:                string;    // 表示補助: 02_Scenes.scene_no
+  related_version:         string;    // 02_Scenes.record_id の値（例: PJT-001-SCN-001）
+  prompt_base:             string;
+  prompt_character:        string;
+  prompt_scene:            string;
+  prompt_composition:      string;
+  negative_prompt:         string;
+  prompt_full:             string;    // コード側で組み立て済み
+  image_take_1:            string;    // Google Drive URL（生成画像）
+  image_take_2:            string;    // "" 固定（本実装では未使用）
+  image_take_3:            string;    // "" 固定
+  selected_asset:          string;    // "" 初期値
+  revision_note:           string;    // "" 初期値
+  style_consistency_check: string;    // "" 初期値
+  updated_at:              string;
+  updated_by:              string;
+  notes:                   string;
+}
+
+/** 06_Image_Prompts から読み込む参照用 row（再実行時の record_id 再利用用） */
+export interface ImagePromptReadRow {
+  project_id:      string;
+  record_id:       string;
+  related_version: string;  // = 02_Scenes.record_id
 }
 
 // ─── 10_QA ───────────────────────────────────────────────────────────────────
