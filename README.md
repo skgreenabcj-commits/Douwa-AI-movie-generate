@@ -421,6 +421,17 @@ GitHub Actions での自動化なし。オペレーターが GSS 上で確認・
 | `model_role_text_flash_seconday` | Flash 系テキストモデル（STEP_02/03/04/05/09 の fallback） |
 | `model_role_picture_seconday` | 画像生成 fallback モデル（STEP_07 画像生成） |
 
+#### モデル選定方針
+
+- **Primary = 最新 Preview モデル**（高品質を優先）
+- **Fallback = GA 安定版モデル**（可用性を優先、Preview 障害時に処理継続）
+
+**Vertex AI 利用可能モデル一覧（global エンドポイント）:**  
+https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/locations?hl=ja#%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%90%E3%83%AB
+
+> モデル名を変更する際は必ず上記ドキュメントで global エンドポイントへの掲載を確認すること。  
+> Preview モデルはロケーションドキュメントへの掲載が遅れる場合があり、404 エラーの原因となる。
+
 #### 動作パラメータ
 
 | キー | 説明 | 例 |

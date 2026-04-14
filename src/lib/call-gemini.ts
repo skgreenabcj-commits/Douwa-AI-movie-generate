@@ -26,8 +26,8 @@ function buildVertexAiUrl(model: string): string {
   if (!VERTEX_AI_PROJECT) {
     throw new Error("GOOGLE_CLOUD_PROJECT environment variable is not set.");
   }
-  // "global" location uses the base hostname without location prefix.
-  // Regional locations (e.g. us-central1) use "{location}-aiplatform.googleapis.com".
+  // "global" endpoint is recommended for broadest model coverage.
+  // See: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/locations?hl=ja#%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%90%E3%83%AB
   const host =
     VERTEX_AI_LOCATION === "global"
       ? "aiplatform.googleapis.com"
@@ -475,8 +475,11 @@ export function buildGeminiOptionsStep07(configMap: RuntimeConfigMap): GeminiCal
 
 // ─── Image Generation ─────────────────────────────────────────────────────────
 
-const DEFAULT_IMAGE_PRIMARY_MODEL   = "gemini-3.1-flash-image";
-const DEFAULT_IMAGE_SECONDARY_MODEL = "gemini-2.5-flash-image";
+// Default image generation models (confirmed available on global endpoint).
+// Override via 94_Runtime_Config: step_07_image_model_role / model_role_picture_seconday.
+// Model availability reference: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/locations?hl=ja#%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%90%E3%83%AB
+const DEFAULT_IMAGE_PRIMARY_MODEL   = "gemini-2.5-flash-image";
+const DEFAULT_IMAGE_SECONDARY_MODEL = "gemini-3-pro-image-preview";
 const IMAGE_GEN_TIMEOUT_MS = 120_000; // 2 分
 
 /**
@@ -503,6 +506,7 @@ async function callImageGenOnce(
   model: string,
   promptText: string,
 ): Promise<Buffer> {
+  // Use the standard Vertex AI URL builder (global endpoint supports image generation models).
   const url = buildVertexAiUrl(model);
   const token = await getAccessToken();
 
