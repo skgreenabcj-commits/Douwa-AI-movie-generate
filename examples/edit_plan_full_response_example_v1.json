@@ -1,0 +1,26 @@
+[
+  {
+    "project_id": "PJT-001",
+    "record_id": "PJT-001-SCN-001",
+    "generation_status": "GENERATED",
+    "approval_status": "PENDING",
+    "step_id": "STEP_08A_TTS_SUBTITLE",
+    "scene_no": "1",
+    "related_version": "full",
+    "asset_image": "",
+    "asset_audio": "",
+    "duration_sec": 6.0,
+    "camera_motion": "slow_pan_right",
+    "transition_in": "fade",
+    "transition_out": "dissolve",
+    "bgm_section": "intro",
+    "sfx": "",
+    "subtitle_on": "Y",
+    "text_overlay_on": "N",
+    "qa_insert_after": "N",
+    "note": "",
+    "updated_at": "2026-04-13T00:00:00.000Z",
+    "updated_by": "github_actions",
+    "notes": ""
+  }
+]

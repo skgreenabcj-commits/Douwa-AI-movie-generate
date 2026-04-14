@@ -30,6 +30,8 @@ import type {
   VisualBibleAiRow,
   QaAiRow,
   ImagePromptAiRow,
+  TtsSubtitleAiRow,
+  EditPlanAiRow,
 } from "../types.js";
 
 // NodeNext + AJV8 でデフォルトエクスポートがコンストラクタとして解決されない場合の型キャスト。
@@ -597,6 +599,78 @@ export function validateImagePromptAiResponse(
   }
 
   return { success: true, item: response.image_prompts[0] };
+}
+
+// ─── STEP_08A 用バリデーター（TTS Subtitle & Edit Plan）─────────────────────
+
+export interface TtsSubtitleValidationResult {
+  success: true;
+  ttsSubtitles: TtsSubtitleAiRow[];
+  editPlan: EditPlanAiRow[];
+}
+
+export interface TtsSubtitleValidationFailure {
+  success: false;
+  errors: string;
+  rawText: string;
+}
+
+export type ValidateTtsSubtitleResult =
+  | TtsSubtitleValidationResult
+  | TtsSubtitleValidationFailure;
+
+/**
+ * STEP_08A AI レスポンスを parse / validate して TtsSubtitleAiRow[] と EditPlanAiRow[] を返す。
+ *
+ * AI 出力形式:
+ * {
+ *   "tts_subtitles": [...],
+ *   "edit_plan": [...]
+ * }
+ *
+ * @param rawText   - Gemini が返したテキスト
+ * @param aiSchema  - tts_subtitle_schema_ai_v1.json の文字列
+ */
+export function validateTtsSubtitleAiResponse(
+  rawText: string,
+  aiSchema: string
+): ValidateTtsSubtitleResult {
+  const extracted = extractJson(rawText);
+  if (extracted === null) {
+    return { success: false, errors: "Could not extract valid JSON from AI response.", rawText };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extracted);
+  } catch (e) {
+    return { success: false, errors: `JSON.parse failed: ${e instanceof Error ? e.message : String(e)}`, rawText };
+  }
+
+  const validate = getValidator(aiSchema);
+  if (!validate) {
+    return { success: false, errors: "Failed to parse AI schema JSON file.", rawText };
+  }
+
+  if (!validate(parsed)) {
+    return { success: false, errors: ajv.errorsText(validate.errors, { separator: "; " }), rawText };
+  }
+
+  const response = parsed as { tts_subtitles: TtsSubtitleAiRow[]; edit_plan: EditPlanAiRow[] };
+
+  if (!response.tts_subtitles || response.tts_subtitles.length === 0) {
+    return { success: false, errors: "tts_subtitles array is empty after validation.", rawText };
+  }
+
+  if (!response.edit_plan || response.edit_plan.length === 0) {
+    return { success: false, errors: "edit_plan array is empty after validation.", rawText };
+  }
+
+  return {
+    success: true,
+    ttsSubtitles: response.tts_subtitles,
+    editPlan: response.edit_plan,
+  };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

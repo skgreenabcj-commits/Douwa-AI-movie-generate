@@ -152,6 +152,53 @@ export async function uploadImageToDrive(
  * @param fullUse  - "Y" | "N"
  * @returns "short" | "full" | "shortfull"
  */
+/**
+ * MP3 バッファを指定フォルダにアップロードし、閲覧用 URL を返す。
+ * アップロード後に "anyone-reader" の共有設定を付与する。
+ *
+ * @param folderId  - アップロード先フォルダの Google Drive ID
+ * @param fileName  - ファイル名（例: "PJT-001-SCN-001_full_20260413.mp3"）
+ * @param mp3Buffer - MP3 バイナリ
+ * @returns 閲覧用 URL（https://drive.google.com/file/d/{fileId}/view）
+ */
+export async function uploadAudioToDrive(
+  folderId: string,
+  fileName: string,
+  mp3Buffer: Buffer
+): Promise<string> {
+  const drive = getDriveClient();
+
+  // アップロード
+  const uploadRes = await drive.files.create({
+    requestBody: {
+      name: fileName,
+      mimeType: "audio/mpeg",
+      parents: [folderId],
+    },
+    media: {
+      mimeType: "audio/mpeg",
+      body: Readable.from(mp3Buffer),
+    },
+    fields: "id",
+  });
+
+  const fileId = uploadRes.data.id;
+  if (!fileId) {
+    throw new Error(`Google Drive audio upload failed: no fileId returned for ${fileName}`);
+  }
+
+  // anyone-reader 権限を付与（閲覧用公開リンク）
+  await drive.permissions.create({
+    fileId,
+    requestBody: {
+      role: "reader",
+      type: "anyone",
+    },
+  });
+
+  return `https://drive.google.com/file/d/${fileId}/view`;
+}
+
 export function resolveVersionLabel(
   shortUse: string,
   fullUse: string

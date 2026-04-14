@@ -566,6 +566,21 @@ export async function generateImageStep07(
  *
  * ※ 94_Runtime_Config のキー名は "model_role_text_flash_seconday"（typo のまま使用）
  */
+/**
+ * STEP_08A 用: RuntimeConfigMap から Gemini 呼び出し用オプションを組み立てる。
+ */
+export function buildGeminiOptionsStep08a(configMap: RuntimeConfigMap): GeminiCallOptions {
+  const fallbackPrimary = getConfigValue(configMap, "model_role_text_pro", DEFAULT_PRIMARY_MODEL);
+  const primaryModel    = getConfigValue(configMap, "step_08a_model_role", fallbackPrimary);
+  const secondaryModel  = getConfigValue(configMap, "model_role_text_pro", "gemini-2.0-pro");
+
+  console.info(`[INFO] Gemini options resolved (STEP_08A)`);
+  console.info(`  primaryModel:   '${primaryModel}'`);
+  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+
+  return { primaryModel, secondaryModel };
+}
+
 export function buildGeminiOptionsStep09(configMap: RuntimeConfigMap): GeminiCallOptions {
   const fallbackPrimary = getConfigValue(configMap, "model_role_text_flash_seconday", "gemini-2.5-flash");
   const primaryModel = getConfigValue(configMap, "step_09_model_role", fallbackPrimary);

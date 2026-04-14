@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EditPlanFullRow",
+  "description": "STEP_08A: 09_Edit_Plan GSS書き込み行スキーマ",
+  "type": "object",
+  "required": [
+    "project_id",
+    "record_id",
+    "generation_status",
+    "approval_status",
+    "step_id",
+    "scene_no",
+    "related_version",
+    "duration_sec",
+    "updated_at",
+    "updated_by"
+  ],
+  "properties": {
+    "project_id":        { "type": "string", "minLength": 1 },
+    "record_id":         { "type": "string", "minLength": 1 },
+    "generation_status": { "type": "string", "enum": ["GENERATED", "FAILED", "PENDING"] },
+    "approval_status":   { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+    "step_id":           { "type": "string" },
+    "scene_no":          { "type": "string" },
+    "related_version":   { "type": "string", "enum": ["full", "short"] },
+    "asset_image":       { "type": "string" },
+    "asset_audio":       { "type": "string" },
+    "duration_sec":      { "type": "number" },
+    "camera_motion":     { "type": "string" },
+    "transition_in":     { "type": "string" },
+    "transition_out":    { "type": "string" },
+    "bgm_section":       { "type": "string" },
+    "sfx":               { "type": "string" },
+    "subtitle_on":       { "type": "string" },
+    "text_overlay_on":   { "type": "string" },
+    "qa_insert_after":   { "type": "string" },
+    "note":              { "type": "string" },
+    "updated_at":        { "type": "string", "minLength": 1 },
+    "updated_by":        { "type": "string" },
+    "notes":             { "type": "string" }
+  }
+}

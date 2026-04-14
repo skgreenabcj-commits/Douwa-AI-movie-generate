@@ -57,6 +57,13 @@
  * - schemas/image_prompt_schema_ai_v1.json
  * - schemas/image_prompt_schema_full_v1.json
  *
+ * 読み込み対象（STEP_08A TTS Subtitle & Edit Plan）:
+ * - prompts/tts_subtitle_edit_plan_prompt_v1.md
+ * - schemas/tts_subtitle_schema_ai_v1.json
+ * - schemas/tts_subtitle_schema_full_v1.json
+ * - schemas/edit_plan_schema_full_v1.json
+ * - examples/tts_subtitle_ai_response_example_v1.json
+ *
  * 読み込み対象（STEP_09 Q&A Build）:
  * - prompts/qa_prompt_v1.md
  * - schemas/qa_schema_ai_v1.json
@@ -335,6 +342,39 @@ export function loadStep09Assets(): Step09Assets {
     ),
     aiResponseExample: readText(
       repoPath("examples", "qa_ai_response_example_v1.json")
+    ),
+  };
+}
+
+// ─── STEP_08A Assets (TTS Subtitle & Edit Plan) ──────────────────────────────
+
+export interface Step08aAssets {
+  promptTemplate:    string;  // tts_subtitle_edit_plan_prompt_v1.md
+  aiSchema:          string;  // tts_subtitle_schema_ai_v1.json（JSON string）
+  ttsFullSchema:     string;  // tts_subtitle_schema_full_v1.json（JSON string）
+  editPlanFullSchema: string; // edit_plan_schema_full_v1.json（JSON string）
+  aiResponseExample: string;  // tts_subtitle_ai_response_example_v1.json（JSON string）
+}
+
+/**
+ * STEP_08A に必要な全ファイルを読み込んで返す。
+ */
+export function loadStep08aAssets(): Step08aAssets {
+  return {
+    promptTemplate: readText(
+      repoPath("prompts", "tts_subtitle_edit_plan_prompt_v1.md")
+    ),
+    aiSchema: readText(
+      repoPath("schemas", "tts_subtitle_schema_ai_v1.json")
+    ),
+    ttsFullSchema: readText(
+      repoPath("schemas", "tts_subtitle_schema_full_v1.json")
+    ),
+    editPlanFullSchema: readText(
+      repoPath("schemas", "edit_plan_schema_full_v1.json")
+    ),
+    aiResponseExample: readText(
+      repoPath("examples", "tts_subtitle_ai_response_example_v1.json")
     ),
   };
 }

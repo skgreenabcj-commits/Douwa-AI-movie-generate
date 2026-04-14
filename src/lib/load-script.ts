@@ -11,7 +11,7 @@
  */
 
 import { readSheet } from "./sheets-client.js";
-import type { ScriptFullReadRow } from "../types.js";
+import type { ScriptFullReadRow, ScriptShortReadRow } from "../types.js";
 
 const SHEET_NAME = "04_Script_Full";
 
@@ -53,6 +53,42 @@ export async function loadFullScriptByProjectId(
     const sceneNoB = parseInt((b as unknown as Record<string, string>)["scene_no"] ?? "0", 10);
     return sceneNoA - sceneNoB;
   });
+
+  return scripts;
+}
+
+// ─── Short Script ─────────────────────────────────────────────────────────────
+
+const SHORT_SHEET_NAME = "03_Script_Short";
+
+/**
+ * 指定 project_id の Short Script 行を全件取得する。
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param projectId     - 検索する project_id
+ * @returns ScriptShortReadRow[]（generation_status=GENERATED のみ）
+ */
+export async function loadShortScriptByProjectId(
+  spreadsheetId: string,
+  projectId: string
+): Promise<ScriptShortReadRow[]> {
+  const rows = await readSheet(spreadsheetId, SHORT_SHEET_NAME);
+  const target = projectId.trim();
+
+  const scripts: ScriptShortReadRow[] = [];
+  for (const row of rows) {
+    if ((row["project_id"] ?? "").trim() !== target) continue;
+    if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
+
+    scripts.push({
+      project_id:       row["project_id"]       ?? "",
+      record_id:        row["record_id"]         ?? "",
+      narration_tts:    row["narration_tts"]     ?? "",
+      subtitle_short_1: row["subtitle_short_1"]  ?? "",
+      subtitle_short_2: row["subtitle_short_2"]  ?? "",
+      emotion:          row["emotion"]           ?? "",
+    });
+  }
 
   return scripts;
 }

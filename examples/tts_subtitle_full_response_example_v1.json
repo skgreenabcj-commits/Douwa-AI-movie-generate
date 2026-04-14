@@ -1,0 +1,28 @@
+[
+  {
+    "project_id": "PJT-001",
+    "record_id": "PJT-001-SCN-001",
+    "generation_status": "GENERATED",
+    "approval_status": "PENDING",
+    "step_id": "STEP_08A_TTS_SUBTITLE",
+    "scene_no": "1",
+    "line_no": 1,
+    "related_version": "full",
+    "tts_text": "<speak><prosody rate=\"0.80\">むかしむかし、あるところに、<break time=\"400ms\"/>おじいさんとおばあさんがいました。</prosody></speak>",
+    "voice_style": "narrator",
+    "speech_rate": "normal",
+    "pitch_hint": "やや低め、落ち着いた語り口",
+    "emotion_hint": "穏やかで温かく、子どもを引き込む冒頭の語り",
+    "audio_file": "",
+    "subtitle_text": "むかしむかし、あるところに",
+    "subtitle_text_alt": "おじいさんとおばあさんがいました。",
+    "tc_in": "",
+    "tc_out": "",
+    "subtitle_style": "white_bold_bottom",
+    "reading_check": "",
+    "lip_sync_note": "",
+    "updated_at": "2026-04-13T00:00:00.000Z",
+    "updated_by": "github_actions",
+    "notes": ""
+  }
+]
