@@ -70,6 +70,8 @@ export async function ensurePjtFolder(
     q: query,
     fields: "files(id, name)",
     pageSize: 1,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
   });
 
   const existing = listRes.data.files?.[0];
@@ -85,6 +87,7 @@ export async function ensurePjtFolder(
       parents: [parentFolderId],
     },
     fields: "id",
+    supportsAllDrives: true,
   });
 
   const newFolderId = createRes.data.id;
@@ -122,6 +125,7 @@ export async function uploadImageToDrive(
       body: Readable.from(pngBuffer),
     },
     fields: "id",
+    supportsAllDrives: true,
   });
 
   const fileId = uploadRes.data.id;
@@ -180,6 +184,7 @@ export async function uploadAudioToDrive(
       body: Readable.from(mp3Buffer),
     },
     fields: "id",
+    supportsAllDrives: true,
   });
 
   const fileId = uploadRes.data.id;
