@@ -50,6 +50,7 @@ import { buildStep07Prompt } from "../lib/build-prompt.js";
 import {
   callGemini,
   buildGeminiOptionsStep07,
+  buildImageGenOptions,
   generateImageStep07,
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
@@ -122,6 +123,7 @@ export async function runStep07ImagePrompts(
 
   const configMap = await loadRuntimeConfig(spreadsheetId);
   const geminiOptions = buildGeminiOptionsStep07(configMap);
+  const imageGenOptions = buildImageGenOptions(configMap);
   const step07Assets = loadStep07Assets();
 
   for (const projectId of payload.project_ids) {
@@ -307,6 +309,8 @@ export async function runStep07ImagePrompts(
               const pngBuffer = await generateImageStep07(
                 promptFull,
                 aiRow.negative_prompt,
+                imageGenOptions.primaryModel,
+                imageGenOptions.secondaryModel,
               );
               const versionLabel = resolveVersionLabel(scene.short_use, scene.full_use);
               const fileName = `${scene.record_id}_${versionLabel}_${dateStr}.png`;

@@ -475,41 +475,40 @@ export function buildGeminiOptionsStep07(configMap: RuntimeConfigMap): GeminiCal
 
 // ─── Image Generation ─────────────────────────────────────────────────────────
 
-const IMAGE_GEN_MODEL      = "gemini-2.0-flash-preview-image-generation";
+const DEFAULT_IMAGE_PRIMARY_MODEL   = "gemini-3.1-flash-image";
+const DEFAULT_IMAGE_SECONDARY_MODEL = "gemini-2.5-flash-image";
 const IMAGE_GEN_TIMEOUT_MS = 120_000; // 2 分
 
 /**
- * Gemini Image Generation API（Vertex AI）を呼び出し PNG バッファを返す。
- *
- * モデル: gemini-2.0-flash-preview-image-generation
- * アスペクト比: 16:9（prompt_base に "16:9 landscape" を含むため prompt 側でも担保済み）
- * レスポンス: candidates[0].content.parts に inlineData（base64 PNG）が含まれる
- *
- * @param promptFull     - 画像生成プロンプト（prompt_full）
- * @param negativePrompt - 禁止要素（negative_prompt）
- * @returns PNG バイナリ Buffer
+ * Build Gemini image generation model options from RuntimeConfigMap.
+ * Primary  : step_07_image_model_role (fallback: DEFAULT_IMAGE_PRIMARY_MODEL)
+ * Secondary: model_role_picture_seconday (fallback: DEFAULT_IMAGE_SECONDARY_MODEL)
  */
-export async function generateImageStep07(
-  promptFull: string,
-  negativePrompt: string,
+export function buildImageGenOptions(configMap: RuntimeConfigMap): { primaryModel: string; secondaryModel: string } {
+  const primaryModel   = getConfigValue(configMap, "step_07_image_model_role",   DEFAULT_IMAGE_PRIMARY_MODEL);
+  const secondaryModel = getConfigValue(configMap, "model_role_picture_seconday", DEFAULT_IMAGE_SECONDARY_MODEL);
+
+  console.info(`[INFO] Image generation options resolved (STEP_07)`);
+  console.info(`  primaryModel:   '${primaryModel}'`);
+  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+
+  return { primaryModel, secondaryModel };
+}
+
+/**
+ * Call the Vertex AI image generation endpoint for a single model.
+ * Returns PNG Buffer on success, throws on failure.
+ */
+async function callImageGenOnce(
+  model: string,
+  promptText: string,
 ): Promise<Buffer> {
-  const url = buildVertexAiUrl(IMAGE_GEN_MODEL);
+  const url = buildVertexAiUrl(model);
   const token = await getAccessToken();
 
-  const fullPromptText = negativePrompt
-    ? `${promptFull}\nAvoid: ${negativePrompt}`
-    : promptFull;
-
   const requestBody = {
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: fullPromptText }],
-      },
-    ],
-    generationConfig: {
-      responseModalities: ["IMAGE"],
-    },
+    contents: [{ role: "user", parts: [{ text: promptText }] }],
+    generationConfig: { responseModalities: ["IMAGE"] },
   };
 
   const controller = new AbortController();
@@ -543,7 +542,6 @@ export async function generateImageStep07(
   }
 
   const json = (await response.json()) as GeminiApiResponse;
-
   const parts = json.candidates?.[0]?.content?.parts;
   if (!parts || parts.length === 0) {
     throw new Error("Gemini Image API returned no parts in response.");
@@ -559,6 +557,41 @@ export async function generateImageStep07(
   }
 
   throw new Error("Gemini Image API returned no inlineData (image) in response.");
+}
+
+/**
+ * Gemini Image Generation API（Vertex AI）を呼び出し PNG バッファを返す。
+ * primary model 失敗時は secondary model に fallback する。
+ *
+ * @param promptFull     - 画像生成プロンプト（prompt_full）
+ * @param negativePrompt - 禁止要素（negative_prompt）
+ * @param primaryModel   - 使用する primary モデル名
+ * @param secondaryModel - fallback モデル名
+ * @returns PNG バイナリ Buffer
+ */
+export async function generateImageStep07(
+  promptFull: string,
+  negativePrompt: string,
+  primaryModel: string,
+  secondaryModel: string,
+): Promise<Buffer> {
+  const fullPromptText = negativePrompt
+    ? `${promptFull}\nAvoid: ${negativePrompt}`
+    : promptFull;
+
+  // Try primary model
+  try {
+    return await callImageGenOnce(primaryModel, fullPromptText);
+  } catch (primaryErr) {
+    if (primaryErr instanceof GeminiSpendingCapError) throw primaryErr;
+    console.warn(
+      `[WARN] Primary image model (${primaryModel}) failed. Falling back to secondary (${secondaryModel}).`,
+      primaryErr instanceof Error ? primaryErr.message : String(primaryErr),
+    );
+  }
+
+  // Fallback to secondary model
+  return await callImageGenOnce(secondaryModel, fullPromptText);
 }
 
 /**
