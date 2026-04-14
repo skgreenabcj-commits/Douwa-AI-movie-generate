@@ -371,6 +371,68 @@ export function buildStep07FailureLog(
   };
 }
 
+// ─── STEP_08A ログビルダー（TTS Subtitle & Edit Plan Build）─────────────────
+
+export function buildStep08aSuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_08A_TTS_SUBTITLE",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep08aFailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_08A_TTS_SUBTITLE",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[ERROR][${errorType}] ${message}`,
+  };
+}
+
+// ─── STEP_08B ログビルダー（TTS Audio Generate）─────────────────────────────
+
+export function buildStep08bSuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_08B_TTS_AUDIO",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep08bFailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_08B_TTS_AUDIO",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[ERROR][${errorType}] ${message}`,
+  };
+}
+
 // ─── STEP_09 ログビルダー（Q&A Build）────────────────────────────────────────
 
 export function buildStep09SuccessLog(

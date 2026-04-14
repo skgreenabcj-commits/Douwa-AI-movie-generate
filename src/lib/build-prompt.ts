@@ -6,8 +6,8 @@
  * テンプレート内の {{KEY}} を replacements[KEY] で置換する。
  */
 
-import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, QaAiRow, VisualBibleReadRow } from "../types.js";
-import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets, Step06Assets, Step07Assets, Step09Assets } from "./load-assets.js";
+import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, ScriptShortReadRow, QaAiRow, VisualBibleReadRow } from "../types.js";
+import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets, Step06Assets, Step07Assets, Step08aAssets, Step09Assets } from "./load-assets.js";
 
 /**
  * プレースホルダーを一括置換する汎用関数。
@@ -492,4 +492,81 @@ export function buildStep09ShortPrompt(
   return buildPrompt(assets.promptTemplate, {
     INPUT_DATA: JSON.stringify(inputDataObj, null, 2),
   });
+}
+
+// ─── STEP_08A プロンプトビルダー ──────────────────────────────────────────────
+
+/**
+ * STEP_08A Full TTS Subtitle & Edit Plan 用のプロンプトを組み立てる。
+ *
+ * テンプレート内のプレースホルダー:
+ * - {{INPUT_DATA}} : project 情報 + Full Script 行の scenes 配列
+ *
+ * ScriptFullReadRow から利用するフィールド:
+ * - record_id, narration_tts, pause_hint, subtitle_short_1, subtitle_short_2
+ * - emotion（scene のトーン参考用）
+ * ※ emphasis_word / scene_no は ScriptFullReadRow に存在しないため含めない
+ */
+export function buildStep08aFullPrompt(
+  assets: Step08aAssets,
+  project: ProjectRow,
+  scripts: ScriptFullReadRow[]
+): string {
+  const scenesInput = scripts.map((s) => ({
+    scene_record_id:  s.record_id,
+    narration_tts:    s.narration_tts,
+    pause_hint:       s.pause_hint     ?? "",
+    subtitle_short_1: s.subtitle_short_1 ?? "",
+    subtitle_short_2: s.subtitle_short_2 ?? "",
+    emotion:          s.emotion          ?? "",
+  }));
+
+  const inputData = JSON.stringify(
+    {
+      project_id: project.project_id,
+      title_jp:   project.title_jp   ?? "",
+      target_age: project.target_age ?? "",
+      version:    "full",
+      scenes:     scenesInput,
+    },
+    null,
+    2
+  );
+
+  return buildPrompt(assets.promptTemplate, { INPUT_DATA: inputData });
+}
+
+/**
+ * STEP_08A Short TTS Subtitle & Edit Plan 用のプロンプトを組み立てる。
+ *
+ * ScriptShortReadRow から利用するフィールド:
+ * - record_id, narration_tts, subtitle_short_1, subtitle_short_2, emotion
+ * ※ emphasis_word / pause_hint / scene_no は ScriptShortReadRow に存在しないため含めない
+ */
+export function buildStep08aShortPrompt(
+  assets: Step08aAssets,
+  project: ProjectRow,
+  scripts: ScriptShortReadRow[]
+): string {
+  const scenesInput = scripts.map((s) => ({
+    scene_record_id:  s.record_id,
+    narration_tts:    s.narration_tts,
+    subtitle_short_1: s.subtitle_short_1 ?? "",
+    subtitle_short_2: s.subtitle_short_2 ?? "",
+    emotion:          s.emotion          ?? "",
+  }));
+
+  const inputData = JSON.stringify(
+    {
+      project_id: project.project_id,
+      title_jp:   project.title_jp   ?? "",
+      target_age: project.target_age ?? "",
+      version:    "short",
+      scenes:     scenesInput,
+    },
+    null,
+    2
+  );
+
+  return buildPrompt(assets.promptTemplate, { INPUT_DATA: inputData });
 }

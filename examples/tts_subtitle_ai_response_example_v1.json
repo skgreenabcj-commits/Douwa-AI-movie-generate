@@ -1,0 +1,75 @@
+{
+  "tts_subtitles": [
+    {
+      "scene_record_id": "PJT-001-SCN-001",
+      "tts_text": "<speak><prosody rate=\"0.80\">むかしむかし、あるところに、<break time=\"400ms\"/>おじいさんとおばあさんがいました。</prosody></speak>",
+      "voice_style": "narrator",
+      "speech_rate": "normal",
+      "pitch_hint": "やや低め、落ち着いた語り口。昔話の雰囲気を大切に",
+      "emotion_hint": "穏やかで温かく、子どもを引き込む冒頭の語り",
+      "subtitle_text": "むかしむかし、あるところに",
+      "subtitle_text_alt": "おじいさんとおばあさんがいました。",
+      "subtitle_style": "white_bold_bottom"
+    },
+    {
+      "scene_record_id": "PJT-001-SCN-002",
+      "tts_text": "<speak><prosody rate=\"0.80\">大きな桃が、<break time=\"300ms\"/><sub alias=\"どんぶらこ\">どんぶらこ</sub>、<emphasis level=\"moderate\">どんぶらこ</emphasis>と流れてきました。</prosody></speak>",
+      "voice_style": "narrator",
+      "speech_rate": "normal",
+      "pitch_hint": "落ち着いたトーン。どんぶらこは擬音として少し明るく",
+      "emotion_hint": "穏やかな驚きと発見の場面。子どもが情景を想像しやすい語り口で",
+      "subtitle_text": "大きな桃がどんぶらこと",
+      "subtitle_text_alt": "流れてきました。",
+      "subtitle_style": "white_bold_bottom"
+    },
+    {
+      "scene_record_id": "PJT-001-SCN-010",
+      "tts_text": "<speak><prosody rate=\"0.85\"><emphasis level=\"strong\">桃太郎</emphasis>は、<break time=\"400ms\"/>力いっぱい鬼の大将に立ち向かいました。</prosody></speak>",
+      "voice_style": "tense",
+      "speech_rate": "normal",
+      "pitch_hint": "気持ち低め。力強さと緊張感を表現",
+      "emotion_hint": "クライマックスの緊張感。一語一語を重く、力強く読む",
+      "subtitle_text": "桃太郎は力いっぱい",
+      "subtitle_text_alt": "鬼の大将に立ち向かいました。",
+      "subtitle_style": "white_bold_bottom"
+    }
+  ],
+  "edit_plan": [
+    {
+      "scene_record_id": "PJT-001-SCN-001",
+      "duration_sec": 6.0,
+      "camera_motion": "slow_pan_right",
+      "transition_in": "fade",
+      "transition_out": "dissolve",
+      "bgm_section": "intro",
+      "sfx": "",
+      "subtitle_on": "Y",
+      "text_overlay_on": "N",
+      "qa_insert_after": "N"
+    },
+    {
+      "scene_record_id": "PJT-001-SCN-002",
+      "duration_sec": 5.5,
+      "camera_motion": "slow_zoom_in",
+      "transition_in": "dissolve",
+      "transition_out": "dissolve",
+      "bgm_section": "verse_1",
+      "sfx": "water_stream",
+      "subtitle_on": "Y",
+      "text_overlay_on": "N",
+      "qa_insert_after": "N"
+    },
+    {
+      "scene_record_id": "PJT-001-SCN-010",
+      "duration_sec": 7.0,
+      "camera_motion": "slow_zoom_in",
+      "transition_in": "cut",
+      "transition_out": "fade",
+      "bgm_section": "climax",
+      "sfx": "battle_clash",
+      "subtitle_on": "Y",
+      "text_overlay_on": "N",
+      "qa_insert_after": "Y"
+    }
+  ]
+}

@@ -20,6 +20,8 @@ import { runStep03ScenesBuild } from "./steps/step03-scenes-build.js";
 import { runStep04_05ScriptBuild } from "./steps/step04-05-script-build.js";
 import { runStep06VisualBible } from "./steps/step06-visual-bible.js";
 import { runStep07ImagePrompts } from "./steps/step07-image-prompts.js";
+import { runStep08aTtsSubtitleEditPlan } from "./steps/step08a-tts-subtitle-edit-plan.js";
+import { runStep08bTtsAudioGenerate } from "./steps/step08b-tts-audio-generate.js";
 import { runStep09QaBuild } from "./steps/step09-qa-build.js";
 import type { WorkflowPayload } from "./types.js";
 
@@ -78,6 +80,36 @@ async function main(): Promise<void> {
     case "STEP_07":
       await runStep07ImagePrompts(payload, spreadsheetId);
       break;
+
+    case "STEP_08A":
+      await runStep08aTtsSubtitleEditPlan(payload, spreadsheetId);
+      break;
+
+    case "STEP_08B":
+      await runStep08bTtsAudioGenerate(payload, spreadsheetId);
+      break;
+
+    case "STEP_08A_08B": {
+      // 08A 全成功時のみ 08B を自動実行（STEP_04_05 複合実行パターンに準拠）
+      const results08a = await runStep08aTtsSubtitleEditPlan(payload, spreadsheetId);
+      const allSucceeded = results08a.every(
+        (r) => r.failCount === 0 && r.successCount > 0
+      );
+      if (allSucceeded) {
+        console.log("[INFO] STEP_08A completed with no failures. Proceeding to STEP_08B.");
+        await runStep08bTtsAudioGenerate(payload, spreadsheetId);
+      } else {
+        const failedProjects = results08a
+          .filter((r) => r.failCount > 0 || r.successCount === 0)
+          .map((r) => `${r.projectId}(success=${r.successCount},fail=${r.failCount})`)
+          .join(", ");
+        console.error(
+          `[ERROR] STEP_08A_08B: STEP_08A had failures — STEP_08B skipped. Failed: ${failedProjects}`
+        );
+        process.exit(1);
+      }
+      break;
+    }
 
     case "STEP_09":
       await runStep09QaBuild(payload, spreadsheetId);

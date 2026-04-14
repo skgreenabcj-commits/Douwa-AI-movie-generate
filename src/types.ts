@@ -12,7 +12,9 @@ export type StepId =
   | "STEP_04_05_COMBINED"           // current_step 値（Short+Full 両方完了）
   | "STEP_06_VISUAL_BIBLE"          // Visual Bible Build
   | "STEP_07_IMAGE_PROMPTS"         // Image Prompts Build
-  | "STEP_09_QA_BUILD";             // Q&A Build
+  | "STEP_08A_TTS_SUBTITLE"        // TTS Subtitle & Edit Plan Build
+  | "STEP_08B_TTS_AUDIO"           // TTS Audio Generate
+  | "STEP_09_QA_BUILD";            // Q&A Build
 
 // ─── Runtime Config ──────────────────────────────────────────────────────────
 
@@ -309,6 +311,21 @@ export interface ScriptShortRow extends ScriptShortAiRow {
   notes:             string;
 }
 
+// ─── 03_Script_Short (read) ───────────────────────────────────────────────────
+
+/**
+ * 03_Script_Short から読み込む参照用 row（STEP_08A TTS Subtitle 生成時の参照）
+ * generation_status = "GENERATED" の行のみを対象とする。
+ */
+export interface ScriptShortReadRow {
+  project_id:       string;
+  record_id:        string;
+  narration_tts:    string;
+  subtitle_short_1: string;
+  subtitle_short_2: string;
+  emotion:          string;
+}
+
 // ─── 04_Script_Full ───────────────────────────────────────────────────────────
 
 /**
@@ -543,6 +560,164 @@ export interface QaReadRow {
   project_id:      string;
   record_id:       string;
   related_version: QaVersion;
+}
+
+// ─── 08_TTS_Subtitles / 09_Edit_Plan ─────────────────────────────────────────
+
+/** 08_TTS_Subtitles / 09_Edit_Plan の related_version 固定 enum */
+export type TtsSubtitleVersion = "full" | "short";
+
+/**
+ * STEP_08A TTS Subtitle — AI が返す 1 scene 分の TTS 字幕 row
+ * スキーマ: tts_subtitle_schema_ai_v1.json
+ *
+ * scene_record_id は照合用のみ（GSS には書き込まない）。
+ * tts_text は narration_tts を素材として Gemini が生成した SSML 文字列（<speak>〜</speak>）。
+ * pitch_hint / emotion_hint は SSML 生成意図の説明文。STEP_08B では TTS API に渡さない。
+ */
+export interface TtsSubtitleAiRow {
+  scene_record_id:   string;   // 照合用: Script.record_id（GSS 書き込み対象外）
+  tts_text:          string;   // SSML 文字列（<speak>〜</speak>）
+  voice_style:       "narrator" | "gentle" | "excited" | "tense" | "whisper" | "cheerful";
+  speech_rate:       "slow" | "normal" | "fast";
+  pitch_hint:        string;   // SSML 生成意図の説明
+  emotion_hint:      string;   // SSML 生成意図の説明
+  subtitle_text:     string;   // 主字幕テキスト（プレーンテキスト）
+  subtitle_text_alt: string;   // 副字幕テキスト（空文字可）
+  subtitle_style:    string;   // 自由記述（例: "white_bold_bottom"）
+  [key: string]: unknown;      // AJV バリデーション互換
+}
+
+/**
+ * Google Sheets 08_TTS_Subtitles 書き込み行（tts_subtitle_schema_full_v1）
+ *
+ * record_id は 03_Script_Short / 04_Script_Full から引き継ぐ（新規採番なし）。
+ * upsert キー: record_id + related_version の複合キー。
+ * tc_in / tc_out / audio_file は STEP_08B で書き戻す → 本ステップでは "" 固定。
+ */
+export interface TtsSubtitleRow {
+  project_id:        string;
+  record_id:         string;    // Script から引き継ぎ（例: PJT-001-SCN-001）
+  generation_status: "GENERATED" | "FAILED" | "PENDING";
+  approval_status:   "PENDING" | "APPROVED" | "REJECTED";
+  step_id:           string;    // 固定: "STEP_08A_TTS_SUBTITLE"
+  scene_no:          string;    // 表示補助: 02_Scenes.scene_no
+  line_no:           number;    // 固定: 1
+  related_version:   TtsSubtitleVersion;
+  tts_text:          string;    // SSML 文字列
+  voice_style:       string;
+  speech_rate:       string;
+  pitch_hint:        string;
+  emotion_hint:      string;
+  audio_file:        "";        // STEP_08B で書き戻し
+  subtitle_text:     string;
+  subtitle_text_alt: string;
+  tc_in:             "";        // STEP_08B で書き戻し
+  tc_out:            "";        // STEP_08B で書き戻し
+  subtitle_style:    string;
+  reading_check:     "";        // 手動入力用
+  lip_sync_note:     "";        // 手動入力用
+  updated_at:        string;
+  updated_by:        string;
+  notes:             string;
+}
+
+/** 08_TTS_Subtitles から読み込む参照用 row（再実行時の重複チェック用） */
+export interface TtsSubtitleReadRow {
+  project_id:      string;
+  record_id:       string;
+  related_version: TtsSubtitleVersion;
+  audio_file:      string;   // "" なら未生成（STEP_08B の対象）
+  scene_no:        string;
+  tts_text:        string;   // STEP_08B が TTS API に渡す SSML
+  voice_style:     string;
+  speech_rate:     string;
+}
+
+/**
+ * STEP_08A Edit Plan — AI が返す 1 scene 分の編集計画 row
+ * スキーマ: tts_subtitle_schema_ai_v1.json（TTS と同一レスポンスに含まれる）
+ */
+export interface EditPlanAiRow {
+  scene_record_id: string;   // 照合用: Script.record_id（GSS 書き込み対象外）
+  duration_sec:    number;   // 推定秒数（小数点1桁）。STEP_08B の実測値で上書きされる
+  camera_motion:   "static" | "slow_pan_right" | "slow_pan_left" | "slow_zoom_in" | "slow_zoom_out" | "ken_burns";
+  transition_in:   "cut" | "fade" | "fade_white" | "dissolve";
+  transition_out:  "cut" | "fade" | "fade_white" | "dissolve";
+  bgm_section:     string;   // 自由記述
+  sfx:             string;   // 自由記述・空文字可
+  subtitle_on:     "Y" | "N";
+  text_overlay_on: "Y" | "N";
+  qa_insert_after: "Y" | "N";
+  [key: string]: unknown;    // AJV バリデーション互換
+}
+
+/**
+ * Google Sheets 09_Edit_Plan 書き込み行（edit_plan_schema_full_v1）
+ *
+ * record_id は Script から引き継ぐ（新規採番なし）。
+ * upsert キー: record_id + related_version の複合キー。
+ */
+export interface EditPlanRow {
+  project_id:        string;
+  record_id:         string;    // Script から引き継ぎ（例: PJT-001-SCN-001）
+  generation_status: "GENERATED" | "FAILED" | "PENDING";
+  approval_status:   "PENDING" | "APPROVED" | "REJECTED";
+  step_id:           string;    // 固定: "STEP_08A_TTS_SUBTITLE"
+  scene_no:          string;    // 表示補助: 02_Scenes.scene_no
+  related_version:   TtsSubtitleVersion;
+  asset_image:       string;    // 06_Image_Prompts.image_take_1（なければ ""）
+  asset_audio:       "";        // STEP_08B で書き戻し
+  duration_sec:      number;    // AI 推定値（STEP_08B で実測値に上書き）
+  camera_motion:     string;
+  transition_in:     string;
+  transition_out:    string;
+  bgm_section:       string;
+  sfx:               string;
+  subtitle_on:       string;    // "Y" | "N"
+  text_overlay_on:   string;    // "Y" | "N"
+  qa_insert_after:   string;    // "Y" | "N"
+  note:              "";        // 手動入力用
+  updated_at:        string;
+  updated_by:        string;
+  notes:             string;
+}
+
+/** 09_Edit_Plan から読み込む参照用 row（再実行時の重複チェック用） */
+export interface EditPlanReadRow {
+  project_id:      string;
+  record_id:       string;
+  related_version: TtsSubtitleVersion;
+  asset_audio:     string;   // "" なら未生成（STEP_08B の対象）
+  scene_no:        string;
+  duration_sec:    string;   // 現在の推定値（文字列で読み込み）
+}
+
+/**
+ * STEP_08B が 08_TTS_Subtitles に書き戻す部分更新フィールド
+ * upsert キー: record_id + related_version の複合キー
+ */
+export interface TtsAudioPatch {
+  record_id:       string;
+  related_version: TtsSubtitleVersion;
+  audio_file:      string;   // Google Drive URL
+  tc_in:           string;   // 固定: "0:00.000"
+  tc_out:          string;   // 実測値: "M:SS.mmm"
+  updated_at:      string;
+  updated_by:      string;
+}
+
+/**
+ * STEP_08B が 09_Edit_Plan に書き戻す部分更新フィールド
+ * upsert キー: record_id + related_version の複合キー
+ */
+export interface EditPlanAudioPatch {
+  record_id:       string;
+  related_version: TtsSubtitleVersion;
+  asset_audio:     string;   // Google Drive URL（audio_file と同値）
+  duration_sec:    number;   // TTS 実測値（AI 推定値を上書き）
+  updated_at:      string;
+  updated_by:      string;
 }
 
 // ─── Workflow Payload ─────────────────────────────────────────────────────────

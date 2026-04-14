@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TtsSubtitleEditPlanAiResponse",
+  "description": "STEP_08A: Gemini が返す TTS字幕 + 編集計画 の AI出力スキーマ",
+  "type": "object",
+  "required": ["tts_subtitles", "edit_plan"],
+  "additionalProperties": false,
+  "properties": {
+    "tts_subtitles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "scene_record_id",
+          "tts_text",
+          "voice_style",
+          "speech_rate",
+          "pitch_hint",
+          "emotion_hint",
+          "subtitle_text",
+          "subtitle_text_alt",
+          "subtitle_style"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "scene_record_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "照合用: Script.record_id (GSS書き込み対象外)"
+          },
+          "tts_text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "SSML文字列 (<speak>〜</speak>)"
+          },
+          "voice_style": {
+            "type": "string",
+            "enum": ["narrator", "gentle", "excited", "tense", "whisper", "cheerful"]
+          },
+          "speech_rate": {
+            "type": "string",
+            "enum": ["slow", "normal", "fast"]
+          },
+          "pitch_hint": {
+            "type": "string",
+            "description": "SSML生成意図の説明（自由記述）"
+          },
+          "emotion_hint": {
+            "type": "string",
+            "description": "SSML生成意図の説明（自由記述）"
+          },
+          "subtitle_text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "主字幕テキスト（プレーンテキスト）"
+          },
+          "subtitle_text_alt": {
+            "type": "string",
+            "description": "副字幕テキスト（空文字可）"
+          },
+          "subtitle_style": {
+            "type": "string",
+            "description": "字幕スタイル（自由記述: 例 white_bold_bottom）"
+          }
+        }
+      }
+    },
+    "edit_plan": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "scene_record_id",
+          "duration_sec",
+          "camera_motion",
+          "transition_in",
+          "transition_out",
+          "bgm_section",
+          "sfx",
+          "subtitle_on",
+          "text_overlay_on",
+          "qa_insert_after"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "scene_record_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "照合用: Script.record_id (GSS書き込み対象外)"
+          },
+          "duration_sec": {
+            "type": "number",
+            "minimum": 0.1,
+            "description": "推定シーン尺（秒）。小数点1桁。STEP_08Bで実測値に上書きされる"
+          },
+          "camera_motion": {
+            "type": "string",
+            "enum": ["static", "slow_pan_right", "slow_pan_left", "slow_zoom_in", "slow_zoom_out", "ken_burns"]
+          },
+          "transition_in": {
+            "type": "string",
+            "enum": ["cut", "fade", "fade_white", "dissolve"]
+          },
+          "transition_out": {
+            "type": "string",
+            "enum": ["cut", "fade", "fade_white", "dissolve"]
+          },
+          "bgm_section": {
+            "type": "string",
+            "description": "BGMセクション名（自由記述: 例 intro, verse_1, climax）"
+          },
+          "sfx": {
+            "type": "string",
+            "description": "効果音（自由記述・空文字可）"
+          },
+          "subtitle_on": {
+            "type": "string",
+            "enum": ["Y", "N"]
+          },
+          "text_overlay_on": {
+            "type": "string",
+            "enum": ["Y", "N"]
+          },
+          "qa_insert_after": {
+            "type": "string",
+            "enum": ["Y", "N"]
+          }
+        }
+      }
+    }
+  }
+}
