@@ -22,22 +22,20 @@ let _driveClient: ReturnType<typeof google.drive> | null = null;
 function getDriveClient(): ReturnType<typeof google.drive> {
   if (_driveClient) return _driveClient;
 
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!raw) {
+  const clientId     = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
     throw new Error(
-      "GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set."
+      "Google Drive OAuth2 credentials are not set. " +
+      "Required env vars: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REFRESH_TOKEN"
     );
   }
 
-  const credentials = JSON.parse(raw) as {
-    client_email: string;
-    private_key: string;
-  };
-
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/drive"],
-  });
+  // Use OAuth2 with personal Gmail account (service accounts lack Drive storage quota)
+  const auth = new google.auth.OAuth2(clientId, clientSecret);
+  auth.setCredentials({ refresh_token: refreshToken });
 
   _driveClient = google.drive({ version: "v3", auth });
   return _driveClient;

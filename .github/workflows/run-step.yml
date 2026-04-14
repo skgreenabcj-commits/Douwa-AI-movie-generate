@@ -55,3 +55,7 @@ jobs:
           # プライマリモデルを上書きする（RPD 上限枯渇時などに使用）
           # 例: gemini-2.0-flash (RPD 無制限) / gemini-2.5-pro-exp (RPD 10000)
           GEMINI_PRIMARY_MODEL_OVERRIDE: ${{ secrets.GEMINI_PRIMARY_MODEL }}
+          # Google Drive OAuth2 認証（個人Gmailアカウント用）
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
