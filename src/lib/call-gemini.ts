@@ -512,7 +512,10 @@ async function callImageGenOnce(
 
   const requestBody = {
     contents: [{ role: "user", parts: [{ text: promptText }] }],
-    generationConfig: { responseModalities: ["IMAGE"] },
+    generationConfig: {
+      responseModalities: ["IMAGE"],
+      aspectRatio: "16:9",
+    },
   };
 
   const controller = new AbortController();
