@@ -514,7 +514,9 @@ async function callImageGenOnce(
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     generationConfig: {
       responseModalities: ["IMAGE"],
-      aspectRatio: "16:9",
+      imageConfig: {
+        aspectRatio: "16:9",
+      },
     },
   };
 
