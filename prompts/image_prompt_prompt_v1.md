@@ -23,6 +23,12 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 
 各フィールドの記述方針:
 
+- **character_refs**: このシーンに登場するキャラクターの Visual Bible `key_name` を **正確な文字列で** 配列に列挙する
+  - `INPUT_DATA.visual_bible` の `category = "character"` のエントリのうち、このシーンに実際に登場するものだけを選ぶ
+  - `key_name` の文字列は一字一句変えずにそのままコピーすること（例: `"桃太郎（5〜9歳・幼少期）"`）
+  - 登場しないキャラクターは含めない
+  - 例: `["桃太郎（5〜9歳・幼少期）", "おじいさん（60歳以上・老年期）"]`
+
 - **prompt_base**: 画風・全体トーン・メディア種別を指定する基礎スタイル指示
   - Visual Bible の `style_global` / `color_theme` / `lighting` カテゴリのルールを反映する
   - アスペクト比指示 `16:9 landscape` を必ず含める
@@ -59,7 +65,7 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 
 ## 制約
 
-1. プロンプトはすべて **英語** で記述すること
+1. プロンプトはすべて **英語** で記述すること（`character_refs` の値は日本語のまま返すこと）
 2. `prompt_base` には必ず `16:9 landscape` と `high resolution, 2K quality` を含めること
 3. `scene_record_id` は `INPUT_DATA.scene.scene_record_id` の値をそのまま返すこと（変更禁止）
 4. `record_id` は返さないこと（システム側で採番する）
@@ -68,6 +74,7 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 7. キャラクター・背景のスタイルは Visual Bible のルールに準拠すること
 8. `negative_prompt` には必ず `no text, no letters, no captions, no subtitles, no story narration text` を含めること
 9. `INPUT_DATA.scene.scene_type` が `"thought_bubble"` の場合、`prompt_composition` に雲形吹き出しの指示を含めること
+10. `character_refs` には、このシーンに登場する `category="character"` の VB エントリの `key_name` を **変更せず** 列挙すること
 
 ---
 
@@ -80,6 +87,7 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
   "image_prompts": [
     {
       "scene_record_id": "（INPUT_DATA.scene.scene_record_id の値）",
+      "character_refs": ["（登場キャラクターの VB key_name を正確な日本語文字列で列挙）"],
       "prompt_base": "（画風・全体トーン・16:9 landscape）",
       "prompt_character": "（登場キャラクターの英語描写）",
       "prompt_scene": "（背景・場所・環境の英語描写）",
@@ -101,6 +109,7 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
   "image_prompts": [
     {
       "scene_record_id": "PJT-001-SCN-001",
+      "character_refs": ["おばあさん（60歳以上・老年期）"],
       "prompt_base": "Children's picture-book illustration, soft watercolor style, warm pastel tones, gentle ink outlines, 16:9 landscape, high resolution, 2K quality",
       "prompt_character": "Grandmother: small elderly woman in pale-green kimono with white apron, white hair in bun, wide surprised eyes and open mouth, standing at river's edge looking down at peach",
       "prompt_scene": "Peaceful shallow riverside, large round pink peach floating gently downstream with small ripples, lush green riverbanks with wildflowers, soft afternoon sunlight filtering through trees",

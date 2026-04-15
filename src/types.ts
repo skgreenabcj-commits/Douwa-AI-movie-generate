@@ -462,13 +462,27 @@ export interface VisualBibleReadRow {
  * scene_record_id は 02_Scenes.record_id と突合するためのキー。
  */
 export interface ImagePromptAiRow {
-  scene_record_id:    string;  // 対応する 02_Scenes.record_id（突合用）
-  prompt_base:        string;  // 基礎スタイル指示（画風・全体トーン・"16:9 landscape" 含む）
-  prompt_character:   string;  // キャラクター描写
-  prompt_scene:       string;  // 背景・場所描写
-  prompt_composition: string;  // 構図・フレーミング
-  negative_prompt:    string;  // 禁止要素（画像生成 API の negativePrompt パラメータに渡す）
-  [key: string]: unknown;      // AJV バリデーション互換
+  scene_record_id:    string;    // 対応する 02_Scenes.record_id（突合用）
+  character_refs?:    string[];  // このシーンに登場するキャラクターの VB key_name リスト（キャラクターシート選択用）
+  prompt_base:        string;    // 基礎スタイル指示（画風・全体トーン・"16:9 landscape" 含む）
+  prompt_character:   string;    // キャラクター描写
+  prompt_scene:       string;    // 背景・場所描写
+  prompt_composition: string;    // 構図・フレーミング
+  negative_prompt:    string;    // 禁止要素（画像生成 API の negativePrompt パラメータに渡す）
+  [key: string]: unknown;        // AJV バリデーション互換
+}
+
+/**
+ * キャラクターシート生成用 Visual Bible キャラクター行
+ * （loadCharactersByProjectId が返す型）
+ */
+export interface VisualBibleCharacterRow {
+  key_name:        string;
+  description:     string;
+  character_rule:  string;
+  color_palette:   string;
+  expression_rule: string;
+  avoid_rule:      string;
 }
 
 /**

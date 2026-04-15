@@ -39,11 +39,15 @@ import type {
   ImagePromptRow,
   ImagePromptReadRow,
   SceneReadRow,
+  VisualBibleCharacterRow,
 } from "../types.js";
 import { loadRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
 import { readProjectsByIds } from "../lib/load-project-input.js";
 import { loadScenesByProjectId } from "../lib/load-scenes.js";
-import { loadVisualBibleByProjectId } from "../lib/load-visual-bible.js";
+import {
+  loadVisualBibleByProjectId,
+  loadCharactersByProjectId,
+} from "../lib/load-visual-bible.js";
 import { loadImagePromptsByProjectId } from "../lib/load-image-prompts.js";
 import { loadStep07Assets } from "../lib/load-assets.js";
 import { buildStep07Prompt } from "../lib/build-prompt.js";
@@ -52,6 +56,7 @@ import {
   buildGeminiOptionsStep07,
   buildImageGenOptions,
   generateImageStep07,
+  generateCharacterSheet,
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
 import { validateImagePromptAiResponse } from "../lib/validate-json.js";
@@ -69,6 +74,39 @@ import {
   buildStep07FailureLog,
 } from "../lib/write-app-log.js";
 import { logInfo, logError } from "../lib/logger.js";
+
+// ─── キャラクターシート ───────────────────────────────────────────────────────
+
+/**
+ * Visual Bible のキャラクターエントリからキャラクターシート生成用英語プロンプトを組み立てる。
+ */
+function buildCharacterSheetPrompt(char: VisualBibleCharacterRow): string {
+  const parts: string[] = [
+    `Generate a character reference sheet for the following character.`,
+    `Front-facing view, even neutral lighting, full body visible, centered in frame.`,
+    `Plain white or very light background. No scene elements, no other characters.`,
+  ];
+  if (char.description)    parts.push(`Character overview: ${char.description}`);
+  if (char.character_rule) parts.push(`Design rules: ${char.character_rule}`);
+  if (char.color_palette)  parts.push(`Color palette: ${char.color_palette}`);
+  if (char.expression_rule) parts.push(`Expression: neutral, friendly.`);
+  if (char.avoid_rule)     parts.push(`Avoid: ${char.avoid_rule}`);
+  parts.push(`no text, no letters, no captions, no watermark`);
+  return parts.join(" ");
+}
+
+/**
+ * AI が返した character_refs（VB key_name の配列）からキャラクターシート Buffer を選択する。
+ * key_name の完全一致で照合する（言語不一致を回避）。
+ */
+function selectReferenceImages(
+  characterRefs: string[],
+  characterSheets: Map<string, Buffer>,
+): Buffer[] {
+  return characterRefs
+    .map((ref) => characterSheets.get(ref))
+    .filter((buf): buf is Buffer => buf !== undefined);
+}
 
 // ─── record_id 採番 ───────────────────────────────────────────────────────────
 
@@ -246,6 +284,53 @@ export async function runStep07ImagePrompts(
         }
       }
 
+      // ── 日時（pre-processing とシーンループで共用）────────────────────────
+      const now = new Date();
+      const dateStr = toDateString(now);
+      const nowIso = now.toISOString();
+
+      // ── キャラクターシート生成（Pre-processing）────────────────────────────
+      // category="character" の全エントリに対して 1:1 参照画像を生成し、
+      // Map<key_name, Buffer> としてメモリ保持する。
+      const characterSheets = new Map<string, Buffer>();
+      const charEntries = await loadCharactersByProjectId(spreadsheetId, projectId);
+
+      if (charEntries.length > 0 && !payload.dry_run) {
+        logInfo(`[STEP_07] Generating character sheets for ${charEntries.length} character(s)...`);
+
+        // Ensure character_book subfolder in Drive
+        const charBookFolderId = await ensurePjtFolder(pjtFolderId, "character_book");
+
+        for (const char of charEntries) {
+          if (!char.key_name) continue;
+          try {
+            const sheetPrompt = buildCharacterSheetPrompt(char);
+            const sheetBuffer = await generateCharacterSheet(
+              sheetPrompt,
+              imageGenOptions.primaryModel,
+              imageGenOptions.secondaryModel,
+            );
+            characterSheets.set(char.key_name, sheetBuffer);
+
+            // Upload to Drive for user review
+            const safeFileName = char.key_name.replace(/[^\w\u3000-\u9FFF\u30A0-\u30FF]/g, "_");
+            const sheetFileName = `${safeFileName}_${dateStr}.png`;
+            const sheetUrl = await uploadImageToDrive(charBookFolderId, sheetFileName, sheetBuffer);
+            logInfo(`[STEP_07] Character sheet uploaded: ${char.key_name} → ${sheetUrl}`);
+          } catch (charErr) {
+            if (charErr instanceof GeminiSpendingCapError) throw charErr;
+            logError(
+              `[STEP_07] Character sheet generation failed for "${char.key_name}": ` +
+              (charErr instanceof Error ? charErr.message : String(charErr))
+            );
+            // Continue without this character sheet (scene generation proceeds without reference)
+          }
+        }
+        logInfo(`[STEP_07] Character sheets ready: ${characterSheets.size}/${charEntries.length}`);
+      } else if (payload.dry_run) {
+        logInfo(`[STEP_07][DRY_RUN] Would generate ${charEntries.length} character sheet(s)`);
+      }
+
       // ── record_id 採番 ───────────────────────────────────────────────────────
       const existingRows = await loadImagePromptsByProjectId(spreadsheetId, projectId);
       if (existingRows.length > 0) {
@@ -254,9 +339,6 @@ export async function runStep07ImagePrompts(
       const recordIds = assignImagePromptRecordIds(projectId, targetScenes.length, existingRows);
 
       // ── シーンループ ─────────────────────────────────────────────────────────
-      const now = new Date();
-      const dateStr = toDateString(now);
-      const nowIso = now.toISOString();
       let firstUpsertedId = "";
       let successCount = 0;
       let failCount = 0;
@@ -306,11 +388,15 @@ export async function runStep07ImagePrompts(
             logInfo(`[STEP_07][DRY_RUN] Would generate image for ${recordId}`);
           } else {
             try {
+              // Select reference images from character sheets via exact key_name match
+              const charRefs = Array.isArray(aiRow.character_refs) ? aiRow.character_refs : [];
+              const refImages = selectReferenceImages(charRefs, characterSheets);
               const pngBuffer = await generateImageStep07(
                 promptFull,
                 aiRow.negative_prompt,
                 imageGenOptions.primaryModel,
                 imageGenOptions.secondaryModel,
+                refImages.length > 0 ? refImages : undefined,
               );
               const versionLabel = resolveVersionLabel(scene.short_use, scene.full_use);
               const fileName = `${scene.record_id}_${versionLabel}_${dateStr}.png`;

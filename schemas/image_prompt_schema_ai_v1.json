@@ -21,6 +21,11 @@
         ],
         "properties": {
           "scene_record_id":  { "type": "string", "minLength": 1 },
+          "character_refs":   {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Visual Bible の character category エントリのうち、このシーンに登場するキャラクターの key_name を正確な文字列で列挙する"
+          },
           "prompt_base":      { "type": "string", "minLength": 1 },
           "prompt_character": { "type": "string", "minLength": 1 },
           "prompt_scene":     { "type": "string", "minLength": 1 },
