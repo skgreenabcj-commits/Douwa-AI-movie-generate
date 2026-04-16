@@ -104,10 +104,63 @@ export async function ensurePjtFolder(
  * @param pngBuffer - PNG バイナリ
  * @returns 閲覧用 URL（https://drive.google.com/file/d/{fileId}/view）
  */
+/**
+ * PNG Buffer を JPEG に変換して返す。
+ * sharp ライブラリを動的 import で使用する（ESM 互換）。
+ *
+ * @param buf     - 変換元 PNG バイナリ
+ * @param quality - JPEG 品質（0〜100, デフォルト 90）
+ * @returns JPEG バイナリ Buffer
+ */
+export async function convertToJpeg(buf: Buffer, quality = 90): Promise<Buffer> {
+  const sharpModule = (await import("sharp")).default;
+  return sharpModule(buf).jpeg({ quality }).toBuffer();
+}
+
+/**
+ * Drive フォルダ内のファイル一覧（id + name）を返す。
+ * Retake モードでのキャラクターシート再利用に使用する。
+ *
+ * @param folderId - 一覧取得するフォルダの Google Drive ID
+ * @returns { id, name }[] のファイルリスト
+ */
+export async function listFilesInFolder(
+  folderId: string
+): Promise<{ id: string; name: string }[]> {
+  const drive = getDriveClient();
+  const res = await drive.files.list({
+    q: `'${folderId}' in parents and trashed = false`,
+    fields: "files(id, name)",
+    pageSize: 100,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  return (res.data.files ?? [])
+    .filter((f): f is { id: string; name: string } => !!f.id && !!f.name)
+    .map((f) => ({ id: f.id, name: f.name }));
+}
+
+/**
+ * Drive ファイルを Buffer としてダウンロードする。
+ * Retake モードでのキャラクターシート再利用に使用する。
+ *
+ * @param fileId - ダウンロードするファイルの Google Drive ID
+ * @returns ファイルバイナリ Buffer
+ */
+export async function downloadFileFromDrive(fileId: string): Promise<Buffer> {
+  const drive = getDriveClient();
+  const res = await drive.files.get(
+    { fileId, alt: "media", supportsAllDrives: true },
+    { responseType: "arraybuffer" }
+  );
+  return Buffer.from(res.data as ArrayBuffer);
+}
+
 export async function uploadImageToDrive(
   folderId: string,
   fileName: string,
-  pngBuffer: Buffer
+  imageBuffer: Buffer,
+  mimeType = "image/png"
 ): Promise<string> {
   const drive = getDriveClient();
 
@@ -115,12 +168,12 @@ export async function uploadImageToDrive(
   const uploadRes = await drive.files.create({
     requestBody: {
       name: fileName,
-      mimeType: "image/png",
+      mimeType,
       parents: [folderId],
     },
     media: {
-      mimeType: "image/png",
-      body: Readable.from(pngBuffer),
+      mimeType,
+      body: Readable.from(imageBuffer),
     },
     fields: "id",
     supportsAllDrives: true,

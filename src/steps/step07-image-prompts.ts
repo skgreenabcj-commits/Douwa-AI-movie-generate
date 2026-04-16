@@ -38,13 +38,21 @@ import type {
   ProjectMinimalPatch,
   ImagePromptRow,
   ImagePromptReadRow,
+  ImagePromptRetakeRow,
   SceneReadRow,
+  VisualBibleCharacterRow,
 } from "../types.js";
 import { loadRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
 import { readProjectsByIds } from "../lib/load-project-input.js";
 import { loadScenesByProjectId } from "../lib/load-scenes.js";
-import { loadVisualBibleByProjectId } from "../lib/load-visual-bible.js";
-import { loadImagePromptsByProjectId } from "../lib/load-image-prompts.js";
+import {
+  loadVisualBibleByProjectId,
+  loadCharactersByProjectId,
+} from "../lib/load-visual-bible.js";
+import {
+  loadImagePromptsByProjectId,
+  loadRetakeImagePromptsByProjectId,
+} from "../lib/load-image-prompts.js";
 import { loadStep07Assets } from "../lib/load-assets.js";
 import { buildStep07Prompt } from "../lib/build-prompt.js";
 import {
@@ -52,6 +60,7 @@ import {
   buildGeminiOptionsStep07,
   buildImageGenOptions,
   generateImageStep07,
+  generateCharacterSheet,
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
 import { validateImagePromptAiResponse } from "../lib/validate-json.js";
@@ -61,6 +70,9 @@ import {
   ensurePjtFolder,
   uploadImageToDrive,
   resolveVersionLabel,
+  convertToJpeg,
+  listFilesInFolder,
+  downloadFileFromDrive,
 } from "../lib/upload-to-drive.js";
 import {
   appendAppLog,
@@ -69,6 +81,39 @@ import {
   buildStep07FailureLog,
 } from "../lib/write-app-log.js";
 import { logInfo, logError } from "../lib/logger.js";
+
+// ─── キャラクターシート ───────────────────────────────────────────────────────
+
+/**
+ * Visual Bible のキャラクターエントリからキャラクターシート生成用英語プロンプトを組み立てる。
+ */
+function buildCharacterSheetPrompt(char: VisualBibleCharacterRow): string {
+  const parts: string[] = [
+    `Generate a character reference sheet for the following character.`,
+    `Front-facing view, even neutral lighting, full body visible, centered in frame.`,
+    `Plain white or very light background. No scene elements, no other characters.`,
+  ];
+  if (char.description)    parts.push(`Character overview: ${char.description}`);
+  if (char.character_rule) parts.push(`Design rules: ${char.character_rule}`);
+  if (char.color_palette)  parts.push(`Color palette: ${char.color_palette}`);
+  if (char.expression_rule) parts.push(`Expression: neutral, friendly.`);
+  if (char.avoid_rule)     parts.push(`Avoid: ${char.avoid_rule}`);
+  parts.push(`no text, no letters, no captions, no watermark`);
+  return parts.join(" ");
+}
+
+/**
+ * AI が返した character_refs（VB key_name の配列）からキャラクターシート Buffer を選択する。
+ * key_name の完全一致で照合する（言語不一致を回避）。
+ */
+function selectReferenceImages(
+  characterRefs: string[],
+  characterSheets: Map<string, Buffer>,
+): Buffer[] {
+  return characterRefs
+    .map((ref) => characterSheets.get(ref))
+    .filter((buf): buf is Buffer => buf !== undefined);
+}
 
 // ─── record_id 採番 ───────────────────────────────────────────────────────────
 
@@ -125,6 +170,8 @@ export async function runStep07ImagePrompts(
   const geminiOptions = buildGeminiOptionsStep07(configMap);
   const imageGenOptions = buildImageGenOptions(configMap);
   const step07Assets = loadStep07Assets();
+  // Configurable inter-scene delay to avoid quota exhaustion (default: 0ms = disabled)
+  const sceneDelayMs = Math.max(0, Number(getConfigValue(configMap, "step_07_scene_delay_ms", "0")) || 0);
 
   for (const projectId of payload.project_ids) {
     logInfo(`[STEP_07] Processing project: ${projectId}`);
@@ -246,17 +293,126 @@ export async function runStep07ImagePrompts(
         }
       }
 
-      // ── record_id 採番 ───────────────────────────────────────────────────────
-      const existingRows = await loadImagePromptsByProjectId(spreadsheetId, projectId);
-      if (existingRows.length > 0) {
-        logInfo(`[STEP_07] Re-run detected: ${existingRows.length} existing rows for project ${projectId}`);
-      }
-      const recordIds = assignImagePromptRecordIds(projectId, targetScenes.length, existingRows);
-
-      // ── シーンループ ─────────────────────────────────────────────────────────
+      // ── 日時（pre-processing とシーンループで共用）────────────────────────
       const now = new Date();
       const dateStr = toDateString(now);
       const nowIso = now.toISOString();
+
+      // ── Retake モード判定 ─────────────────────────────────────────────────────
+      // approval_status = "RETAKE" の行があれば Retake モードとして動作する。
+      // 0件の場合は通常の全シーン処理（既存動作を維持）。
+      const retakeRows = await loadRetakeImagePromptsByProjectId(spreadsheetId, projectId);
+      const isRetakeMode = retakeRows.length > 0;
+      // Build lookup: 02_Scenes.record_id → retake row
+      const retakeMap = new Map<string, ImagePromptRetakeRow>(
+        retakeRows.map((r) => [r.related_version, r])
+      );
+
+      if (isRetakeMode) {
+        // Filter to only retake target scenes
+        targetScenes = targetScenes.filter((s) => retakeMap.has(s.record_id));
+        logInfo(`[STEP_07][RETAKE] Retake mode: ${retakeRows.length} scene(s) targeted`);
+        if (targetScenes.length === 0) {
+          logInfo(`[STEP_07][RETAKE] No matching scenes found — skipping project ${projectId}`);
+          continue;
+        }
+      }
+
+      // ── キャラクターシート Pre-processing ─────────────────────────────────────
+      // Map<key_name, Buffer> としてメモリ保持する。
+      // Retake モード: Drive の character_book/ から既存シートをダウンロード（なければ生成）
+      // 通常モード: VB エントリから 1:1 参照画像を生成
+      const characterSheets = new Map<string, Buffer>();
+      const charEntries = await loadCharactersByProjectId(spreadsheetId, projectId);
+
+      if (charEntries.length > 0 && !payload.dry_run) {
+        const charBookFolderId = await ensurePjtFolder(pjtFolderId, "character_book");
+
+        if (isRetakeMode) {
+          // ── Retake: Drive からシートを再利用（なければ生成にフォールバック）──
+          logInfo(`[STEP_07][RETAKE] Loading existing character sheets from Drive...`);
+          const driveFiles = await listFilesInFolder(charBookFolderId);
+          for (const char of charEntries) {
+            if (!char.key_name) continue;
+            const safeFileName = char.key_name.replace(/[^\w\u3000-\u9FFF\u30A0-\u30FF]/g, "_");
+            const match = driveFiles.find((f) => f.name.startsWith(safeFileName + "_"));
+            if (match) {
+              try {
+                const buf = await downloadFileFromDrive(match.id);
+                characterSheets.set(char.key_name, buf);
+                logInfo(`[STEP_07][RETAKE] Character sheet loaded from Drive: ${char.key_name}`);
+              } catch (dlErr) {
+                logError(
+                  `[STEP_07][RETAKE] Download failed for "${char.key_name}": ` +
+                  (dlErr instanceof Error ? dlErr.message : String(dlErr)) +
+                  " — will regenerate."
+                );
+              }
+            }
+            // Fallback: generate if not found in Drive
+            if (!characterSheets.has(char.key_name)) {
+              try {
+                logInfo(`[STEP_07][RETAKE] Generating character sheet (fallback): ${char.key_name}`);
+                const sheetPrompt = buildCharacterSheetPrompt(char);
+                const sheetPng = await generateCharacterSheet(
+                  sheetPrompt, imageGenOptions.primaryModel, imageGenOptions.secondaryModel,
+                );
+                const sheetJpeg = await convertToJpeg(sheetPng);
+                characterSheets.set(char.key_name, sheetJpeg);
+                const sheetFileName = `${safeFileName}_${dateStr}.jpg`;
+                const sheetUrl = await uploadImageToDrive(charBookFolderId, sheetFileName, sheetJpeg, "image/jpeg");
+                logInfo(`[STEP_07][RETAKE] Character sheet uploaded: ${char.key_name} → ${sheetUrl}`);
+              } catch (charErr) {
+                if (charErr instanceof GeminiSpendingCapError) throw charErr;
+                logError(
+                  `[STEP_07][RETAKE] Character sheet generation failed for "${char.key_name}": ` +
+                  (charErr instanceof Error ? charErr.message : String(charErr))
+                );
+              }
+            }
+          }
+        } else {
+          // ── 通常モード: VB から 1:1 キャラクターシートを生成 ─────────────────
+          logInfo(`[STEP_07] Generating character sheets for ${charEntries.length} character(s)...`);
+          for (const char of charEntries) {
+            if (!char.key_name) continue;
+            try {
+              const sheetPrompt = buildCharacterSheetPrompt(char);
+              const sheetPng = await generateCharacterSheet(
+                sheetPrompt, imageGenOptions.primaryModel, imageGenOptions.secondaryModel,
+              );
+              const sheetJpeg = await convertToJpeg(sheetPng);
+              characterSheets.set(char.key_name, sheetJpeg);
+
+              // Upload to Drive for user review
+              const safeFileName = char.key_name.replace(/[^\w\u3000-\u9FFF\u30A0-\u30FF]/g, "_");
+              const sheetFileName = `${safeFileName}_${dateStr}.jpg`;
+              const sheetUrl = await uploadImageToDrive(charBookFolderId, sheetFileName, sheetJpeg, "image/jpeg");
+              logInfo(`[STEP_07] Character sheet uploaded: ${char.key_name} → ${sheetUrl}`);
+            } catch (charErr) {
+              if (charErr instanceof GeminiSpendingCapError) throw charErr;
+              logError(
+                `[STEP_07] Character sheet generation failed for "${char.key_name}": ` +
+                (charErr instanceof Error ? charErr.message : String(charErr))
+              );
+            }
+          }
+        }
+        logInfo(`[STEP_07] Character sheets ready: ${characterSheets.size}/${charEntries.length}`);
+      } else if (payload.dry_run) {
+        logInfo(`[STEP_07][DRY_RUN] Would process ${charEntries.length} character sheet(s)`);
+      }
+
+      // ── record_id 採番（通常モード）/ Retake は retakeMap から取得 ─────────────
+      const existingRows = await loadImagePromptsByProjectId(spreadsheetId, projectId);
+      if (!isRetakeMode && existingRows.length > 0) {
+        logInfo(`[STEP_07] Re-run detected: ${existingRows.length} existing rows for project ${projectId}`);
+      }
+      const recordIds = isRetakeMode
+        ? targetScenes.map((s) => retakeMap.get(s.record_id)!.record_id)
+        : assignImagePromptRecordIds(projectId, targetScenes.length, existingRows);
+
+      // ── シーンループ ─────────────────────────────────────────────────────────
       let firstUpsertedId = "";
       let successCount = 0;
       let failCount = 0;
@@ -268,53 +424,88 @@ export async function runStep07ImagePrompts(
         logInfo(`[STEP_07] Scene ${scene.scene_no}: ${scene.scene_title} (${recordId})`);
 
         try {
-          // ── Gemini テキスト生成（プロンプトパーツ）──────────────────────────
-          const prompt = buildStep07Prompt(step07Assets, project, scene, visualBible);
-          const geminiResult = await callGemini(prompt, {
-            ...geminiOptions,
-            maxOutputTokens: 8192,
-          });
-          logInfo(`[STEP_07] Text generated. model=${geminiResult.modelUsed}`);
+          // ── テキストフェーズ: Retake はプロンプト再利用、通常は AI 生成 ────────
+          let promptFull: string;
+          let negativePrompt: string;
+          let promptBase: string;
+          let promptCharacter: string;
+          let promptScene: string;
+          let promptComposition: string;
+          let charRefs: string[] = [];
 
-          // ── スキーマ検証 ─────────────────────────────────────────────────────
-          const validation = validateImagePromptAiResponse(
-            geminiResult.text,
-            step07Assets.aiSchema
-          );
-          if (!validation.success) {
-            const msg =
-              `[STEP_07] Schema validation failed for scene ${scene.record_id} ` +
-              `(project ${projectId}): ${validation.errors}`;
-            logError(msg);
-            try {
-              await appendAppLog(
-                spreadsheetId,
-                buildStep07FailureLog(projectId, recordId, "schema_validation_failure", msg)
-              );
-            } catch (_) {}
-            failCount++;
-            continue;
+          if (isRetakeMode) {
+            // Retake: reuse existing prompt without calling text AI
+            const retakeRow = retakeMap.get(scene.record_id)!;
+            promptFull        = retakeRow.prompt_full;
+            negativePrompt    = retakeRow.negative_prompt;
+            promptBase        = retakeRow.prompt_base;
+            promptCharacter   = retakeRow.prompt_character;
+            promptScene       = retakeRow.prompt_scene;
+            promptComposition = retakeRow.prompt_composition;
+            logInfo(`[STEP_07][RETAKE] Reusing prompt_full for ${recordId}`);
+          } else {
+            // Normal: call text AI → validate schema → build prompt_full
+            const prompt = buildStep07Prompt(step07Assets, project, scene, visualBible);
+            const geminiResult = await callGemini(prompt, {
+              ...geminiOptions,
+              maxOutputTokens: 8192,
+            });
+            logInfo(`[STEP_07] Text generated. model=${geminiResult.modelUsed}`);
+
+            // ── スキーマ検証 ───────────────────────────────────────────────────
+            const validation = validateImagePromptAiResponse(
+              geminiResult.text,
+              step07Assets.aiSchema
+            );
+            if (!validation.success) {
+              const msg =
+                `[STEP_07] Schema validation failed for scene ${scene.record_id} ` +
+                `(project ${projectId}): ${validation.errors}`;
+              logError(msg);
+              try {
+                await appendAppLog(
+                  spreadsheetId,
+                  buildStep07FailureLog(projectId, recordId, "schema_validation_failure", msg)
+                );
+              } catch (_) {}
+              failCount++;
+              continue;
+            }
+
+            const aiRow       = validation.item;
+            promptFull        = buildPromptFull(aiRow);
+            negativePrompt    = aiRow.negative_prompt;
+            promptBase        = aiRow.prompt_base;
+            promptCharacter   = aiRow.prompt_character;
+            promptScene       = aiRow.prompt_scene;
+            promptComposition = aiRow.prompt_composition;
+            charRefs          = Array.isArray(aiRow.character_refs) ? aiRow.character_refs : [];
           }
 
-          const aiRow = validation.item;
-          const promptFull = buildPromptFull(aiRow);
-
-          // ── 画像生成 + Drive アップロード ─────────────────────────────────────
+          // ── 画像生成 + JPEG 変換 + Drive アップロード ─────────────────────────
           let driveUrl = "";
 
           if (payload.dry_run) {
             logInfo(`[STEP_07][DRY_RUN] Would generate image for ${recordId}`);
           } else {
             try {
+              // Retake: inject all available character sheets (no character_refs from AI)
+              // Normal: select sheets by exact key_name match from character_refs
+              const refImages = isRetakeMode
+                ? Array.from(characterSheets.values())
+                : selectReferenceImages(charRefs, characterSheets);
               const pngBuffer = await generateImageStep07(
                 promptFull,
-                aiRow.negative_prompt,
+                negativePrompt,
                 imageGenOptions.primaryModel,
                 imageGenOptions.secondaryModel,
+                refImages.length > 0 ? refImages : undefined,
               );
+              // Convert PNG to JPEG (quality 90%) to reduce file size (~300KB target)
+              const jpegBuffer = await convertToJpeg(pngBuffer);
               const versionLabel = resolveVersionLabel(scene.short_use, scene.full_use);
-              const fileName = `${scene.record_id}_${versionLabel}_${dateStr}.png`;
-              driveUrl = await uploadImageToDrive(pjtFolderId, fileName, pngBuffer);
+              const fileName = `${scene.record_id}_${versionLabel}_${dateStr}.jpg`;
+              driveUrl = await uploadImageToDrive(pjtFolderId, fileName, jpegBuffer, "image/jpeg");
               logInfo(`[STEP_07] Image uploaded: ${driveUrl}`);
             } catch (imageErr) {
               const isSpendingCap = imageErr instanceof GeminiSpendingCapError;
@@ -338,6 +529,7 @@ export async function runStep07ImagePrompts(
           }
 
           // ── GSS Upsert ────────────────────────────────────────────────────────
+          // Retake: 旧 image_take_1 を image_take_2 に退避、approval_status を PENDING に戻す
           const row: ImagePromptRow = {
             project_id:              projectId,
             record_id:               recordId,
@@ -346,14 +538,16 @@ export async function runStep07ImagePrompts(
             step_id:                 "STEP_07_IMAGE_PROMPTS",
             scene_no:                scene.scene_no,
             related_version:         scene.record_id,
-            prompt_base:             aiRow.prompt_base,
-            prompt_character:        aiRow.prompt_character,
-            prompt_scene:            aiRow.prompt_scene,
-            prompt_composition:      aiRow.prompt_composition,
-            negative_prompt:         aiRow.negative_prompt,
+            prompt_base:             promptBase,
+            prompt_character:        promptCharacter,
+            prompt_scene:            promptScene,
+            prompt_composition:      promptComposition,
+            negative_prompt:         negativePrompt,
             prompt_full:             promptFull,
             image_take_1:            driveUrl,
-            image_take_2:            "",
+            image_take_2:            isRetakeMode
+                                       ? (retakeMap.get(scene.record_id)?.image_take_1 ?? "")
+                                       : "",
             image_take_3:            "",
             selected_asset:          "",
             revision_note:           "",
@@ -390,6 +584,12 @@ export async function runStep07ImagePrompts(
             );
           } catch (_) {}
           failCount++;
+        }
+
+        // ── シーン間 delay（クォータ枯渇防止）────────────────────────────────
+        if (sceneDelayMs > 0 && i < targetScenes.length - 1 && !payload.dry_run) {
+          logInfo(`[STEP_07] Waiting ${sceneDelayMs}ms before next scene...`);
+          await new Promise<void>((resolve) => setTimeout(resolve, sceneDelayMs));
         }
       }
 

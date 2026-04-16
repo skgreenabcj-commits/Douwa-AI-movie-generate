@@ -462,13 +462,27 @@ export interface VisualBibleReadRow {
  * scene_record_id は 02_Scenes.record_id と突合するためのキー。
  */
 export interface ImagePromptAiRow {
-  scene_record_id:    string;  // 対応する 02_Scenes.record_id（突合用）
-  prompt_base:        string;  // 基礎スタイル指示（画風・全体トーン・"16:9 landscape" 含む）
-  prompt_character:   string;  // キャラクター描写
-  prompt_scene:       string;  // 背景・場所描写
-  prompt_composition: string;  // 構図・フレーミング
-  negative_prompt:    string;  // 禁止要素（画像生成 API の negativePrompt パラメータに渡す）
-  [key: string]: unknown;      // AJV バリデーション互換
+  scene_record_id:    string;    // 対応する 02_Scenes.record_id（突合用）
+  character_refs?:    string[];  // このシーンに登場するキャラクターの VB key_name リスト（キャラクターシート選択用）
+  prompt_base:        string;    // 基礎スタイル指示（画風・全体トーン・"16:9 landscape" 含む）
+  prompt_character:   string;    // キャラクター描写
+  prompt_scene:       string;    // 背景・場所描写
+  prompt_composition: string;    // 構図・フレーミング
+  negative_prompt:    string;    // 禁止要素（画像生成 API の negativePrompt パラメータに渡す）
+  [key: string]: unknown;        // AJV バリデーション互換
+}
+
+/**
+ * キャラクターシート生成用 Visual Bible キャラクター行
+ * （loadCharactersByProjectId が返す型）
+ */
+export interface VisualBibleCharacterRow {
+  key_name:        string;
+  description:     string;
+  character_rule:  string;
+  color_palette:   string;
+  expression_rule: string;
+  avoid_rule:      string;
 }
 
 /**
@@ -482,7 +496,7 @@ export interface ImagePromptRow {
   project_id:              string;
   record_id:               string;    // システム採番: {projectId}-IMG-{index:03d}
   generation_status:       "GENERATED" | "FAILED" | "PENDING";
-  approval_status:         "PENDING" | "APPROVED" | "REJECTED";
+  approval_status:         "PENDING" | "APPROVED" | "REJECTED" | "RETAKE";
   step_id:                 string;    // 固定: "STEP_07_IMAGE_PROMPTS"
   scene_no:                string;    // 表示補助: 02_Scenes.scene_no
   related_version:         string;    // 02_Scenes.record_id の値（例: PJT-001-SCN-001）
@@ -493,7 +507,7 @@ export interface ImagePromptRow {
   negative_prompt:         string;
   prompt_full:             string;    // コード側で組み立て済み
   image_take_1:            string;    // Google Drive URL（生成画像）
-  image_take_2:            string;    // "" 固定（本実装では未使用）
+  image_take_2:            string;    // Retake 時に旧 image_take_1 の URL を退避
   image_take_3:            string;    // "" 固定
   selected_asset:          string;    // "" 初期値
   revision_note:           string;    // "" 初期値
@@ -508,6 +522,23 @@ export interface ImagePromptReadRow {
   project_id:      string;
   record_id:       string;
   related_version: string;  // = 02_Scenes.record_id
+}
+
+/**
+ * Retake モード用 read 型。
+ * approval_status = "RETAKE" の行を取得し、既存プロンプトと旧 Drive URL を再利用する。
+ */
+export interface ImagePromptRetakeRow {
+  record_id:          string;
+  related_version:    string;  // = 02_Scenes.record_id（シーン照合用）
+  prompt_full:        string;  // 再利用する組み立て済みプロンプト
+  prompt_base:        string;  // GSS 既存値を保持するためのプロンプト部品
+  prompt_character:   string;
+  prompt_scene:       string;
+  prompt_composition: string;
+  negative_prompt:    string;  // 再利用する禁止要素プロンプト
+  image_take_1:       string;  // image_take_2 に退避する旧 Drive URL
+  image_take_2:       string;  // 退避先（既存値を上書きしないよう参照）
 }
 
 // ─── 10_QA ───────────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@
  */
 
 import { readSheet } from "./sheets-client.js";
-import type { VisualBibleReadRow } from "../types.js";
+import type { VisualBibleReadRow, VisualBibleCharacterRow } from "../types.js";
 
 const SHEET_NAME = "05_Visual_Bible";
 
@@ -39,6 +39,40 @@ export async function loadVisualBibleByProjectId(
       record_id:  row["record_id"]  ?? "",
       category:   row["category"]   ?? "",
       key_name:   row["key_name"]   ?? "",
+    });
+  }
+
+  return result;
+}
+
+/**
+ * 指定 project_id の Visual Bible から category="character" の行を全フィールド付きで取得する。
+ * キャラクターシート画像生成のための詳細データとして使用する。
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param projectId     - 検索する project_id
+ * @returns VisualBibleCharacterRow[]（シート行順）
+ */
+export async function loadCharactersByProjectId(
+  spreadsheetId: string,
+  projectId: string
+): Promise<VisualBibleCharacterRow[]> {
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  const target = projectId.trim();
+
+  const result: VisualBibleCharacterRow[] = [];
+  for (const row of rows) {
+    if ((row["project_id"] ?? "").trim() !== target) continue;
+    if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
+    if ((row["category"] ?? "").trim() !== "character") continue;
+
+    result.push({
+      key_name:        (row["key_name"]        ?? "").trim(),
+      description:     (row["description"]     ?? "").trim(),
+      character_rule:  (row["character_rule"]  ?? "").trim(),
+      color_palette:   (row["color_palette"]   ?? "").trim(),
+      expression_rule: (row["expression_rule"] ?? "").trim(),
+      avoid_rule:      (row["avoid_rule"]      ?? "").trim(),
     });
   }
 

@@ -83,6 +83,10 @@ const REQUEST_TIMEOUT_MS      = 120_000; // 2 分
 const MAX_RETRIES              = 1;
 const RETRY_BACKOFF_MS         = 10_000; // 429 レート制限対策: リトライ前に 10 秒待機
 
+// Image generation specific constants
+const IMAGE_MAX_RETRIES       = 2;        // Max retries for 429 (non-spending-cap) on image gen
+const IMAGE_RETRY_BACKOFF_MS  = 30_000;   // Wait time before retrying image gen (30s)
+
 // ─── 公開インターフェース ─────────────────────────────────────────────────────
 
 export interface GeminiCallOptions {
@@ -499,83 +503,124 @@ export function buildImageGenOptions(configMap: RuntimeConfigMap): { primaryMode
 }
 
 /**
- * Call the Vertex AI image generation endpoint for a single model.
- * Returns PNG Buffer on success, throws on failure.
+ * Internal: Call the Vertex AI image generation endpoint for a single model.
+ * Supports optional reference images (inlineData) and configurable aspectRatio.
  */
-async function callImageGenOnce(
+async function callImageGenInternal(
   model: string,
   promptText: string,
+  options: { aspectRatio?: string; referenceImages?: Buffer[] } = {},
 ): Promise<Buffer> {
+  const { aspectRatio = "16:9", referenceImages = [] } = options;
+
   // Use the standard Vertex AI URL builder (global endpoint supports image generation models).
   const url = buildVertexAiUrl(model);
   const token = await getAccessToken();
 
+  // Prepend reference images as inlineData parts before the text prompt.
+  const imageParts = referenceImages.map((buf) => ({
+    inlineData: { mimeType: "image/png", data: buf.toString("base64") },
+  }));
+
   const requestBody = {
-    contents: [{ role: "user", parts: [{ text: promptText }] }],
+    contents: [{
+      role: "user",
+      parts: [...imageParts, { text: promptText }],
+    }],
     generationConfig: {
       responseModalities: ["IMAGE"],
-      imageConfig: {
-        aspectRatio: "16:9",
-      },
+      imageConfig: { aspectRatio },
     },
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), IMAGE_GEN_TIMEOUT_MS);
+  // Retry loop: up to IMAGE_MAX_RETRIES retries on non-spending-cap 429 errors.
+  for (let attempt = 0; attempt <= IMAGE_MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), IMAGE_GEN_TIMEOUT_MS);
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => "(no body)");
-    if (response.status === 429 && errorBody.includes("spending cap")) {
-      throw new GeminiSpendingCapError(
-        `Gemini Image API: Spending Cap exceeded (HTTP 429). Raw: ${errorBody}`
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "(no body)");
+      if (response.status === 429 && errorBody.includes("spending cap")) {
+        throw new GeminiSpendingCapError(
+          `Gemini Image API: Spending Cap exceeded (HTTP 429). Raw: ${errorBody}`
+        );
+      }
+      if (response.status === 429 && attempt < IMAGE_MAX_RETRIES) {
+        console.warn(
+          `[WARN] Image API 429 on attempt ${attempt + 1}/${IMAGE_MAX_RETRIES + 1} ` +
+          `for model ${model}. Retrying in ${IMAGE_RETRY_BACKOFF_MS / 1000}s...`
+        );
+        await sleep(IMAGE_RETRY_BACKOFF_MS);
+        continue;
+      }
+      throw new Error(
+        `Gemini Image API (Vertex AI) returned HTTP ${response.status}: ${errorBody}`
       );
     }
-    throw new Error(
-      `Gemini Image API (Vertex AI) returned HTTP ${response.status}: ${errorBody}`
-    );
-  }
 
-  const json = (await response.json()) as GeminiApiResponse;
-  const parts = json.candidates?.[0]?.content?.parts;
-  if (!parts || parts.length === 0) {
-    throw new Error("Gemini Image API returned no parts in response.");
-  }
-
-  for (const part of parts) {
-    const inlineData = (part as Record<string, unknown>)["inlineData"] as
-      | { mimeType: string; data: string }
-      | undefined;
-    if (inlineData?.data) {
-      return Buffer.from(inlineData.data, "base64");
+    const json = (await response.json()) as GeminiApiResponse;
+    const parts = json.candidates?.[0]?.content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error("Gemini Image API returned no parts in response.");
     }
+
+    for (const part of parts) {
+      const inlineData = (part as Record<string, unknown>)["inlineData"] as
+        | { mimeType: string; data: string }
+        | undefined;
+      if (inlineData?.data) {
+        return Buffer.from(inlineData.data, "base64");
+      }
+    }
+
+    throw new Error("Gemini Image API returned no inlineData (image) in response.");
   }
 
-  throw new Error("Gemini Image API returned no inlineData (image) in response.");
+  // Should never reach here (loop always returns or throws), but satisfies TypeScript.
+  throw new Error("Gemini Image API: exhausted all retry attempts.");
+}
+
+/** Wrapper: scene image generation (16:9, with optional reference images). */
+async function callImageGenOnce(
+  model: string,
+  promptText: string,
+  referenceImages?: Buffer[],
+): Promise<Buffer> {
+  return callImageGenInternal(model, promptText, { aspectRatio: "16:9", referenceImages });
+}
+
+/** Wrapper: character sheet generation (1:1, no reference images). */
+async function callCharacterSheetOnce(
+  model: string,
+  promptText: string,
+): Promise<Buffer> {
+  return callImageGenInternal(model, promptText, { aspectRatio: "1:1" });
 }
 
 /**
  * Gemini Image Generation API（Vertex AI）を呼び出し PNG バッファを返す。
  * primary model 失敗時は secondary model に fallback する。
  *
- * @param promptFull     - 画像生成プロンプト（prompt_full）
- * @param negativePrompt - 禁止要素（negative_prompt）
- * @param primaryModel   - 使用する primary モデル名
- * @param secondaryModel - fallback モデル名
+ * @param promptFull      - 画像生成プロンプト（prompt_full）
+ * @param negativePrompt  - 禁止要素（negative_prompt）
+ * @param primaryModel    - 使用する primary モデル名
+ * @param secondaryModel  - fallback モデル名
+ * @param referenceImages - キャラクターシート参照画像（省略可）
  * @returns PNG バイナリ Buffer
  */
 export async function generateImageStep07(
@@ -583,6 +628,7 @@ export async function generateImageStep07(
   negativePrompt: string,
   primaryModel: string,
   secondaryModel: string,
+  referenceImages?: Buffer[],
 ): Promise<Buffer> {
   const fullPromptText = negativePrompt
     ? `${promptFull}\nAvoid: ${negativePrompt}`
@@ -590,7 +636,7 @@ export async function generateImageStep07(
 
   // Try primary model
   try {
-    return await callImageGenOnce(primaryModel, fullPromptText);
+    return await callImageGenOnce(primaryModel, fullPromptText, referenceImages);
   } catch (primaryErr) {
     if (primaryErr instanceof GeminiSpendingCapError) throw primaryErr;
     console.warn(
@@ -599,8 +645,37 @@ export async function generateImageStep07(
     );
   }
 
+  // Fallback to secondary model (also passes reference images)
+  return await callImageGenOnce(secondaryModel, fullPromptText, referenceImages);
+}
+
+/**
+ * キャラクターシート画像を生成する（1:1 アスペクト比、参照画像なし）。
+ * primary model 失敗時は secondary model に fallback する。
+ *
+ * @param promptText     - キャラクターシート生成プロンプト（英語）
+ * @param primaryModel   - 使用する primary モデル名
+ * @param secondaryModel - fallback モデル名
+ * @returns PNG バイナリ Buffer
+ */
+export async function generateCharacterSheet(
+  promptText: string,
+  primaryModel: string,
+  secondaryModel: string,
+): Promise<Buffer> {
+  // Try primary model
+  try {
+    return await callCharacterSheetOnce(primaryModel, promptText);
+  } catch (primaryErr) {
+    if (primaryErr instanceof GeminiSpendingCapError) throw primaryErr;
+    console.warn(
+      `[WARN] Primary model (${primaryModel}) failed for character sheet. Falling back to secondary (${secondaryModel}).`,
+      primaryErr instanceof Error ? primaryErr.message : String(primaryErr),
+    );
+  }
+
   // Fallback to secondary model
-  return await callImageGenOnce(secondaryModel, fullPromptText);
+  return await callCharacterSheetOnce(secondaryModel, promptText);
 }
 
 /**
