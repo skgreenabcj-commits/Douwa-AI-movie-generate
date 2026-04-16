@@ -163,6 +163,8 @@ export async function runStep07ImagePrompts(
   const geminiOptions = buildGeminiOptionsStep07(configMap);
   const imageGenOptions = buildImageGenOptions(configMap);
   const step07Assets = loadStep07Assets();
+  // Configurable inter-scene delay to avoid quota exhaustion (default: 0ms = disabled)
+  const sceneDelayMs = Math.max(0, Number(getConfigValue(configMap, "step_07_scene_delay_ms", "0")) || 0);
 
   for (const projectId of payload.project_ids) {
     logInfo(`[STEP_07] Processing project: ${projectId}`);
@@ -476,6 +478,12 @@ export async function runStep07ImagePrompts(
             );
           } catch (_) {}
           failCount++;
+        }
+
+        // ── シーン間 delay（クォータ枯渇防止）────────────────────────────────
+        if (sceneDelayMs > 0 && i < targetScenes.length - 1 && !payload.dry_run) {
+          logInfo(`[STEP_07] Waiting ${sceneDelayMs}ms before next scene...`);
+          await new Promise<void>((resolve) => setTimeout(resolve, sceneDelayMs));
         }
       }
 

@@ -120,6 +120,24 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 }
 ```
 
+桃太郎（PJT-001）思い出しシーン「桃太郎が鬼の話を聞く」のサンプル出力（scene_type = "thought_bubble"）:
+
+```json
+{
+  "image_prompts": [
+    {
+      "scene_record_id": "PJT-001-SCN-009",
+      "character_refs": ["桃太郎（5〜9歳・幼少期）"],
+      "prompt_base": "Children's picture-book illustration, soft watercolor style, warm pastel tones, gentle ink outlines, 16:9 landscape, high resolution, 2K quality",
+      "prompt_character": "Momotaro: cheerful boy in red-white kimono, looking upward attentively with wide curious eyes",
+      "prompt_scene": "Sunny village path, wooden fence and thatched roof in background, warm afternoon light",
+      "prompt_composition": "Medium shot, cloud-shaped thought bubble occupying upper-right third of frame, inside the bubble a menacing red oni figure with horns and club, Momotaro standing lower-left looking up at the thought bubble with determined expression, all faces clearly visible",
+      "negative_prompt": "dark tones, realistic gore, photorealistic, 3D render, fluorescent colors, neon colors, adult content, modern objects, no text, no letters, no captions, no subtitles, no story narration text, watermark, logo, blurry, low quality"
+    }
+  ]
+}
+```
+
 ---
 
 ## INPUT_DATA

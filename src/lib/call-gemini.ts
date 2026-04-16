@@ -83,6 +83,10 @@ const REQUEST_TIMEOUT_MS      = 120_000; // 2 分
 const MAX_RETRIES              = 1;
 const RETRY_BACKOFF_MS         = 10_000; // 429 レート制限対策: リトライ前に 10 秒待機
 
+// Image generation specific constants
+const IMAGE_MAX_RETRIES       = 2;        // Max retries for 429 (non-spending-cap) on image gen
+const IMAGE_RETRY_BACKOFF_MS  = 30_000;   // Wait time before retrying image gen (30s)
+
 // ─── 公開インターフェース ─────────────────────────────────────────────────────
 
 export interface GeminiCallOptions {
@@ -529,52 +533,66 @@ async function callImageGenInternal(
     },
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), IMAGE_GEN_TIMEOUT_MS);
+  // Retry loop: up to IMAGE_MAX_RETRIES retries on non-spending-cap 429 errors.
+  for (let attempt = 0; attempt <= IMAGE_MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), IMAGE_GEN_TIMEOUT_MS);
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => "(no body)");
-    if (response.status === 429 && errorBody.includes("spending cap")) {
-      throw new GeminiSpendingCapError(
-        `Gemini Image API: Spending Cap exceeded (HTTP 429). Raw: ${errorBody}`
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "(no body)");
+      if (response.status === 429 && errorBody.includes("spending cap")) {
+        throw new GeminiSpendingCapError(
+          `Gemini Image API: Spending Cap exceeded (HTTP 429). Raw: ${errorBody}`
+        );
+      }
+      if (response.status === 429 && attempt < IMAGE_MAX_RETRIES) {
+        console.warn(
+          `[WARN] Image API 429 on attempt ${attempt + 1}/${IMAGE_MAX_RETRIES + 1} ` +
+          `for model ${model}. Retrying in ${IMAGE_RETRY_BACKOFF_MS / 1000}s...`
+        );
+        await sleep(IMAGE_RETRY_BACKOFF_MS);
+        continue;
+      }
+      throw new Error(
+        `Gemini Image API (Vertex AI) returned HTTP ${response.status}: ${errorBody}`
       );
     }
-    throw new Error(
-      `Gemini Image API (Vertex AI) returned HTTP ${response.status}: ${errorBody}`
-    );
-  }
 
-  const json = (await response.json()) as GeminiApiResponse;
-  const parts = json.candidates?.[0]?.content?.parts;
-  if (!parts || parts.length === 0) {
-    throw new Error("Gemini Image API returned no parts in response.");
-  }
-
-  for (const part of parts) {
-    const inlineData = (part as Record<string, unknown>)["inlineData"] as
-      | { mimeType: string; data: string }
-      | undefined;
-    if (inlineData?.data) {
-      return Buffer.from(inlineData.data, "base64");
+    const json = (await response.json()) as GeminiApiResponse;
+    const parts = json.candidates?.[0]?.content?.parts;
+    if (!parts || parts.length === 0) {
+      throw new Error("Gemini Image API returned no parts in response.");
     }
+
+    for (const part of parts) {
+      const inlineData = (part as Record<string, unknown>)["inlineData"] as
+        | { mimeType: string; data: string }
+        | undefined;
+      if (inlineData?.data) {
+        return Buffer.from(inlineData.data, "base64");
+      }
+    }
+
+    throw new Error("Gemini Image API returned no inlineData (image) in response.");
   }
 
-  throw new Error("Gemini Image API returned no inlineData (image) in response.");
+  // Should never reach here (loop always returns or throws), but satisfies TypeScript.
+  throw new Error("Gemini Image API: exhausted all retry attempts.");
 }
 
 /** Wrapper: scene image generation (16:9, with optional reference images). */
