@@ -289,7 +289,13 @@ export class GeminiSpendingCapError extends Error {
 interface GeminiApiResponse {
   candidates?: Array<{
     content?: {
-      parts?: Array<{ text?: string }>;
+      parts?: Array<{
+        text?: string;
+        /** Thinking models (e.g. gemini-2.5-pro, gemini-3.1-pro-preview) include
+         *  reasoning parts marked with thought: true. These must be excluded from
+         *  text extraction to avoid polluting the actual JSON output. */
+        thought?: boolean;
+      }>;
     };
     finishReason?: string;
   }>;
@@ -308,7 +314,12 @@ function extractTextFromGeminiResponse(json: GeminiApiResponse): string {
   const parts = json.candidates?.[0]?.content?.parts;
   if (!parts || parts.length === 0) return "";
 
+  // Filter out thought parts emitted by Thinking models (gemini-2.5-pro,
+  // gemini-3.1-pro-preview, etc.). Concatenating thought text with the actual
+  // JSON output breaks JSON extraction because thought text may contain
+  // unbalanced braces or appear before the JSON object.
   return parts
+    .filter((p) => !p.thought)
     .map((p) => p.text ?? "")
     .join("")
     .trim();
@@ -353,9 +364,9 @@ export function buildGeminiOptionsStep02(configMap: RuntimeConfigMap): GeminiCal
     "gemini-2.0-flash"
   );
 
-  console.info(`[INFO] Gemini options resolved (STEP_02) ***`);
-  console.info(`  primaryModel: '${primaryModel}',`);
-  console.info(`  secondaryModel: '${secondaryModel}'`);
+  console.error(`[INFO] Gemini options resolved (STEP_02) ***`);
+  console.error(`  primaryModel: '${primaryModel}',`);
+  console.error(`  secondaryModel: '${secondaryModel}'`);
 
   return { primaryModel, secondaryModel };
 }
@@ -385,10 +396,10 @@ export function buildGeminiOptionsStep03(configMap: RuntimeConfigMap): GeminiCal
     "gemini-2.0-flash"
   );
 
-  console.info(`[INFO] Gemini options resolved (STEP_03)`);
-  console.info(`  primaryModel:   '${primaryModel}'`);
-  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
-  console.info(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
+  console.error(`[INFO] Gemini options resolved (STEP_03)`);
+  console.error(`  primaryModel:   '${primaryModel}'`);
+  console.error(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.error(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
 
   return { primaryModel, secondaryModel, tertiaryModel };
 }
@@ -416,10 +427,10 @@ export function buildGeminiOptionsStep05(configMap: RuntimeConfigMap): GeminiCal
     "gemini-2.0-flash"
   );
 
-  console.info(`[INFO] Gemini options resolved (STEP_05)`);
-  console.info(`  primaryModel:   '${primaryModel}'`);
-  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
-  console.info(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
+  console.error(`[INFO] Gemini options resolved (STEP_05)`);
+  console.error(`  primaryModel:   '${primaryModel}'`);
+  console.error(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.error(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
 
   return { primaryModel, secondaryModel, tertiaryModel };
 }
@@ -444,10 +455,10 @@ export function buildGeminiOptionsStep04(configMap: RuntimeConfigMap): GeminiCal
     "gemini-2.0-flash"
   );
 
-  console.info(`[INFO] Gemini options resolved (STEP_04)`);
-  console.info(`  primaryModel:   '${primaryModel}'`);
-  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
-  console.info(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
+  console.error(`[INFO] Gemini options resolved (STEP_04)`);
+  console.error(`  primaryModel:   '${primaryModel}'`);
+  console.error(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.error(`  tertiaryModel:  '${tertiaryModel}' (2nd fallback)`);
 
   return { primaryModel, secondaryModel, tertiaryModel };
 }
@@ -460,9 +471,9 @@ export function buildGeminiOptionsStep06(configMap: RuntimeConfigMap): GeminiCal
   const primaryModel = getConfigValue(configMap, "step_06_model_role", fallbackPrimary);
   const secondaryModel = getConfigValue(configMap, "model_role_text_pro", "gemini-2.0-pro");
 
-  console.info(`[INFO] Gemini options resolved (STEP_06)`);
-  console.info(`  primaryModel:   '${primaryModel}'`);
-  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.error(`[INFO] Gemini options resolved (STEP_06)`);
+  console.error(`  primaryModel:   '${primaryModel}'`);
+  console.error(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
 
   return { primaryModel, secondaryModel };
 }
@@ -478,9 +489,9 @@ export function buildGeminiOptionsStep07(configMap: RuntimeConfigMap): GeminiCal
   const primaryModel = getConfigValue(configMap, "step_07_model_role", fallbackPrimary);
   const secondaryModel = getConfigValue(configMap, "model_role_text_pro", "gemini-2.0-pro");
 
-  console.info(`[INFO] Gemini options resolved (STEP_07 text)`);
-  console.info(`  primaryModel:   '${primaryModel}'`);
-  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.error(`[INFO] Gemini options resolved (STEP_07 text)`);
+  console.error(`  primaryModel:   '${primaryModel}'`);
+  console.error(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
 
   return { primaryModel, secondaryModel };
 }
@@ -503,9 +514,9 @@ export function buildImageGenOptions(configMap: RuntimeConfigMap): { primaryMode
   const primaryModel   = getConfigValue(configMap, "step_07_image_model_role",   DEFAULT_IMAGE_PRIMARY_MODEL);
   const secondaryModel = getConfigValue(configMap, "model_role_picture_seconday", DEFAULT_IMAGE_SECONDARY_MODEL);
 
-  console.info(`[INFO] Image generation options resolved (STEP_07)`);
-  console.info(`  primaryModel:   '${primaryModel}'`);
-  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.error(`[INFO] Image generation options resolved (STEP_07)`);
+  console.error(`  primaryModel:   '${primaryModel}'`);
+  console.error(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
 
   return { primaryModel, secondaryModel };
 }
@@ -699,9 +710,9 @@ export function buildGeminiOptionsStep08a(configMap: RuntimeConfigMap): GeminiCa
   const primaryModel    = getConfigValue(configMap, "step_08a_model_role", fallbackPrimary);
   const secondaryModel  = getConfigValue(configMap, "model_role_text_pro", "gemini-2.0-pro");
 
-  console.info(`[INFO] Gemini options resolved (STEP_08A)`);
-  console.info(`  primaryModel:   '${primaryModel}'`);
-  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.error(`[INFO] Gemini options resolved (STEP_08A)`);
+  console.error(`  primaryModel:   '${primaryModel}'`);
+  console.error(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
 
   return { primaryModel, secondaryModel };
 }
@@ -711,9 +722,9 @@ export function buildGeminiOptionsStep09(configMap: RuntimeConfigMap): GeminiCal
   const primaryModel = getConfigValue(configMap, "step_09_model_role", fallbackPrimary);
   const secondaryModel = getConfigValue(configMap, "model_role_text_flash_seconday", "gemini-2.5-flash");
 
-  console.info(`[INFO] Gemini options resolved (STEP_09)`);
-  console.info(`  primaryModel:   '${primaryModel}'`);
-  console.info(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
+  console.error(`[INFO] Gemini options resolved (STEP_09)`);
+  console.error(`  primaryModel:   '${primaryModel}'`);
+  console.error(`  secondaryModel: '${secondaryModel}' (1st fallback)`);
 
   return { primaryModel, secondaryModel };
 }
