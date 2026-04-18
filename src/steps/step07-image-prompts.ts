@@ -489,11 +489,11 @@ export async function runStep07ImagePrompts(
             logInfo(`[STEP_07][DRY_RUN] Would generate image for ${recordId}`);
           } else {
             try {
-              // Retake: inject all available character sheets (no character_refs from AI)
-              // Normal: select sheets by exact key_name match from character_refs
-              const refImages = isRetakeMode
-                ? Array.from(characterSheets.values())
-                : selectReferenceImages(charRefs, characterSheets);
+              // Always inject all available character sheets.
+              // Retake: reuses existing prompts, no character_refs from AI.
+              // Normal: exact key_name matching is fragile (AI may reformat Japanese strings),
+              //         so pass all sheets and let prompt_character control which to render.
+              const refImages = Array.from(characterSheets.values());
               const pngBuffer = await generateImageStep07(
                 promptFull,
                 negativePrompt,
