@@ -7,6 +7,7 @@
 
 import { readSheet, updateRow, calcRowIndex, getNextEmptyRowIndex } from "./sheets-client.js";
 import type { EditPlanRow, EditPlanAudioPatch } from "../types.js";
+import type { BatchUpsertError } from "./write-tts-subtitles.js";
 
 const SHEET_NAME = "09_Edit_Plan";
 
@@ -94,6 +95,49 @@ export async function patchEditPlanAudio(
   throw new Error(
     `patchEditPlanAudio: row not found for record_id="${recordId}" related_version="${version}" in ${SHEET_NAME}`
   );
+}
+
+/**
+ * 複数行を一括 upsert する。readSheet を 1 回だけ呼び出すことで
+ * Sheets API の Read クォータ消費を抑制する。
+ *
+ * @returns 成功件数と失敗詳細の配列
+ */
+export async function batchUpsertEditPlans(
+  spreadsheetId: string,
+  rows: EditPlanRow[]
+): Promise<{ success: number; errors: BatchUpsertError[] }> {
+  if (rows.length === 0) return { success: 0, errors: [] };
+
+  // Read sheet ONCE for the entire batch
+  const existingRows = await readSheet(spreadsheetId, SHEET_NAME);
+  let appendOffset = 0;
+  let success = 0;
+  const errors: BatchUpsertError[] = [];
+
+  for (const row of rows) {
+    const recordId = row.record_id.trim();
+    const version  = row.related_version.trim();
+
+    try {
+      const existingIdx = existingRows.findIndex(
+        (r) =>
+          (r["record_id"]       ?? "").trim() === recordId &&
+          (r["related_version"] ?? "").trim() === version
+      );
+
+      const rowIndex = existingIdx >= 0
+        ? calcRowIndex(existingIdx)
+        : calcRowIndex(existingRows.length + appendOffset++);
+
+      await updateRow(spreadsheetId, SHEET_NAME, rowIndex, EDIT_PLAN_HEADERS, buildRowData(row));
+      success++;
+    } catch (err) {
+      errors.push({ recordId, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  return { success, errors };
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
