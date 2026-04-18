@@ -52,6 +52,7 @@ export async function loadScenesByProjectId(
       easy_rewrite:       row["easy_rewrite"]        ?? "",
       qa_seed:            row["qa_seed"]             ?? "",
       continuity_note:    row["continuity_note"]     ?? "",
+      scene_type:         row["scene_type"]           ?? "",
     });
   }
 
