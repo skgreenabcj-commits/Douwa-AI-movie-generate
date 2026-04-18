@@ -32,8 +32,8 @@ import { loadRuntimeConfig } from "../lib/load-runtime-config.js";
 import { readProjectsByIds } from "../lib/load-project-input.js";
 import { loadStep08aAssets } from "../lib/load-assets.js";
 import { loadFullScriptByProjectId, loadShortScriptByProjectId } from "../lib/load-script.js";
-import { upsertTtsSubtitle } from "../lib/write-tts-subtitles.js";
-import { upsertEditPlan } from "../lib/write-edit-plan.js";
+import { batchUpsertTtsSubtitles } from "../lib/write-tts-subtitles.js";
+import { batchUpsertEditPlans } from "../lib/write-edit-plan.js";
 import { buildStep08aFullPrompt, buildStep08aShortPrompt } from "../lib/build-prompt.js";
 import {
   callGemini,
@@ -182,20 +182,17 @@ export async function runStep08aTtsSubtitleEditPlan(
                 continue;
               }
             } else {
-              // TTS / EditPlan を upsert
+              // TTS / EditPlan を batch upsert（readSheet を各1回に削減）
               const now     = new Date().toISOString();
               const version: TtsSubtitleVersion = "full";
               let successCount = 0;
               let failCount    = 0;
 
-              for (const ttsAi of validation.ttsSubtitles) {
-                const sceneRecordId = ttsAi.scene_record_id;
-                // 対応する script から scene_no を取得（見つからなければ ""）
-                const matchedScript = fullScripts.find((s) => s.record_id === sceneRecordId);
-
-                const ttsRow: TtsSubtitleRow = {
+              const ttsRowsFull: TtsSubtitleRow[] = validation.ttsSubtitles.map((ttsAi) => {
+                const matchedScript = fullScripts.find((s) => s.record_id === ttsAi.scene_record_id);
+                return {
                   project_id:        projectId,
-                  record_id:         sceneRecordId,
+                  record_id:         ttsAi.scene_record_id,
                   generation_status: "GENERATED",
                   approval_status:   "PENDING",
                   step_id:           "STEP_08A_TTS_SUBTITLE",
@@ -219,37 +216,13 @@ export async function runStep08aTtsSubtitleEditPlan(
                   updated_by:        "github_actions",
                   notes:             "",
                 };
+              });
 
-                if (payload.dry_run) {
-                  logInfo(`[STEP_08A][DRY_RUN] Would upsert TTS (Full): ${sceneRecordId}`);
-                  successCount++;
-                  continue;
-                }
-
-                try {
-                  await upsertTtsSubtitle(spreadsheetId, ttsRow);
-                  logInfo(`[STEP_08A] Upserted TTS (Full): ${sceneRecordId}`);
-                  successCount++;
-                } catch (upsertErr) {
-                  const msg =
-                    `[STEP_08A] upsertTtsSubtitle failed (Full) for ${sceneRecordId}: ` +
-                    (upsertErr instanceof Error ? upsertErr.message : String(upsertErr));
-                  logError(msg);
-                  try {
-                    await appendAppLog(spreadsheetId,
-                      buildStep08aFailureLog(projectId, sceneRecordId, "upsert_failed", msg));
-                  } catch (_) {}
-                  failCount++;
-                }
-              }
-
-              for (const epAi of validation.editPlan) {
-                const sceneRecordId = epAi.scene_record_id;
-                const matchedScript = fullScripts.find((s) => s.record_id === sceneRecordId);
-
-                const epRow: EditPlanRow = {
+              const epRowsFull: EditPlanRow[] = validation.editPlan.map((epAi) => {
+                const matchedScript = fullScripts.find((s) => s.record_id === epAi.scene_record_id);
+                return {
                   project_id:        projectId,
-                  record_id:         sceneRecordId,
+                  record_id:         epAi.scene_record_id,
                   generation_status: "GENERATED",
                   approval_status:   "PENDING",
                   step_id:           "STEP_08A_TTS_SUBTITLE",
@@ -271,26 +244,31 @@ export async function runStep08aTtsSubtitleEditPlan(
                   updated_by:        "github_actions",
                   notes:             "",
                 };
+              });
 
-                if (payload.dry_run) {
-                  logInfo(`[STEP_08A][DRY_RUN] Would upsert EditPlan (Full): ${sceneRecordId}`);
-                  continue;
-                }
-
-                try {
-                  await upsertEditPlan(spreadsheetId, epRow);
-                  logInfo(`[STEP_08A] Upserted EditPlan (Full): ${sceneRecordId}`);
-                } catch (upsertErr) {
-                  const msg =
-                    `[STEP_08A] upsertEditPlan failed (Full) for ${sceneRecordId}: ` +
-                    (upsertErr instanceof Error ? upsertErr.message : String(upsertErr));
+              if (payload.dry_run) {
+                ttsRowsFull.forEach((r) => logInfo(`[STEP_08A][DRY_RUN] Would upsert TTS (Full): ${r.record_id}`));
+                epRowsFull.forEach((r)  => logInfo(`[STEP_08A][DRY_RUN] Would upsert EditPlan (Full): ${r.record_id}`));
+                successCount += ttsRowsFull.length;
+              } else {
+                const ttsResult = await batchUpsertTtsSubtitles(spreadsheetId, ttsRowsFull);
+                successCount += ttsResult.success;
+                for (const e of ttsResult.errors) {
+                  const msg = `[STEP_08A] upsertTtsSubtitle failed (Full) for ${e.recordId}: ${e.error}`;
                   logError(msg);
-                  try {
-                    await appendAppLog(spreadsheetId,
-                      buildStep08aFailureLog(projectId, sceneRecordId, "upsert_failed", msg));
-                  } catch (_) {}
+                  try { await appendAppLog(spreadsheetId, buildStep08aFailureLog(projectId, e.recordId, "upsert_failed", msg)); } catch (_) {}
                   failCount++;
                 }
+                logInfo(`[STEP_08A] Batch TTS upserted (Full): ${ttsResult.success}/${ttsRowsFull.length}`);
+
+                const epResult = await batchUpsertEditPlans(spreadsheetId, epRowsFull);
+                for (const e of epResult.errors) {
+                  const msg = `[STEP_08A] upsertEditPlan failed (Full) for ${e.recordId}: ${e.error}`;
+                  logError(msg);
+                  try { await appendAppLog(spreadsheetId, buildStep08aFailureLog(projectId, e.recordId, "upsert_failed", msg)); } catch (_) {}
+                  failCount++;
+                }
+                logInfo(`[STEP_08A] Batch EditPlan upserted (Full): ${epResult.success}/${epRowsFull.length}`);
               }
 
               totalSuccess += successCount;
@@ -373,13 +351,11 @@ export async function runStep08aTtsSubtitleEditPlan(
               let successCount = 0;
               let failCount    = 0;
 
-              for (const ttsAi of validation.ttsSubtitles) {
-                const sceneRecordId = ttsAi.scene_record_id;
-                const matchedScript = shortScripts.find((s) => s.record_id === sceneRecordId);
-
-                const ttsRow: TtsSubtitleRow = {
+              const ttsRowsShort: TtsSubtitleRow[] = validation.ttsSubtitles.map((ttsAi) => {
+                const matchedScript = shortScripts.find((s) => s.record_id === ttsAi.scene_record_id);
+                return {
                   project_id:        projectId,
-                  record_id:         sceneRecordId,
+                  record_id:         ttsAi.scene_record_id,
                   generation_status: "GENERATED",
                   approval_status:   "PENDING",
                   step_id:           "STEP_08A_TTS_SUBTITLE",
@@ -403,37 +379,13 @@ export async function runStep08aTtsSubtitleEditPlan(
                   updated_by:        "github_actions",
                   notes:             "",
                 };
+              });
 
-                if (payload.dry_run) {
-                  logInfo(`[STEP_08A][DRY_RUN] Would upsert TTS (Short): ${sceneRecordId}`);
-                  successCount++;
-                  continue;
-                }
-
-                try {
-                  await upsertTtsSubtitle(spreadsheetId, ttsRow);
-                  logInfo(`[STEP_08A] Upserted TTS (Short): ${sceneRecordId}`);
-                  successCount++;
-                } catch (upsertErr) {
-                  const msg =
-                    `[STEP_08A] upsertTtsSubtitle failed (Short) for ${sceneRecordId}: ` +
-                    (upsertErr instanceof Error ? upsertErr.message : String(upsertErr));
-                  logError(msg);
-                  try {
-                    await appendAppLog(spreadsheetId,
-                      buildStep08aFailureLog(projectId, sceneRecordId, "upsert_failed", msg));
-                  } catch (_) {}
-                  failCount++;
-                }
-              }
-
-              for (const epAi of validation.editPlan) {
-                const sceneRecordId = epAi.scene_record_id;
-                const matchedScript = shortScripts.find((s) => s.record_id === sceneRecordId);
-
-                const epRow: EditPlanRow = {
+              const epRowsShort: EditPlanRow[] = validation.editPlan.map((epAi) => {
+                const matchedScript = shortScripts.find((s) => s.record_id === epAi.scene_record_id);
+                return {
                   project_id:        projectId,
-                  record_id:         sceneRecordId,
+                  record_id:         epAi.scene_record_id,
                   generation_status: "GENERATED",
                   approval_status:   "PENDING",
                   step_id:           "STEP_08A_TTS_SUBTITLE",
@@ -455,26 +407,31 @@ export async function runStep08aTtsSubtitleEditPlan(
                   updated_by:        "github_actions",
                   notes:             "",
                 };
+              });
 
-                if (payload.dry_run) {
-                  logInfo(`[STEP_08A][DRY_RUN] Would upsert EditPlan (Short): ${sceneRecordId}`);
-                  continue;
-                }
-
-                try {
-                  await upsertEditPlan(spreadsheetId, epRow);
-                  logInfo(`[STEP_08A] Upserted EditPlan (Short): ${sceneRecordId}`);
-                } catch (upsertErr) {
-                  const msg =
-                    `[STEP_08A] upsertEditPlan failed (Short) for ${sceneRecordId}: ` +
-                    (upsertErr instanceof Error ? upsertErr.message : String(upsertErr));
+              if (payload.dry_run) {
+                ttsRowsShort.forEach((r) => logInfo(`[STEP_08A][DRY_RUN] Would upsert TTS (Short): ${r.record_id}`));
+                epRowsShort.forEach((r)  => logInfo(`[STEP_08A][DRY_RUN] Would upsert EditPlan (Short): ${r.record_id}`));
+                successCount += ttsRowsShort.length;
+              } else {
+                const ttsResult = await batchUpsertTtsSubtitles(spreadsheetId, ttsRowsShort);
+                successCount += ttsResult.success;
+                for (const e of ttsResult.errors) {
+                  const msg = `[STEP_08A] upsertTtsSubtitle failed (Short) for ${e.recordId}: ${e.error}`;
                   logError(msg);
-                  try {
-                    await appendAppLog(spreadsheetId,
-                      buildStep08aFailureLog(projectId, sceneRecordId, "upsert_failed", msg));
-                  } catch (_) {}
+                  try { await appendAppLog(spreadsheetId, buildStep08aFailureLog(projectId, e.recordId, "upsert_failed", msg)); } catch (_) {}
                   failCount++;
                 }
+                logInfo(`[STEP_08A] Batch TTS upserted (Short): ${ttsResult.success}/${ttsRowsShort.length}`);
+
+                const epResult = await batchUpsertEditPlans(spreadsheetId, epRowsShort);
+                for (const e of epResult.errors) {
+                  const msg = `[STEP_08A] upsertEditPlan failed (Short) for ${e.recordId}: ${e.error}`;
+                  logError(msg);
+                  try { await appendAppLog(spreadsheetId, buildStep08aFailureLog(projectId, e.recordId, "upsert_failed", msg)); } catch (_) {}
+                  failCount++;
+                }
+                logInfo(`[STEP_08A] Batch EditPlan upserted (Short): ${epResult.success}/${epRowsShort.length}`);
               }
 
               totalSuccess += successCount;

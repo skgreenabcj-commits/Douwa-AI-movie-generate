@@ -73,6 +73,54 @@ export async function upsertTtsSubtitle(
   await updateRow(spreadsheetId, SHEET_NAME, nextRowIndex, TTS_HEADERS, buildRowData(row));
 }
 
+export interface BatchUpsertError {
+  recordId: string;
+  error:    string;
+}
+
+/**
+ * 複数行を一括 upsert する。readSheet を 1 回だけ呼び出すことで
+ * Sheets API の Read クォータ消費を抑制する。
+ *
+ * @returns 成功件数と失敗詳細の配列
+ */
+export async function batchUpsertTtsSubtitles(
+  spreadsheetId: string,
+  rows: TtsSubtitleRow[]
+): Promise<{ success: number; errors: BatchUpsertError[] }> {
+  if (rows.length === 0) return { success: 0, errors: [] };
+
+  // Read sheet ONCE for the entire batch
+  const existingRows = await readSheet(spreadsheetId, SHEET_NAME);
+  let appendOffset = 0;
+  let success = 0;
+  const errors: BatchUpsertError[] = [];
+
+  for (const row of rows) {
+    const recordId = row.record_id.trim();
+    const version  = row.related_version.trim();
+
+    try {
+      const existingIdx = existingRows.findIndex(
+        (r) =>
+          (r["record_id"]       ?? "").trim() === recordId &&
+          (r["related_version"] ?? "").trim() === version
+      );
+
+      const rowIndex = existingIdx >= 0
+        ? calcRowIndex(existingIdx)
+        : calcRowIndex(existingRows.length + appendOffset++);
+
+      await updateRow(spreadsheetId, SHEET_NAME, rowIndex, TTS_HEADERS, buildRowData(row));
+      success++;
+    } catch (err) {
+      errors.push({ recordId, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  return { success, errors };
+}
+
 /**
  * STEP_08B からの音声情報を 08_TTS_Subtitles の既存行に書き戻す。
  * 既存行全体を read → patch → write する（sparse update 不可のため）。
