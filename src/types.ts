@@ -450,6 +450,23 @@ export interface VisualBibleReadRow {
   key_name:    string;
 }
 
+/** 05_Visual_Bible から STEP_07 プロンプト生成用に読み込む全フィールド行 */
+export interface VisualBibleFullRow {
+  project_id:       string;
+  record_id:        string;
+  category:         string;
+  key_name:         string;
+  description:      string;
+  color_palette:    string;
+  line_style:       string;
+  lighting:         string;
+  composition_rule: string;
+  expression_rule:  string;
+  character_rule:   string;
+  background_rule:  string;
+  avoid_rule:       string;
+}
+
 // ─── 06_Image_Prompts ────────────────────────────────────────────────────────
 
 /**

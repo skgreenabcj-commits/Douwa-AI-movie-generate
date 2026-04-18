@@ -35,7 +35,7 @@ import { buildStep07Prompt } from "../lib/build-prompt.js";
 import { callGemini } from "../lib/call-gemini.js";
 import type { GeminiCallOptions } from "../lib/call-gemini.js";
 import { validateImagePromptAiResponse } from "../lib/validate-json.js";
-import type { ProjectRow, SceneReadRow, VisualBibleReadRow } from "../types.js";
+import type { ProjectRow, SceneReadRow, VisualBibleFullRow } from "../types.js";
 
 // ─── パス解決 ─────────────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
@@ -109,32 +109,68 @@ const MOCK_SCENES: Record<string, SceneReadRow[]> = {
 };
 
 // ─── モック: 05_Visual_Bible ──────────────────────────────────────────────────
-const MOCK_VISUAL_BIBLE: Record<string, VisualBibleReadRow[]> = {
+const MOCK_VISUAL_BIBLE: Record<string, VisualBibleFullRow[]> = {
   "PJT-001": [
     {
-      project_id: "PJT-001",
-      record_id:  "PJT-001-VB-001",
-      category:   "character",
-      key_name:   "おばあさん",
-    } as VisualBibleReadRow & Record<string, string>,
+      project_id:       "PJT-001",
+      record_id:        "PJT-001-VB-001",
+      category:         "character",
+      key_name:         "桃太郎（5〜9歳・幼少期）",
+      description:      "元気で勇敢な男の子。黒髪で小柄だが力持ち。",
+      color_palette:    "赤・白の着物、鉢巻き",
+      line_style:       "柔らかい輪郭線",
+      lighting:         "",
+      composition_rule: "",
+      expression_rule:  "明るい笑顔、決意の表情は眉を寄せる",
+      character_rule:   "顔は丸い、目は大きく、子供らしい体型",
+      background_rule:  "",
+      avoid_rule:       "成人体型禁止、暗い表情禁止",
+    },
     {
-      project_id: "PJT-001",
-      record_id:  "PJT-001-VB-002",
-      category:   "color_theme",
-      key_name:   "全体配色",
-    } as VisualBibleReadRow & Record<string, string>,
+      project_id:       "PJT-001",
+      record_id:        "PJT-001-VB-002",
+      category:         "color_theme",
+      key_name:         "全体配色",
+      description:      "桃色・空色・若草色をメインとした暖色系パレット",
+      color_palette:    "桃色・空色・若草色",
+      line_style:       "",
+      lighting:         "やわらかい自然光",
+      composition_rule: "",
+      expression_rule:  "",
+      character_rule:   "",
+      background_rule:  "",
+      avoid_rule:       "蛍光色禁止、暗色禁止",
+    },
     {
-      project_id: "PJT-001",
-      record_id:  "PJT-001-VB-003",
-      category:   "style_global",
-      key_name:   "全体画風",
-    } as VisualBibleReadRow & Record<string, string>,
+      project_id:       "PJT-001",
+      record_id:        "PJT-001-VB-003",
+      category:         "style_global",
+      key_name:         "全体画風",
+      description:      "やわらかい水彩絵本風、明るい色調",
+      color_palette:    "",
+      line_style:       "やわらかいインク輪郭線",
+      lighting:         "",
+      composition_rule: "主役は画面中央〜やや左。空を上1/3に確保",
+      expression_rule:  "",
+      character_rule:   "",
+      background_rule:  "背景は淡く、キャラクターを引き立てる",
+      avoid_rule:       "写実的表現禁止、3Dレンダリング禁止",
+    },
     {
-      project_id: "PJT-001",
-      record_id:  "PJT-001-VB-004",
-      category:   "avoid",
-      key_name:   "全体禁止事項",
-    } as VisualBibleReadRow & Record<string, string>,
+      project_id:       "PJT-001",
+      record_id:        "PJT-001-VB-004",
+      category:         "avoid",
+      key_name:         "全体禁止事項",
+      description:      "児童向けコンテンツの禁止要素",
+      color_palette:    "",
+      line_style:       "",
+      lighting:         "",
+      composition_rule: "",
+      expression_rule:  "",
+      character_rule:   "",
+      background_rule:  "",
+      avoid_rule:       "暴力・流血・恐怖表現・成人向けコンテンツ・現代的なオブジェクト禁止",
+    },
   ],
 };
 
