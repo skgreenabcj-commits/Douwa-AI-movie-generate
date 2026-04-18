@@ -140,7 +140,7 @@ export async function runStep08aTtsSubtitleEditPlan(
           try {
             fullGeminiResult = await callGemini(fullPrompt, {
               ...geminiOptions,
-              maxOutputTokens: 16384,
+              maxOutputTokens: 32768,
               timeoutMs: 300_000,
             });
             logInfo(`[STEP_08A] Gemini (Full) responded. modelUsed=${fullGeminiResult.modelUsed}`);
@@ -165,11 +165,7 @@ export async function runStep08aTtsSubtitleEditPlan(
           }
 
           if (fullGeminiResult) {
-            // [DIAG] Log raw Gemini response for debugging JSON extraction failures
-            logInfo(`[STEP_08A][DIAG] Raw response length: ${fullGeminiResult.text.length}`);
-            logInfo(`[STEP_08A][DIAG] Raw response head-200: ${fullGeminiResult.text.slice(0, 200)}`);
-            logInfo(`[STEP_08A][DIAG] Raw response tail-200: ${fullGeminiResult.text.slice(-200)}`);
-            const validation = validateTtsSubtitleAiResponse(fullGeminiResult.text, step08aAssets.aiSchema);
+              const validation = validateTtsSubtitleAiResponse(fullGeminiResult.text, step08aAssets.aiSchema);
             if (!validation.success) {
               const msg = `[STEP_08A] Schema validation failed (Full) for ${projectId}: ${validation.errors}`;
               logError(msg);
@@ -346,7 +342,7 @@ export async function runStep08aTtsSubtitleEditPlan(
           try {
             shortGeminiResult = await callGemini(shortPrompt, {
               ...geminiOptions,
-              maxOutputTokens: 16384,
+              maxOutputTokens: 32768,
               timeoutMs: 300_000,
             });
             logInfo(`[STEP_08A] Gemini (Short) responded. modelUsed=${shortGeminiResult.modelUsed}`);
