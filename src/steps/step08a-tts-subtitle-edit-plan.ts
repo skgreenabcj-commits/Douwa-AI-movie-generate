@@ -141,6 +141,7 @@ export async function runStep08aTtsSubtitleEditPlan(
             fullGeminiResult = await callGemini(fullPrompt, {
               ...geminiOptions,
               maxOutputTokens: 16384,
+              timeoutMs: 300_000,
             });
             logInfo(`[STEP_08A] Gemini (Full) responded. modelUsed=${fullGeminiResult.modelUsed}`);
           } catch (geminiErr) {
@@ -342,6 +343,7 @@ export async function runStep08aTtsSubtitleEditPlan(
             shortGeminiResult = await callGemini(shortPrompt, {
               ...geminiOptions,
               maxOutputTokens: 16384,
+              timeoutMs: 300_000,
             });
             logInfo(`[STEP_08A] Gemini (Short) responded. modelUsed=${shortGeminiResult.modelUsed}`);
           } catch (geminiErr) {

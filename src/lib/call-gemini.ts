@@ -96,6 +96,8 @@ export interface GeminiCallOptions {
   tertiaryModel?: string;
   /** 最大出力トークン数。未指定時は callGeminiOnce のデフォルト (16384) を使用。 */
   maxOutputTokens?: number;
+  /** リクエストタイムアウト（ms）。未指定時は REQUEST_TIMEOUT_MS (120s) を使用。 */
+  timeoutMs?: number;
 }
 
 export interface GeminiResult {
@@ -113,6 +115,7 @@ export async function callGemini(
   options: GeminiCallOptions
 ): Promise<GeminiResult> {
   const maxOutputTokens = options.maxOutputTokens ?? 16384;
+  const timeoutMs       = options.timeoutMs;
 
   // Primary model を試みる
   try {
@@ -120,7 +123,8 @@ export async function callGemini(
       prompt,
       options.primaryModel,
       MAX_RETRIES,
-      maxOutputTokens
+      maxOutputTokens,
+      timeoutMs
     );
     return { text, modelUsed: options.primaryModel, usedFallback: false };
   } catch (primaryError) {
@@ -143,7 +147,8 @@ export async function callGemini(
       prompt,
       options.secondaryModel,
       MAX_RETRIES,
-      maxOutputTokens
+      maxOutputTokens,
+      timeoutMs
     );
     return { text, modelUsed: options.secondaryModel, usedFallback: true };
   } catch (secondaryError) {
@@ -164,7 +169,8 @@ export async function callGemini(
     prompt,
     options.tertiaryModel!,
     MAX_RETRIES,
-    maxOutputTokens
+    maxOutputTokens,
+    timeoutMs
   );
   return { text, modelUsed: options.tertiaryModel!, usedFallback: true };
 }
@@ -176,13 +182,14 @@ async function callGeminiModel(
   prompt: string,
   model: string,
   retries: number,
-  maxOutputTokens = 16384
+  maxOutputTokens = 16384,
+  timeoutMs?: number
 ): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await callGeminiOnce(prompt, model, maxOutputTokens);
+      return await callGeminiOnce(prompt, model, maxOutputTokens, timeoutMs);
     } catch (err) {
       lastError = err;
       if (attempt < retries) {
@@ -200,7 +207,8 @@ async function callGeminiModel(
 async function callGeminiOnce(
   prompt: string,
   model: string,
-  maxOutputTokens = 16384
+  maxOutputTokens = 16384,
+  timeoutMs?: number
 ): Promise<string> {
   const url = buildVertexAiUrl(model);
   const token = await getAccessToken();
@@ -221,7 +229,7 @@ async function callGeminiOnce(
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? REQUEST_TIMEOUT_MS);
 
   let response: Response;
   try {
