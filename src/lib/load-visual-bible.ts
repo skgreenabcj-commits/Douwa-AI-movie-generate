@@ -11,7 +11,7 @@
  */
 
 import { readSheet } from "./sheets-client.js";
-import type { VisualBibleReadRow, VisualBibleCharacterRow } from "../types.js";
+import type { VisualBibleReadRow, VisualBibleCharacterRow, VisualBibleFullRow } from "../types.js";
 
 const SHEET_NAME = "05_Visual_Bible";
 
@@ -39,6 +39,45 @@ export async function loadVisualBibleByProjectId(
       record_id:  row["record_id"]  ?? "",
       category:   row["category"]   ?? "",
       key_name:   row["key_name"]   ?? "",
+    });
+  }
+
+  return result;
+}
+
+/**
+ * 指定 project_id の Visual Bible 行を全フィールド付きで取得する（STEP_07 プロンプト生成用）。
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param projectId     - 検索する project_id
+ * @returns VisualBibleFullRow[]（シート行順）
+ */
+export async function loadFullVisualBibleByProjectId(
+  spreadsheetId: string,
+  projectId: string
+): Promise<VisualBibleFullRow[]> {
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  const target = projectId.trim();
+
+  const result: VisualBibleFullRow[] = [];
+  for (const row of rows) {
+    if ((row["project_id"] ?? "").trim() !== target) continue;
+    if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
+
+    result.push({
+      project_id:       row["project_id"]       ?? "",
+      record_id:        row["record_id"]         ?? "",
+      category:         row["category"]          ?? "",
+      key_name:         row["key_name"]          ?? "",
+      description:      row["description"]       ?? "",
+      color_palette:    row["color_palette"]     ?? "",
+      line_style:       row["line_style"]        ?? "",
+      lighting:         row["lighting"]          ?? "",
+      composition_rule: row["composition_rule"]  ?? "",
+      expression_rule:  row["expression_rule"]   ?? "",
+      character_rule:   row["character_rule"]    ?? "",
+      background_rule:  row["background_rule"]   ?? "",
+      avoid_rule:       row["avoid_rule"]        ?? "",
     });
   }
 

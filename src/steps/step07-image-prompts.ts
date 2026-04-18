@@ -46,7 +46,7 @@ import { loadRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js
 import { readProjectsByIds } from "../lib/load-project-input.js";
 import { loadScenesByProjectId } from "../lib/load-scenes.js";
 import {
-  loadVisualBibleByProjectId,
+  loadFullVisualBibleByProjectId,
   loadCharactersByProjectId,
 } from "../lib/load-visual-bible.js";
 import {
@@ -246,7 +246,7 @@ export async function runStep07ImagePrompts(
       }
 
       // ── 05_Visual_Bible 取得 ────────────────────────────────────────────────
-      const visualBible = await loadVisualBibleByProjectId(spreadsheetId, projectId);
+      const visualBible = await loadFullVisualBibleByProjectId(spreadsheetId, projectId);
       if (visualBible.length === 0) {
         const msg = `[STEP_07] No GENERATED Visual Bible rows found for project ${projectId}. Run STEP_06 first.`;
         logError(msg);

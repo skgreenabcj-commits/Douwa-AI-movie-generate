@@ -6,7 +6,7 @@
  * テンプレート内の {{KEY}} を replacements[KEY] で置換する。
  */
 
-import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, ScriptShortReadRow, QaAiRow, VisualBibleReadRow } from "../types.js";
+import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, ScriptShortReadRow, QaAiRow, VisualBibleReadRow, VisualBibleFullRow } from "../types.js";
 import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets, Step06Assets, Step07Assets, Step08aAssets, Step09Assets } from "./load-assets.js";
 
 /**
@@ -361,21 +361,20 @@ export function buildStep07Prompt(
   assets: Step07Assets,
   project: ProjectRow,
   scene: SceneReadRow,
-  visualBible: VisualBibleReadRow[]
+  visualBible: VisualBibleFullRow[]
 ): string {
-  // Visual Bible は全フィールドをそのまま渡す
   const vbInput = visualBible.map((vb) => ({
     category:         vb.category,
     key_name:         vb.key_name,
-    description:      (vb as unknown as Record<string, string>)["description"]       ?? "",
-    color_palette:    (vb as unknown as Record<string, string>)["color_palette"]     ?? "",
-    line_style:       (vb as unknown as Record<string, string>)["line_style"]        ?? "",
-    lighting:         (vb as unknown as Record<string, string>)["lighting"]          ?? "",
-    composition_rule: (vb as unknown as Record<string, string>)["composition_rule"]  ?? "",
-    expression_rule:  (vb as unknown as Record<string, string>)["expression_rule"]   ?? "",
-    character_rule:   (vb as unknown as Record<string, string>)["character_rule"]    ?? "",
-    background_rule:  (vb as unknown as Record<string, string>)["background_rule"]   ?? "",
-    avoid_rule:       (vb as unknown as Record<string, string>)["avoid_rule"]        ?? "",
+    description:      vb.description,
+    color_palette:    vb.color_palette,
+    line_style:       vb.line_style,
+    lighting:         vb.lighting,
+    composition_rule: vb.composition_rule,
+    expression_rule:  vb.expression_rule,
+    character_rule:   vb.character_rule,
+    background_rule:  vb.background_rule,
+    avoid_rule:       vb.avoid_rule,
   }));
 
   const inputData = JSON.stringify(
