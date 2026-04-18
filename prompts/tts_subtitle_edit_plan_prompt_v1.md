@@ -82,6 +82,24 @@
 | normal | 読み聞かせ標準（基本値） |
 | fast | テンポよい展開・緊張感 |
 
+## camera_motion 対応表
+| camera_motion | 使用場面 |
+|---|---|
+| static | カメラ固定。説明的・落ち着いたシーン |
+| slow_pan_right | 左→右へゆっくりパン。移動・広がりの場面 |
+| slow_pan_left | 右→左へゆっくりパン。回想・引き戻しの場面 |
+| slow_zoom_in | ゆっくりズームイン。強調・クローズアップ |
+| slow_zoom_out | ゆっくりズームアウト。状況把握・情景俯瞰 |
+| ken_burns | スチル画像向けのパン＋ズーム複合モーション |
+
+## transition_in / transition_out 対応表
+| 値 | 意味 |
+|---|---|
+| cut | 瞬間切り替え |
+| fade | 黒フェード |
+| fade_white | 白フェード |
+| dissolve | クロスディゾルブ（前後シーンを重ねる） |
+
 ---
 
 # 制約
@@ -93,6 +111,8 @@
 5. **日本語アクセント**: 擬音語・擬態語には `<sub>` タグで標準アクセントを補助すること
 6. **duration_sec**: ナレーションの文字数と speech_rate から合理的に推定すること（目安: normal速度で1分あたり約270文字）
 7. **subtitle_text_alt**: 字幕が1行に収まる場合は空文字 `""` を返してよい
+8. **camera_motion**: 上記 `camera_motion 対応表` の値のみ使用すること（それ以外の値は禁止）
+9. **transition_in / transition_out**: 上記 `transition_in / transition_out 対応表` の値のみ使用すること（それ以外の値は禁止）
 
 ---
 
