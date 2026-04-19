@@ -22,8 +22,9 @@ import { getConfigValue } from "./load-runtime-config.js";
 // ─── 定数 ─────────────────────────────────────────────────────────────────────
 
 const TTS_API_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
-const VOICE_NAME  = "ja-JP-Neural2-B";   // 女性ナレーター固定
-const TTS_REQUEST_TIMEOUT_MS = 60_000;   // 1 分
+/** デフォルト音声モデル。94_Runtime_Config の tts_voice_name キーで上書き可能。 */
+const DEFAULT_VOICE_NAME      = "ja-JP-Neural2-B";
+const TTS_REQUEST_TIMEOUT_MS  = 60_000;   // 1 分
 
 // speakingRate のデフォルト値（RuntimeConfig になければこちらを使用）
 const DEFAULT_SPEAKING_RATE: Record<string, number> = {
@@ -78,13 +79,14 @@ export async function generateTtsAudio(
   configMap: RuntimeConfigMap
 ): Promise<Buffer> {
   const speakingRate = resolveSpeakingRate(speechRate, configMap);
+  const voiceName    = getConfigValue(configMap, "tts_voice_name", DEFAULT_VOICE_NAME);
   const token = await getTtsAccessToken();
 
   const requestBody = {
     input: { ssml: ssmlText },
     voice: {
       languageCode: "ja-JP",
-      name: VOICE_NAME,
+      name: voiceName,
     },
     audioConfig: {
       audioEncoding: "MP3",

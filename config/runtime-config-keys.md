@@ -9,3 +9,4 @@
 - copyright_policy_jp_v1
 - rights_review_policy_v1
 - allow_record_id_index_fallback  # "true" のときのみ 20% index fallback を許容。デフォルト無効（fail-fast）
+- tts_voice_name                  # TTS 音声モデル名。未設定時は ja-JP-Neural2-B。例: ja-JP-Chirp3-HD-Achernar
