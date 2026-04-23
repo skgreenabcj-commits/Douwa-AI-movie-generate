@@ -19,7 +19,6 @@
           "pitch_hint",
           "emotion_hint",
           "subtitle_text",
-          "subtitle_text_alt",
           "subtitle_style"
         ],
         "additionalProperties": false,
