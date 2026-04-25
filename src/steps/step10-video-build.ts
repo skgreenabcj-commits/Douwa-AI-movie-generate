@@ -185,6 +185,11 @@ async function buildVideoForVersion(params: {
 
   const finalPath = path.join(tempDir, `final_${version}.mp4`);
   await burnSubtitles(concatPath, assPath, finalPath);
+  {
+    const finalSize = fs.statSync(finalPath).size;
+    const finalActualDur = await probeVideoDuration(finalPath);
+    logInfo(`[STEP_10][${projectId}][${version}] final: size=${finalSize}B, actualDur=${finalActualDur.toFixed(2)}s`);
+  }
 
   // ── 7. 総尺を計算 ──────────────────────────────────────────────────────────
   const quizDuration = await probeVideoDuration(quizPath);

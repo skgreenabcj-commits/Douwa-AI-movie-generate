@@ -167,32 +167,12 @@ export async function mergeScenes(
 
   const N = clipPaths.length;
 
-  // xfade filter_complex を組み立てる
-  let filterComplex = "";
-  let cumulativeDur = 0;
-
-  for (let k = 0; k < N - 1; k++) {
-    const inV1 = k === 0 ? `[${k}:v]` : `[xfv${k - 1}]`;
-    const inV2 = `[${k + 1}:v]`;
-    const outV  = k === N - 2 ? "[v]" : `[xfv${k}]`;
-    cumulativeDur += durations[k];
-    const offset = cumulativeDur - (k + 1) * xfadeDuration;
-    filterComplex +=
-      `${inV1}${inV2}xfade=transition=wipeleft:duration=${xfadeDuration}:offset=${offset.toFixed(3)}${outV};`;
-  }
-
-  // Audio: acrossfade chain — mirrors the video xfade so audio transitions
-  // happen at the same time as video transitions (avoids early audio switch).
-  if (N === 2) {
-    filterComplex += `[0:a][1:a]acrossfade=d=${xfadeDuration}:c1=tri:c2=tri[a]`;
-  } else {
-    for (let k = 0; k < N - 1; k++) {
-      const inA1 = k === 0 ? `[${k}:a]` : `[afa${k - 1}]`;
-      const inA2 = `[${k + 1}:a]`;
-      const outA = k === N - 2 ? "[a]" : `[afa${k}]`;
-      filterComplex += `${inA1}${inA2}acrossfade=d=${xfadeDuration}:c1=tri:c2=tri${outA};`;
-    }
-  }
+  // Use concat filter (no transitions) — simpler and more reliable than
+  // a 15-stage xfade chain, which can silently produce black frames.
+  // xfade can be re-introduced once basic scene display is confirmed.
+  const videoInputs = Array.from({ length: N }, (_, i) => `[${i}:v]`).join("");
+  const audioInputs = Array.from({ length: N }, (_, i) => `[${i}:a]`).join("");
+  const filterComplex = `${videoInputs}concat=n=${N}:v=1:a=0[v];${audioInputs}concat=n=${N}:v=0:a=1[a]`;
 
   const inputs: string[] = [];
   for (const p of clipPaths) inputs.push("-i", p);
@@ -209,10 +189,12 @@ export async function mergeScenes(
     "-c:a", "aac",
     "-b:a", "128k",
     "-pix_fmt", "yuv420p",
+    "-r", "30",
     outputPath,
   ]);
 
-  return durations.reduce((s, d) => s + d, 0) - (N - 1) * xfadeDuration;
+  // No xfade overlap: total duration = sum of all clip durations
+  return durations.reduce((s, d) => s + d, 0);
 }
 
 /**
@@ -237,6 +219,7 @@ export async function concatClips(clipPaths: string[], outputPath: string): Prom
       "-c:a", "aac",
       "-b:a", "128k",
       "-pix_fmt", "yuv420p",
+      "-r", "30",
       outputPath,
     ]);
   } finally {
@@ -330,8 +313,9 @@ export function generateAssFile(
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    // Font size 48px, margins 60px sides + 80px bottom — fits within 1080p/1920p frames
-    "Style: Default,Noto Sans CJK JP,48,&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,60,60,80,1",
+    // Margins: 10% of width on each side (safe area), 6% of height at bottom
+    // Font size: ~4% of the shorter dimension, readable on both 1080p and 1920p
+    `Style: Default,Noto Sans CJK JP,${Math.round(Math.min(w, h) * 0.038)},&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,${Math.round(w * 0.10)},${Math.round(w * 0.10)},${Math.round(h * 0.06)},1`,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
