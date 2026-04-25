@@ -198,33 +198,52 @@ export async function mergeScenes(
 }
 
 /**
- * クリップ群を単純な cut で結合する（concat demuxer）。
+ * クリップ群を結合する。
+ * filter_complex で各クリップを target resolution にスケール正規化してから concat。
+ * concat demuxer は解像度/フレームレート不一致で黒フレームを出すため使用しない。
+ *
+ * @param clipPaths  - 結合するクリップのパス配列
+ * @param outputPath - 出力 MP4 ファイルパス
+ * @param resolution - 全クリップを正規化する解像度（例: "1080x1920"）
  */
-export async function concatClips(clipPaths: string[], outputPath: string): Promise<void> {
+export async function concatClips(
+  clipPaths: string[],
+  outputPath: string,
+  resolution: string
+): Promise<void> {
   if (clipPaths.length === 0) throw new Error("concatClips: no clips provided");
 
-  const listContent = clipPaths.map((p) => `file '${p.replace(/\\/g, "/")}'`).join("\n");
-  const listPath = outputPath + ".concat.txt";
-  fs.writeFileSync(listPath, listContent, "utf8");
+  const [w, h] = resolution.split("x");
+  const N = clipPaths.length;
+  const inputs: string[] = [];
+  for (const p of clipPaths) inputs.push("-i", p);
 
-  try {
-    await runFfmpeg([
-      "-y",
-      "-f", "concat",
-      "-safe", "0",
-      "-i", listPath,
-      "-c:v", "libx264",
-      "-preset", "fast",
-      "-crf", "18",
-      "-c:a", "aac",
-      "-b:a", "128k",
-      "-pix_fmt", "yuv420p",
-      "-r", "30",
-      outputPath,
-    ]);
-  } finally {
-    fs.unlinkSync(listPath);
+  // Scale each input to target resolution, then concat
+  let filterComplex = "";
+  for (let i = 0; i < N; i++) {
+    filterComplex += `[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
+      `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[sv${i}];`;
   }
+  const vInputs = Array.from({ length: N }, (_, i) => `[sv${i}]`).join("");
+  const aInputs = Array.from({ length: N }, (_, i) => `[${i}:a]`).join("");
+  filterComplex += `${vInputs}concat=n=${N}:v=1:a=0[v];${aInputs}concat=n=${N}:v=0:a=1[a]`;
+
+  await runFfmpeg([
+    "-y",
+    ...inputs,
+    "-filter_complex", filterComplex,
+    "-map", "[v]",
+    "-map", "[a]",
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "18",
+    "-c:a", "aac",
+    "-b:a", "128k",
+    "-ar", "44100",
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+    outputPath,
+  ]);
 }
 
 /**
@@ -240,7 +259,12 @@ export async function burnSubtitles(
     "-y",
     "-i", inputPath,
     "-vf", `ass=${escapedAss}`,
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "18",
+    "-pix_fmt", "yuv420p",
     "-c:a", "copy",
+    "-movflags", "+faststart",
     outputPath,
   ]);
 }

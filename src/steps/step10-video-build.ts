@@ -165,7 +165,8 @@ async function buildVideoForVersion(params: {
   const concatPath = path.join(tempDir, `concat_${version}.mp4`);
   await concatClips(
     [introPath, blackInPath, mergedScenesPath, blackOutPath, quizPath],
-    concatPath
+    concatPath,
+    resolution
   );
   {
     const concatSize = fs.statSync(concatPath).size;
