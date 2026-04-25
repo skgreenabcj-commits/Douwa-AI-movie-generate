@@ -65,6 +65,26 @@
 
 擬音語・擬態語・長い複合語・固有名詞には積極的に `<sub>` タグを使用してください。
 
+## `<sub>` タグ間の句読点は `<break>` に置換（重要）
+
+`<sub>` タグの直後にある `、`（読点）は TTS がテキストノードとして読み上げ **"テン"** と発音する。
+`<sub>` タグに隣接する句読点は必ず `<break>` タグに置換すること。
+
+```xml
+<!-- ❌ NG: 読点が "テン" と読まれる -->
+<sub alias="どんぶらこ">どんぶらこ</sub>、<sub alias="どんぶらこ">どんぶらこ</sub>と、
+
+<!-- ✅ OK: <break> で間を表現 -->
+<sub alias="どんぶらこ">どんぶらこ</sub><break time="200ms"/><sub alias="どんぶらこ">どんぶらこ</sub>と、
+```
+
+| 置換対象 | 置換後 | 用途 |
+|---|---|---|
+| `<sub>…</sub>、` | `<sub>…</sub><break time="200ms"/>` | 読点相当の短い間 |
+| `<sub>…</sub>。` | `<sub>…</sub><break time="300ms"/>` | 句点相当の間 |
+
+> 通常のテキスト内（`<sub>` タグ外）の `、` `。` はそのままで問題ない。
+
 ---
 
 ## tts_text の表記規則（重要）
@@ -123,21 +143,25 @@
 |---|---|---|
 | `narrator` | `rate="1.0"` のみ | ベース（変更なし） |
 | `gentle` | `rate="1.0" volume="soft"` | やさしく柔らかい語り口 |
-| `excited` | `rate="1.0" pitch="+2st"` | 明るく活気ある表現 |
-| `tense` | `rate="1.0" pitch="-1st"` | 低く緊張感のある場面 |
+| `excited` | `rate="1.0" pitch="+0.5st"` | 明るく活気ある表現 |
+| `tense` | `rate="1.0" pitch="-0.5st"` | 低く緊張感のある場面 |
 | `whisper` | `rate="1.0" volume="x-soft"` | ひそやかな独白・秘密 |
-| `cheerful` | `rate="1.0" pitch="+3st"` | 子ども向け・元気いっぱい |
+| `cheerful` | `rate="1.0" pitch="+1.0st"` | 子ども向け・元気いっぱい |
 
 ```xml
 <!-- narrator の例 -->
 <speak><prosody rate="1.0">昔々、あるところに...</prosody></speak>
 
 <!-- excited の例 -->
-<speak><prosody rate="1.0" pitch="+2st">桃太郎は鬼たちを倒しました！</prosody></speak>
+<speak><prosody rate="1.0" pitch="+0.5st">桃太郎は鬼たちを倒しました！</prosody></speak>
 
 <!-- whisper の例 -->
 <speak><prosody rate="1.0" volume="x-soft">しっ、静かに...</prosody></speak>
 ```
+
+> **pitch 値について**: Chirp3-HD は SSML `<prosody pitch>` を DSP 後処理で適用するため、
+> 大きな値（±2st 以上）では音質が劣化し甲高い/くぐもった声になる。
+> ±0.5〜1.0st の小変化で自然な演技差を表現すること。
 
 ## voice_style 対応表
 | voice_style | 使用場面 |
@@ -148,6 +172,14 @@
 | tense | 対峙・葛藤・クライマックス |
 | whisper | 噂話・独白・秘密の場面 |
 | cheerful | 子ども登場・游び・歌の場面 |
+
+## voice_style 別 speech_rate 制約（重要）
+
+| voice_style | speech_rate | 理由 |
+|---|---|---|
+| `excited` | **`"fast"` 固定** | normal 速度では興奮・緊張感が伝わらない |
+| `cheerful` | `"fast"` または `"normal"` | 場面テンポに応じて任意選択 |
+| その他 | 場面に応じて自由選択 | slow / normal / fast |
 
 ## speech_rate 対応表
 | speech_rate | 場面 |
@@ -186,7 +218,10 @@
    `subtitle_text_alt` は常に `""` を返すこと（使用しない）。
 5. **tts_text 表記**: 漢字仮名交じり文で記述すること（ひらがなのみは禁止）。
    `<prosody rate>` は必ず `"1.0"` 固定にすること。
-6. **日本語アクセント**: 擬音語・擬態語には `<sub>` タグで標準アクセントを補助すること
+6. **日本語アクセント**: 擬音語・擬態語には `<sub>` タグで標準アクセントを補助すること。
+   `<sub>` タグ直後の `、` `。` は `<break time="200ms"/>` / `<break time="300ms"/>` に置換すること。
+7. **voice_style と speech_rate の対応**: `excited` は `speech_rate` を必ず `"fast"` にすること。
+   `cheerful` は `"fast"` または `"normal"` から場面に応じて選択すること。
 6. **duration_sec**: ナレーションの文字数と speech_rate から合理的に推定すること（目安: normal速度で1分あたり約270文字）
 7. **subtitle_text_alt**: 字幕が1行に収まる場合は空文字 `""` を返してよい
 8. **camera_motion**: 上記 `camera_motion 対応表` の値のみ使用すること（それ以外の値は禁止）
@@ -203,7 +238,7 @@
   "tts_subtitles": [
     {
       "scene_record_id": "{{SCENE_RECORD_ID}}",
-      "tts_text": "<speak><prosody rate=\"0.82\">{{SSML_CONTENT}}</prosody></speak>",
+      "tts_text": "<speak><prosody rate=\"1.0\">{{SSML_CONTENT}}</prosody></speak>",
       "voice_style": "narrator",
       "speech_rate": "normal",
       "pitch_hint": "{{PITCH_HINT}}",
@@ -241,7 +276,7 @@
   "tts_subtitles": [
     {
       "scene_record_id": "PJT-001-SCN-002",
-      "tts_text": "<speak><prosody rate=\"1.0\"><sub alias=\"どんぶらこ\">どんぶらこ</sub>、<sub alias=\"どんぶらこ\">どんぶらこ</sub>と、大きな桃が<break time=\"300ms\"/>流れてきました。</prosody></speak>",
+      "tts_text": "<speak><prosody rate=\"1.0\"><sub alias=\"どんぶらこ\">どんぶらこ</sub><break time=\"200ms\"/><sub alias=\"どんぶらこ\">どんぶらこ</sub>と、大きな桃が<break time=\"300ms\"/>流れてきました。</prosody></speak>",
       "voice_style": "narrator",
       "speech_rate": "normal",
       "pitch_hint": "落ち着いたトーン。どんぶらこは擬音として読み補助でアクセントを確保",

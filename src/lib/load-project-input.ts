@@ -14,6 +14,24 @@ import type { ProjectRow } from "../types.js";
 const SHEET_NAME = "00_Project";
 
 /**
+ * 事前にロード済みの 00_Project 行データから、指定 project_ids に一致する行をフィルタする。
+ * batchGet で一括取得した rows を渡すことで API 呼び出しを省略できる。
+ *
+ * @param rows       - readSheetsBatch で取得した 00_Project の行データ
+ * @param projectIds - 検索する project_id の配列
+ * @returns 一致した ProjectRow の配列
+ */
+export function filterProjectsByIds(
+  rows: Array<Record<string, string>>,
+  projectIds: string[]
+): ProjectRow[] {
+  const targetSet = new Set(projectIds.map((id) => id.trim()));
+  return rows
+    .filter((row) => targetSet.has((row["project_id"] ?? "").trim()))
+    .map(rowToProjectRow);
+}
+
+/**
  * 00_Project を読み込み、指定された project_ids に一致する行を返す。
  *
  * @param spreadsheetId - 対象スプレッドシートID

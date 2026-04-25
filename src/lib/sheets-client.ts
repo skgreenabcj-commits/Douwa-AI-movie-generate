@@ -244,6 +244,54 @@ export async function getNextEmptyRowIndex(
   return DATA_START_ROW + dataRowCount;
 }
 
+/**
+ * 複数シートを 1 回の batchGet で取得し、シート名をキーとした Map で返す。
+ * 各シートは readSheet() と同じ形式（ヘッダー行をキーとしたオブジェクト配列）。
+ *
+ * @param spreadsheetId - スプレッドシートID
+ * @param sheetNames    - 取得するシート名の配列
+ * @returns Map<sheetName, Record<string, string>[]>
+ */
+export async function readSheetsBatch(
+  spreadsheetId: string,
+  sheetNames: string[]
+): Promise<Map<string, Array<Record<string, string>>>> {
+  const sheets = getSheetsClient();
+
+  const ranges = sheetNames.map((name) => buildReadRange(name));
+
+  const response = await sheets.spreadsheets.values.batchGet({
+    spreadsheetId,
+    ranges,
+  });
+
+  const result = new Map<string, Array<Record<string, string>>>();
+  const valueRanges = response.data.valueRanges ?? [];
+
+  for (let i = 0; i < sheetNames.length; i++) {
+    const sheetName = sheetNames[i];
+    const rows = valueRanges[i]?.values ?? [];
+
+    if (rows.length === 0) {
+      result.set(sheetName, []);
+      continue;
+    }
+
+    const headers = rows[0].map(String);
+    const data = rows.slice(1).map((row) => {
+      const obj: Record<string, string> = {};
+      headers.forEach((header, j) => {
+        obj[header] = row[j] != null ? String(row[j]) : "";
+      });
+      return obj;
+    });
+
+    result.set(sheetName, data);
+  }
+
+  return result;
+}
+
 // ─── Row index helpers ────────────────────────────────────────────────────────
 
 /**
