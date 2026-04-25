@@ -56,16 +56,15 @@ export function resolveResolution(aspect: string | undefined): string {
 
 function runFfmpeg(args: string[]): void {
   const bin = getFfmpegBin();
-  // Prepend -loglevel error to suppress verbose progress output.
-  // stdout is ignored; only stderr (errors only) is captured to avoid ENOBUFS
-  // on long videos where ffmpeg writes MBs of progress logs to pipes.
-  const result = spawnSync(bin, ["-loglevel", "error", ...args], {
-    stdio: ["ignore", "ignore", "pipe"],
+  // Use stdio:"ignore" for all streams to avoid pipe buffer overflow (ENOBUFS).
+  // spawnSync buffers synchronously — any piped stream can overflow on long videos.
+  // We check only the exit code; pass -loglevel quiet to suppress all output.
+  const result = spawnSync(bin, ["-loglevel", "quiet", ...args], {
+    stdio: "ignore",
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    const msg = result.stderr?.toString().trim() ?? "ffmpeg exited with non-zero status";
-    throw new Error(`ffmpeg failed (exit ${result.status ?? "?"}): ${msg}`);
+    throw new Error(`ffmpeg failed with exit code ${result.status ?? "?"}`);
   }
 }
 
