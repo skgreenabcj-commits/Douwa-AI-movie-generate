@@ -60,6 +60,39 @@ export async function loadRuntimeConfig(
 }
 
 /**
+ * 事前にロード済みの 94_Runtime_Config 行データから RuntimeConfigMap を生成する。
+ * batchGet で一括取得した rows を渡すことで API 呼び出しを省略できる。
+ *
+ * @param rows - readSheetsBatch で取得した 94_Runtime_Config の行データ
+ * @returns key → value の Map
+ */
+export function parseRuntimeConfig(
+  rows: Array<Record<string, string>>
+): RuntimeConfigMap {
+  const configMap: RuntimeConfigMap = new Map();
+
+  for (const row of rows) {
+    const key = (row["key"] ?? "").trim();
+    const value = (row["value"] ?? "").trim();
+    const enabled = (row["enabled"] ?? "TRUE").trim().toUpperCase();
+
+    if (!key) continue;
+    if (enabled === "FALSE") continue;
+
+    configMap.set(key, value);
+  }
+
+  const primaryModelOverride = (process.env["GEMINI_PRIMARY_MODEL_OVERRIDE"] ?? "").trim();
+  if (primaryModelOverride) {
+    console.error(`[INFO] GEMINI_PRIMARY_MODEL_OVERRIDE detected — overriding primary models to: ${primaryModelOverride}`);
+    configMap.set("step_01_model_role", primaryModelOverride);
+    configMap.set("step_02_model_role", primaryModelOverride);
+  }
+
+  return configMap;
+}
+
+/**
  * RuntimeConfigMap から必須キーを取り出す。
  * 存在しない場合はフォールバック値を返す（指定なければエラーを投げる）。
  */
