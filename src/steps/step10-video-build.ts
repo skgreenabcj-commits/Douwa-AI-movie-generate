@@ -122,15 +122,20 @@ async function buildVideoForVersion(params: {
     const audPath  = path.join(tempDir, `${scene.recordId}_${version}.mp3`);
     const clipPath = path.join(tempDir, `scene_${scene.sceneNo}_${version}.mp4`);
 
-    logInfo(`[STEP_10][${projectId}][${version}] scene ${scene.sceneNo}: img=${scene.imageUrl}`);
     fs.writeFileSync(imgPath, await downloadFromDriveUrl(scene.imageUrl).catch(e => { throw new Error(`scene ${scene.sceneNo} image download failed (${scene.imageUrl}): ${e.message}`); }));
-    logInfo(`[STEP_10][${projectId}][${version}] scene ${scene.sceneNo}: aud=${scene.audioUrl}`);
     fs.writeFileSync(audPath, await downloadFromDriveUrl(scene.audioUrl).catch(e => { throw new Error(`scene ${scene.sceneNo} audio download failed (${scene.audioUrl}): ${e.message}`); }));
+
+    const imgSize = fs.statSync(imgPath).size;
+    const audSize = fs.statSync(audPath).size;
+    logInfo(`[STEP_10][${projectId}][${version}] scene ${scene.sceneNo}: durationSec=${scene.durationSec}, img=${imgSize}B, aud=${audSize}B`);
 
     await buildSceneClip(imgPath, audPath, clipPath, scene.durationSec, resolution);
 
     // Probe actual clip duration — covers cases where durationSec=0 in the sheet
     const actualDuration = await probeVideoDuration(clipPath);
+    const clipSize = fs.statSync(clipPath).size;
+    logInfo(`[STEP_10][${projectId}][${version}] scene ${scene.sceneNo}: clip=${clipSize}B, actualDur=${actualDuration.toFixed(2)}s`);
+
     sceneClipPaths.push(clipPath);
     sceneDurations.push(actualDuration > 0 ? actualDuration : scene.durationSec);
   }

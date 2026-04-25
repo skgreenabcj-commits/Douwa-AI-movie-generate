@@ -69,15 +69,19 @@ export function resolveResolution(aspect: string | undefined): string {
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const bin = getFfmpegBin();
-    const proc = spawn(bin, ["-loglevel", "quiet", ...args], {
-      stdio: "ignore",
+    // Use -loglevel error so only actual errors appear in stderr.
+    // Pipe stderr to capture error messages; stdout ignored.
+    const proc = spawn(bin, ["-loglevel", "error", ...args], {
+      stdio: ["ignore", "ignore", "pipe"],
     });
+    let stderr = "";
+    proc.stderr?.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
     proc.on("error", reject);
     proc.on("close", (code) => {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`ffmpeg failed with exit code ${code ?? "?"}`));
+        reject(new Error(`ffmpeg failed (exit ${code ?? "?"}): ${stderr.trim()}`));
       }
     });
   });
