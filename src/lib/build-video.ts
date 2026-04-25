@@ -166,55 +166,53 @@ export async function mergeScenes(
   }
 
   const N = clipPaths.length;
-  const inputs: string[] = [];
-  for (const p of clipPaths) inputs.push("-i", p);
+  const tmpDir = path.dirname(outputPath);
 
-  // Build chained xfade (wipeleft) + acrossfade filter complex.
-  //
-  // Correct offset formula for chained xfade:
-  //   offset[k] = sum(d[0..k]) - (k+1) * T
-  //
-  // Each xfade stage's two input labels are the PREVIOUS merged output and the
-  // next clip. Audio uses acrossfade with the same duration.
-  const parts: string[] = [];
-  let sumDur = 0;
-  let prevV = "[0:v]";
-  let prevA = "[0:a]";
+  // Pairwise iterative xfade — avoids chained filter_complex PTS drift that
+  // causes black frames in ffmpeg 4.x.  Each step merges the current running
+  // output with the next clip using a single two-input xfade, then the
+  // intermediate temp file is deleted before the next step.
+  let currentInput = clipPaths[0];
+  let currentDuration = durations[0];
+  let prevTemp: string | null = null;
 
   for (let k = 0; k < N - 1; k++) {
-    sumDur += durations[k];
-    const offset = Math.max(0.001, sumDur - (k + 1) * xfadeDuration);
-    const outV = k === N - 2 ? "[v]" : `[xv${k}]`;
-    const outA = k === N - 2 ? "[a]" : `[xa${k}]`;
+    const isLast = k === N - 2;
+    const stepOut = isLast
+      ? outputPath
+      : path.join(tmpDir, `_xfstep${k}_${path.basename(outputPath)}`);
+    // offset = how far into currentInput the transition begins
+    const offset = Math.max(0.001, currentDuration - xfadeDuration);
 
-    parts.push(
-      `${prevV}[${k + 1}:v]xfade=transition=wipeleft:duration=${xfadeDuration.toFixed(3)}:offset=${offset.toFixed(3)}${outV}`
-    );
-    parts.push(
-      `${prevA}[${k + 1}:a]acrossfade=d=${xfadeDuration.toFixed(3)}:curve1=tri:curve2=tri${outA}`
-    );
-    prevV = outV;
-    prevA = outA;
+    await runFfmpeg([
+      "-y",
+      "-i", currentInput,
+      "-i", clipPaths[k + 1],
+      "-filter_complex",
+      `[0:v][1:v]xfade=transition=wipeleft:duration=${xfadeDuration.toFixed(3)}:offset=${offset.toFixed(3)}[v];` +
+      `[0:a][1:a]acrossfade=d=${xfadeDuration.toFixed(3)}:curve1=tri:curve2=tri[a]`,
+      "-map", "[v]",
+      "-map", "[a]",
+      "-c:v", "libx264",
+      "-preset", "fast",
+      "-crf", "18",
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-pix_fmt", "yuv420p",
+      "-r", "30",
+      stepOut,
+    ]);
+
+    // Remove the previous intermediate file (never the original input clips)
+    if (prevTemp) {
+      try { fs.unlinkSync(prevTemp); } catch { /* ignore cleanup error */ }
+    }
+    prevTemp = isLast ? null : stepOut;
+    currentInput = stepOut;
+    currentDuration = currentDuration + durations[k + 1] - xfadeDuration;
   }
 
-  await runFfmpeg([
-    "-y",
-    ...inputs,
-    "-filter_complex", parts.join(";"),
-    "-map", "[v]",
-    "-map", "[a]",
-    "-c:v", "libx264",
-    "-preset", "fast",
-    "-crf", "18",
-    "-c:a", "aac",
-    "-b:a", "128k",
-    "-pix_fmt", "yuv420p",
-    "-r", "30",
-    outputPath,
-  ]);
-
-  // Total duration shrinks by xfadeDuration for each transition
-  return durations.reduce((s, d) => s + d, 0) - (N - 1) * xfadeDuration;
+  return currentDuration;
 }
 
 /**
@@ -369,7 +367,10 @@ export function generateAssFile(
   const [w, h] = resolution.split("x").map(Number);
   const marginH = Math.max(50, Math.round(w * 0.06));
   // Japanese chars are approx. 1 em wide; use conservative 0.9 factor for safety
-  const charsPerLine = Math.floor((w - marginH * 2) / (SUBTITLE_FONT_SIZE * 0.9));
+  // Full-width CJK chars are exactly 1em = SUBTITLE_FONT_SIZE px wide.
+  // Dividing by SUBTITLE_FONT_SIZE (not 0.9x) prevents over-counting and
+  // ensures each wrapped line fits within the margin-constrained area.
+  const charsPerLine = Math.floor((w - marginH * 2) / SUBTITLE_FONT_SIZE);
 
   const header = [
     "[Script Info]",
