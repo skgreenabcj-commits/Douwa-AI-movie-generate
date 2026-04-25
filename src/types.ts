@@ -630,9 +630,9 @@ export interface TtsSubtitleAiRow {
   speech_rate:       "slow" | "normal" | "fast";
   pitch_hint:        string;   // SSML 生成意図の説明
   emotion_hint:      string;   // SSML 生成意図の説明
-  subtitle_text:     string;   // 主字幕テキスト（プレーンテキスト）
-  subtitle_text_alt: string;   // 副字幕テキスト（空文字可）
-  subtitle_style:    string;   // 自由記述（例: "white_bold_bottom"）
+  subtitle_text:      string;    // 主字幕テキスト（ひらがな・全角80字以内）
+  subtitle_text_alt?: string;   // 副字幕テキスト（optional・常に "" を推奨）
+  subtitle_style:     string;   // 自由記述（例: "white_bold_bottom"）
   [key: string]: unknown;      // AJV バリデーション互換
 }
 

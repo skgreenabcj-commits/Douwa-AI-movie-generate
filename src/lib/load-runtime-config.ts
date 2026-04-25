@@ -24,8 +24,8 @@ export async function loadRuntimeConfig(
   const configMap: RuntimeConfigMap = new Map();
 
   // デバッグ: 読み込んだ生の行データを出力（調査用）
-  console.log("[DEBUG] 94_Runtime_Config raw rows (first 3):", JSON.stringify(rows.slice(0, 3)));
-  console.log("[DEBUG] 94_Runtime_Config all keys:", rows.map(r => r["key"]).filter(Boolean));
+  console.error("[DEBUG] 94_Runtime_Config raw rows (first 3):", JSON.stringify(rows.slice(0, 3)));
+  console.error("[DEBUG] 94_Runtime_Config all keys:", rows.map(r => r["key"]).filter(Boolean));
 
   for (const row of rows) {
     const key = (row["key"] ?? "").trim();
@@ -37,7 +37,7 @@ export async function loadRuntimeConfig(
 
     // デバッグ: モデル関連のキーのみ詳細出力
     if (key.includes("model") || key.includes("gemini")) {
-      console.log(`[DEBUG] config row: key="${key}", value="${value}", enabled="${enabled}", raw_row=${JSON.stringify(row)}`);
+      console.error(`[DEBUG] config row: key="${key}", value="${value}", enabled="${enabled}", raw_row=${JSON.stringify(row)}`);
     }
 
     configMap.set(key, value);
@@ -51,7 +51,7 @@ export async function loadRuntimeConfig(
   // step_01_model_role / step_02_model_role の両方を同じ値で上書きする
   const primaryModelOverride = (process.env["GEMINI_PRIMARY_MODEL_OVERRIDE"] ?? "").trim();
   if (primaryModelOverride) {
-    console.log(`[INFO] GEMINI_PRIMARY_MODEL_OVERRIDE detected — overriding primary models to: ${primaryModelOverride}`);
+    console.error(`[INFO] GEMINI_PRIMARY_MODEL_OVERRIDE detected — overriding primary models to: ${primaryModelOverride}`);
     configMap.set("step_01_model_role", primaryModelOverride);
     configMap.set("step_02_model_role", primaryModelOverride);
   }

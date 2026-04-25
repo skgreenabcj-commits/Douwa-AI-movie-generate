@@ -65,6 +65,80 @@
 
 擬音語・擬態語・長い複合語・固有名詞には積極的に `<sub>` タグを使用してください。
 
+---
+
+## tts_text の表記規則（重要）
+
+`tts_text` 内のテキストは**漢字仮名交じり文**で記述してください。
+入力の `narration_tts` がひらがな表記であっても、TTS ピッチアクセント品質向上のため
+標準的な漢字表記に変換してください。
+
+| ❌ ひらがなのまま | ✅ 漢字変換後 |
+|---|---|
+| `おおきなももがながれてきました` | `大きな桃が流れてきました` |
+| `むかしむかし` | `昔々` |
+| `おにがしまへいきました` | `鬼ヶ島へ行きました` |
+| `きびだんごをあげました` | `きびだんごを上げました` |
+
+- 助詞・語尾・接続詞はひらがなのまま（は、が、の、〜ます、〜でした 等）
+- 読みが難しい漢字には `<sub alias="よみ">漢字</sub>` で読み補助を追加する
+
+また、`<prosody rate>` は**必ず `"1.0"` に固定**してください。
+速度制御は TTS API の `speakingRate`（`speech_rate` フィールドから解決）に一本化します。
+
+```xml
+<!-- ✅ 正しい: rate="1.0" 固定 -->
+<speak><prosody rate="1.0">大きな桃が流れてきました。</prosody></speak>
+
+<!-- ❌ 禁止: rate を変更しない -->
+<speak><prosody rate="0.75">おおきなももがながれてきました。</prosody></speak>
+```
+
+---
+
+## subtitle_text の表記規則（重要）
+
+幼児が読みやすいひらがな表記とし、以下のルールを適用してください。
+
+- **表記**: ひらがな統一（漢字・カタカナは使用しない）
+- **文字数**: 全角 80 文字以内（`subtitle_text_alt` は常に `""` を返すこと）
+- **キャラクター発言**: 「　」で囲む（例: 「おやまあ、なんておおきなももだろう」）
+- **可読性**: 重要な名詞の前後に全角スペースを挿入する（例: おおきな　もも　が）
+- **句点**: 1文が長い場合は読点（、）で読みやすく区切る
+
+```
+✅ どんぶらこ　どんぶらこ　と、おおきな　もも　がながれてきました。
+✅ 「おやまあ、なんておおきなももだろう」と、おばあさんはびっくりしました。
+❌ 大きな桃がどんぶらこと流れてきました。（漢字使用・スペースなし）
+```
+
+---
+
+## voice_style 別 SSML 生成ガイド
+
+`voice_style` の値に応じて、`<prosody>` タグに以下の属性を追加してください。
+`rate` は常に `"1.0"` 固定。`pitch` / `volume` のみで演技トーンを差別化します。
+
+| voice_style | prosody 属性 | 効果 |
+|---|---|---|
+| `narrator` | `rate="1.0"` のみ | ベース（変更なし） |
+| `gentle` | `rate="1.0" volume="soft"` | やさしく柔らかい語り口 |
+| `excited` | `rate="1.0" pitch="+2st"` | 明るく活気ある表現 |
+| `tense` | `rate="1.0" pitch="-1st"` | 低く緊張感のある場面 |
+| `whisper` | `rate="1.0" volume="x-soft"` | ひそやかな独白・秘密 |
+| `cheerful` | `rate="1.0" pitch="+3st"` | 子ども向け・元気いっぱい |
+
+```xml
+<!-- narrator の例 -->
+<speak><prosody rate="1.0">昔々、あるところに...</prosody></speak>
+
+<!-- excited の例 -->
+<speak><prosody rate="1.0" pitch="+2st">桃太郎は鬼たちを倒しました！</prosody></speak>
+
+<!-- whisper の例 -->
+<speak><prosody rate="1.0" volume="x-soft">しっ、静かに...</prosody></speak>
+```
+
 ## voice_style 対応表
 | voice_style | 使用場面 |
 |---|---|
@@ -107,8 +181,12 @@
 1. **出力件数**: `tts_subtitles` と `edit_plan` の配列要素数は必ず INPUT_DATA の `scenes` 配列と同じ件数にすること
 2. **scene_record_id**: 各要素の `scene_record_id` は INPUT_DATA の `scenes[*].scene_record_id` をそのまま使用すること（変更禁止）
 3. **SSML形式**: `tts_text` は必ず `<speak>` タグで始まり `</speak>` タグで終わること
-4. **プレーンテキスト**: `subtitle_text` / `subtitle_text_alt` はプレーンテキストのみ（SSMLタグを含めない）
-5. **日本語アクセント**: 擬音語・擬態語には `<sub>` タグで標準アクセントを補助すること
+4. **プレーンテキスト**: `subtitle_text` はプレーンテキストのみ（SSMLタグを含めない）。
+   ひらがな統一・全角80文字以内・キャラクター発言は「　」で囲む。
+   `subtitle_text_alt` は常に `""` を返すこと（使用しない）。
+5. **tts_text 表記**: 漢字仮名交じり文で記述すること（ひらがなのみは禁止）。
+   `<prosody rate>` は必ず `"1.0"` 固定にすること。
+6. **日本語アクセント**: 擬音語・擬態語には `<sub>` タグで標準アクセントを補助すること
 6. **duration_sec**: ナレーションの文字数と speech_rate から合理的に推定すること（目安: normal速度で1分あたり約270文字）
 7. **subtitle_text_alt**: 字幕が1行に収まる場合は空文字 `""` を返してよい
 8. **camera_motion**: 上記 `camera_motion 対応表` の値のみ使用すること（それ以外の値は禁止）
@@ -163,13 +241,13 @@
   "tts_subtitles": [
     {
       "scene_record_id": "PJT-001-SCN-002",
-      "tts_text": "<speak><prosody rate=\"0.80\">大きな桃が、<break time=\"300ms\"/><sub alias=\"どんぶらこ\">どんぶらこ</sub>、<emphasis level=\"moderate\">どんぶらこ</emphasis>と流れてきました。</prosody></speak>",
+      "tts_text": "<speak><prosody rate=\"1.0\"><sub alias=\"どんぶらこ\">どんぶらこ</sub>、<sub alias=\"どんぶらこ\">どんぶらこ</sub>と、大きな桃が<break time=\"300ms\"/>流れてきました。</prosody></speak>",
       "voice_style": "narrator",
       "speech_rate": "normal",
-      "pitch_hint": "落ち着いたトーン。どんぶらこは擬音として少し明るく",
+      "pitch_hint": "落ち着いたトーン。どんぶらこは擬音として読み補助でアクセントを確保",
       "emotion_hint": "穏やかな驚きと発見の場面。子どもが情景を想像しやすい語り口で",
-      "subtitle_text": "大きな桃がどんぶらこと",
-      "subtitle_text_alt": "流れてきました。",
+      "subtitle_text": "どんぶらこ　どんぶらこ　と、おおきな　もも　がながれてきました。",
+      "subtitle_text_alt": "",
       "subtitle_style": "white_bold_bottom"
     }
   ],
