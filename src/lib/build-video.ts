@@ -14,7 +14,7 @@
  * 7. probeVideoDuration : ffprobe で動画の尺を取得
  */
 
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 // ffmpeg-static は ESM でも動作する。パスを文字列として取得。
@@ -54,12 +54,19 @@ export function resolveResolution(aspect: string | undefined): string {
 
 // ─── Internal helper ──────────────────────────────────────────────────────────
 
-// 64 MB — enough for verbose ffmpeg output on long videos
-const FFMPEG_MAX_BUFFER = 64 * 1024 * 1024;
-
 function runFfmpeg(args: string[]): void {
   const bin = getFfmpegBin();
-  execFileSync(bin, args, { stdio: ["ignore", "pipe", "pipe"], maxBuffer: FFMPEG_MAX_BUFFER });
+  // Prepend -loglevel error to suppress verbose progress output.
+  // stdout is ignored; only stderr (errors only) is captured to avoid ENOBUFS
+  // on long videos where ffmpeg writes MBs of progress logs to pipes.
+  const result = spawnSync(bin, ["-loglevel", "error", ...args], {
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    const msg = result.stderr?.toString().trim() ?? "ffmpeg exited with non-zero status";
+    throw new Error(`ffmpeg failed (exit ${result.status ?? "?"}): ${msg}`);
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -257,24 +264,25 @@ export function probeVideoDuration(videoPath: string): number {
     // ffprobe がある場合はそちらを優先
     const ffprobePath = bin.replace("ffmpeg", "ffprobe");
     if (fs.existsSync(ffprobePath)) {
-      const out = execFileSync(ffprobePath, [
+      const r = spawnSync(ffprobePath, [
         "-v", "error",
         "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1",
         videoPath,
-      ], { maxBuffer: FFMPEG_MAX_BUFFER }).toString().trim();
-      return parseFloat(out) || 0;
+      ], { stdio: ["ignore", "pipe", "ignore"] });
+      if (!r.error && r.status === 0) {
+        return parseFloat(r.stdout?.toString().trim() ?? "0") || 0;
+      }
     }
   } catch {
     // ffprobe 不可の場合はフォールバック
   }
 
   // ffmpeg -i でヘッダー情報を読み取る（stderr に出力される）
-  try {
-    execFileSync(bin, ["-i", videoPath], { stdio: ["ignore", "pipe", "pipe"], maxBuffer: FFMPEG_MAX_BUFFER });
-  } catch (err) {
+  {
+    const r = spawnSync(bin, ["-i", videoPath], { stdio: ["ignore", "ignore", "pipe"] });
     // ffmpeg -i は exit code 1 を返すが、stderr に情報が含まれる
-    const stderr = (err as { stderr?: Buffer }).stderr?.toString() ?? "";
+    const stderr = r.stderr?.toString() ?? "";
     const match = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(stderr);
     if (match) {
       const h = parseInt(match[1], 10);
