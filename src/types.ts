@@ -14,7 +14,8 @@ export type StepId =
   | "STEP_07_IMAGE_PROMPTS"         // Image Prompts Build
   | "STEP_08A_TTS_SUBTITLE"        // TTS Subtitle & Edit Plan Build
   | "STEP_08B_TTS_AUDIO"           // TTS Audio Generate
-  | "STEP_09_QA_BUILD";            // Q&A Build
+  | "STEP_09_QA_BUILD"             // Q&A Build
+  | "STEP_10_VIDEO_BUILD";         // Video Build
 
 // ─── Runtime Config ──────────────────────────────────────────────────────────
 
@@ -766,6 +767,52 @@ export interface EditPlanAudioPatch {
   duration_sec:    number;   // TTS 実測値（AI 推定値を上書き）
   updated_at:      string;
   updated_by:      string;
+}
+
+// ─── 07_Assets (video) ────────────────────────────────────────────────────────
+
+/**
+ * STEP_10 Video Build — 07_Assets への書き込み行
+ *
+ * record_id はシステム側で採番: {project_id}-VID-{short|full}
+ * upsert キー: record_id 単体
+ */
+export interface VideoAssetRow {
+  project_id:        string;
+  record_id:         string;    // 例: PJT-001-VID-short
+  generation_status: "GENERATED" | "FAILED" | "PENDING";
+  approval_status:   "PENDING" | "APPROVED" | "REJECTED";
+  step_id:           string;    // 固定: "STEP_10_VIDEO_BUILD"
+  asset_type:        "video";
+  related_version:   "short" | "full";
+  file_name:         string;    // 例: PJT-001_short_v1.mp4
+  file_format:       "mp4";
+  storage_url:       string;    // Google Drive URL
+  duration_sec:      number;    // 動画総尺（秒）
+  resolution:        string;    // 例: "1920x1080"
+  updated_at:        string;
+  updated_by:        string;
+  notes:             string;
+}
+
+/** 07_Assets から読み込む参照用 row（再実行時の既存確認用） */
+export interface VideoAssetReadRow {
+  project_id:      string;
+  record_id:       string;
+  related_version: string;
+  storage_url:     string;
+}
+
+/**
+ * STEP_10 各シーンのアセット（09_Edit_Plan + 08_TTS_Subtitles を結合したもの）
+ */
+export interface SceneVideoInput {
+  recordId:      string;    // 02_Scenes/Script の record_id
+  sceneNo:       string;    // 表示用シーン番号
+  imageUrl:      string;    // Google Drive URL (PNG)
+  audioUrl:      string;    // Google Drive URL (MP3)
+  durationSec:   number;    // 秒（09_Edit_Plan.duration_sec）
+  subtitleText:  string;    // 字幕テキスト（08_TTS_Subtitles.subtitle_text）
 }
 
 // ─── Workflow Payload ─────────────────────────────────────────────────────────
