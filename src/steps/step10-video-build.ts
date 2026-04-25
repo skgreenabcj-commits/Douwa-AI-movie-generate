@@ -106,8 +106,10 @@ async function buildVideoForVersion(params: {
   // ── 1. イントロ・アウトロをダウンロード ────────────────────────────────────
   const introPath = path.join(tempDir, `intro_${version}.mp4`);
   const quizPath  = path.join(tempDir, `quiz_${version}.mp4`);
-  fs.writeFileSync(introPath, await downloadFromDriveUrl(introUrl));
-  fs.writeFileSync(quizPath,  await downloadFromDriveUrl(quizUrl));
+  logInfo(`[STEP_10][${projectId}][${version}] Downloading intro: ${introUrl}`);
+  fs.writeFileSync(introPath, await downloadFromDriveUrl(introUrl).catch(e => { throw new Error(`intro download failed (${introUrl}): ${e.message}`); }));
+  logInfo(`[STEP_10][${projectId}][${version}] Downloading quiz: ${quizUrl}`);
+  fs.writeFileSync(quizPath,  await downloadFromDriveUrl(quizUrl).catch(e => { throw new Error(`quiz download failed (${quizUrl}): ${e.message}`); }));
 
   const introDuration = probeVideoDuration(introPath);
 
@@ -120,8 +122,10 @@ async function buildVideoForVersion(params: {
     const audPath  = path.join(tempDir, `${scene.recordId}_${version}.mp3`);
     const clipPath = path.join(tempDir, `scene_${scene.sceneNo}_${version}.mp4`);
 
-    fs.writeFileSync(imgPath, await downloadFromDriveUrl(scene.imageUrl));
-    fs.writeFileSync(audPath, await downloadFromDriveUrl(scene.audioUrl));
+    logInfo(`[STEP_10][${projectId}][${version}] scene ${scene.sceneNo}: img=${scene.imageUrl}`);
+    fs.writeFileSync(imgPath, await downloadFromDriveUrl(scene.imageUrl).catch(e => { throw new Error(`scene ${scene.sceneNo} image download failed (${scene.imageUrl}): ${e.message}`); }));
+    logInfo(`[STEP_10][${projectId}][${version}] scene ${scene.sceneNo}: aud=${scene.audioUrl}`);
+    fs.writeFileSync(audPath, await downloadFromDriveUrl(scene.audioUrl).catch(e => { throw new Error(`scene ${scene.sceneNo} audio download failed (${scene.audioUrl}): ${e.message}`); }));
 
     buildSceneClip(imgPath, audPath, clipPath, scene.durationSec, resolution);
 
