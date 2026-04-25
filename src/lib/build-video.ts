@@ -44,6 +44,8 @@ export const DEFAULT_XFADE_DURATION = 0.8;
 export const INTRO_BLACK_DURATION = 0.8;
 // アウトロ前ブラック尺
 export const OUTRO_BLACK_DURATION = 1.0;
+// シーン間ブラック尺
+export const SCENE_GAP_DURATION = 0.7;
 
 // アスペクト比 → 解像度マッピング
 const ASPECT_TO_RESOLUTION: Record<string, string> = {
@@ -96,14 +98,13 @@ export async function buildSceneClip(
   imagePath: string,
   audioPath: string,
   outputPath: string,
-  durationSec: number,
+  _durationSec: number,  // kept for API compat; clip length is determined by -shortest
   resolution: string
 ): Promise<void> {
   const [w, h] = resolution.split("x");
-  // When durationSec is 0 (missing in sheet), omit -t and rely on -shortest
-  // so the audio track length determines clip length.
-  // Also prepend format=rgb24 to handle RGBA PNG images correctly.
-  const durationArgs = durationSec > 0 ? ["-t", String(durationSec)] : [];
+  // Do NOT pass -t: let -shortest stop at the end of the audio track.
+  // GSS duration_sec may diverge from actual TTS audio length; relying on -t
+  // would cut audio short or pad with silence.
   await runFfmpeg([
     "-y",
     "-loop", "1",
@@ -119,7 +120,6 @@ export async function buildSceneClip(
     "-r", "30",
     "-vf",
     `format=rgb24,scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1`,
-    ...durationArgs,
     "-shortest",
     outputPath,
   ]);
@@ -337,9 +337,8 @@ export function generateAssFile(
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    // Margins: 10% of width on each side (safe area), 6% of height at bottom
-    // Font size: ~4% of the shorter dimension, readable on both 1080p and 1920p
-    `Style: Default,Noto Sans CJK JP,${Math.round(Math.min(w, h) * 0.038)},&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,${Math.round(w * 0.10)},${Math.round(w * 0.10)},${Math.round(h * 0.06)},1`,
+    // Font size: 60px (fixed). Margins: at least 50px each side (6% of width), 6% of height at bottom.
+    `Style: Default,Noto Sans CJK JP,60,&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,${Math.max(50, Math.round(w * 0.06))},${Math.max(50, Math.round(w * 0.06))},${Math.round(h * 0.06)},1`,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -356,35 +355,37 @@ export function generateAssFile(
 
 /**
  * SceneVideoInput 配列からタイムコードを計算して SubtitleEntry[] を構築する。
+ *
+ * @param scenes         - シーン情報配列
+ * @param actualDurations - buildSceneClip 後にプローブした実際の秒数（scenes と同インデックス）
+ * @param introOffset    - イントロ + イントロ後ブラックの合計秒数
+ * @param gapDuration    - シーン間ブラック秒数
+ * @param subtitleDelay  - シーン開始後に字幕を表示するまでの遅延秒数
  */
 export function buildSubtitleEntries(
-  scenes:        SceneVideoInput[],
-  introOffset:   number,
-  xfadeDuration: number,
-  subtitleDelay  = 1.0
+  scenes:          SceneVideoInput[],
+  actualDurations: number[],
+  introOffset:     number,
+  gapDuration:     number,
+  subtitleDelay    = 1.0
 ): SubtitleEntry[] {
   const entries: SubtitleEntry[] = [];
   let cumulativeDur = 0;
 
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i];
-    if (!scene.subtitleText) {
-      cumulativeDur += scene.durationSec;
-      if (i > 0) cumulativeDur -= xfadeDuration;
-      continue;
+    // Use probed actual duration; fall back to sheet value if missing
+    const dur = (actualDurations[i] ?? 0) > 0 ? actualDurations[i] : scene.durationSec;
+
+    if (scene.subtitleText) {
+      const finalStart = introOffset + cumulativeDur + subtitleDelay;
+      const finalEnd   = introOffset + cumulativeDur + dur - 0.5;
+      if (finalEnd > finalStart) {
+        entries.push({ text: scene.subtitleText, startSec: finalStart, endSec: finalEnd });
+      }
     }
 
-    const mergedStart = i === 0 ? 0 : cumulativeDur;
-    const finalStart  = introOffset + mergedStart + subtitleDelay;
-    const sceneEnd    = mergedStart + scene.durationSec;
-    const finalEnd    = introOffset + sceneEnd - (i < scenes.length - 1 ? xfadeDuration + 0.3 : 0.5);
-
-    if (finalEnd > finalStart) {
-      entries.push({ text: scene.subtitleText, startSec: finalStart, endSec: finalEnd });
-    }
-
-    cumulativeDur = sceneEnd;
-    if (i < scenes.length - 1) cumulativeDur -= xfadeDuration;
+    cumulativeDur += dur + (i < scenes.length - 1 ? gapDuration : 0);
   }
 
   return entries;

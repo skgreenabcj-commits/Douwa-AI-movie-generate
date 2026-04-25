@@ -59,6 +59,7 @@ import {
   DEFAULT_XFADE_DURATION,
   INTRO_BLACK_DURATION,
   OUTRO_BLACK_DURATION,
+  SCENE_GAP_DURATION,
 } from "../lib/build-video.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -141,11 +142,31 @@ async function buildVideoForVersion(params: {
     sceneDurations.push(actualDuration > 0 ? actualDuration : scene.durationSec);
   }
 
-  // ── 3. シーンを wipe_left xfade で結合 ────────────────────────────────────
+  // ── 3. シーン間に 0.7s ブラッククリップを挿入してから結合 ────────────────────
   const mergedScenesPath = path.join(tempDir, `merged_scenes_${version}.mp4`);
-  const mergedDuration   = await mergeScenes(
-    sceneClipPaths,
-    sceneDurations,
+
+  // Build one gap clip and interleave with scene clips
+  const allClipPaths: string[] = [];
+  const allDurations: number[] = [];
+  if (sceneClipPaths.length > 1) {
+    const gapPath = path.join(tempDir, `gap_${version}.mp4`);
+    await buildBlackClip(gapPath, SCENE_GAP_DURATION, resolution);
+    for (let i = 0; i < sceneClipPaths.length; i++) {
+      allClipPaths.push(sceneClipPaths[i]);
+      allDurations.push(sceneDurations[i]);
+      if (i < sceneClipPaths.length - 1) {
+        allClipPaths.push(gapPath);
+        allDurations.push(SCENE_GAP_DURATION);
+      }
+    }
+  } else {
+    allClipPaths.push(...sceneClipPaths);
+    allDurations.push(...sceneDurations);
+  }
+
+  const mergedDuration = await mergeScenes(
+    allClipPaths,
+    allDurations,
     mergedScenesPath,
     DEFAULT_XFADE_DURATION
   );
@@ -178,8 +199,9 @@ async function buildVideoForVersion(params: {
   const introOffset = introDuration + INTRO_BLACK_DURATION;
   const subtitleEntries = buildSubtitleEntries(
     scenes,
+    sceneDurations,
     introOffset,
-    DEFAULT_XFADE_DURATION
+    SCENE_GAP_DURATION
   );
   const assPath    = path.join(tempDir, `subtitle_${version}.ass`);
   generateAssFile(subtitleEntries, assPath, resolution);
