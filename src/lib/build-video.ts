@@ -21,14 +21,21 @@ import * as path from "node:path";
 import type { SceneVideoInput } from "../types.js";
 import ffmpegStaticPkg from "ffmpeg-static";
 
-const FFMPEG_PATH = (ffmpegStaticPkg as unknown as string | { default: string });
-// ffmpeg-static のエクスポート形式に対応（文字列 or { default: 文字列 }）
+const FFMPEG_STATIC_PATH = (ffmpegStaticPkg as unknown as string | { default: string });
+
+// Prefer system ffmpeg (installed via apt-get) over ffmpeg-static bundled binary.
+// ffmpeg-static can cause ENOBUFS on Linux CI due to binary compatibility issues.
 function getFfmpegBin(): string {
-  if (typeof FFMPEG_PATH === "string") return FFMPEG_PATH;
-  if (typeof (FFMPEG_PATH as { default: string }).default === "string") {
-    return (FFMPEG_PATH as { default: string }).default;
+  const systemPaths = ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg"];
+  for (const p of systemPaths) {
+    if (fs.existsSync(p)) return p;
   }
-  throw new Error("ffmpeg-static: could not resolve binary path");
+  // Fall back to ffmpeg-static
+  if (typeof FFMPEG_STATIC_PATH === "string") return FFMPEG_STATIC_PATH;
+  if (typeof (FFMPEG_STATIC_PATH as { default: string }).default === "string") {
+    return (FFMPEG_STATIC_PATH as { default: string }).default;
+  }
+  throw new Error("ffmpeg binary not found (system paths and ffmpeg-static both unavailable)");
 }
 
 // デフォルトの xfade トランジション秒数
