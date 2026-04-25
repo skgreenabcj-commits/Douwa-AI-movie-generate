@@ -120,7 +120,8 @@ async function buildVideoForVersion(params: {
   for (const scene of scenes) {
     const imgPath  = path.join(tempDir, `${scene.recordId}_${version}.png`);
     const audPath  = path.join(tempDir, `${scene.recordId}_${version}.mp3`);
-    const clipPath = path.join(tempDir, `scene_${scene.sceneNo}_${version}.mp4`);
+    // Use recordId (not sceneNo) for the filename — sceneNo can be empty in the sheet
+    const clipPath = path.join(tempDir, `scene_${scene.recordId}_${version}.mp4`);
 
     fs.writeFileSync(imgPath, await downloadFromDriveUrl(scene.imageUrl).catch(e => { throw new Error(`scene ${scene.sceneNo} image download failed (${scene.imageUrl}): ${e.message}`); }));
     fs.writeFileSync(audPath, await downloadFromDriveUrl(scene.audioUrl).catch(e => { throw new Error(`scene ${scene.sceneNo} audio download failed (${scene.audioUrl}): ${e.message}`); }));
