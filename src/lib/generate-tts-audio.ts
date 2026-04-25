@@ -33,6 +33,23 @@ const DEFAULT_SPEAKING_RATE: Record<string, number> = {
   fast:   0.92,
 };
 
+// ─── MP3 フレームヘッダー解析用テーブル ──────────────────────────────────────
+
+/**
+ * MPEG version index → sample rates [srIdx=0, 1, 2]
+ * mpegVerIdx: 3=MPEG1, 2=MPEG2, 0=MPEG2.5, 1=reserved
+ */
+const MP3_SAMPLE_RATES: Record<number, [number, number, number]> = {
+  3: [44100, 48000, 32000], // MPEG1
+  2: [22050, 24000, 16000], // MPEG2
+  0: [11025, 12000,  8000], // MPEG2.5
+};
+
+/** Bitrate table for MPEG1 Layer3 (kbps, index 0–15) */
+const BITRATES_MPEG1_L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
+/** Bitrate table for MPEG2/2.5 Layer3 (kbps, index 0–15) */
+const BITRATES_MPEG2_L3 = [0,  8, 16, 24, 32, 40, 48, 56,  64,  80,  96, 112, 128, 144, 160, 0];
+
 // ─── アクセストークンキャッシュ ───────────────────────────────────────────────
 
 let _ttsTokenCache: { token: string; expiresAt: number } | null = null;
@@ -130,11 +147,101 @@ export async function generateTtsAudio(
 }
 
 /**
- * MP3 バッファから再生時間（秒）を推定する（CBR 64kbps）。
- * (bytes * 8) / (64 * 1000)
+ * MP3 バッファから正確な再生時間（秒）を取得する。
+ *
+ * MPEG フレームヘッダーを逐次解析し、各フレームのサンプル数 / サンプルレートを
+ * 累積することで算出する。外部ライブラリ不使用。
+ *
+ * フレームが 1 つも検出できなかった場合のみ CBR 64kbps 推定へフォールバックする。
  */
 export function estimateMp3DurationSec(mp3Buffer: Buffer): number {
-  return parseFloat(((mp3Buffer.byteLength * 8) / (64 * 1000)).toFixed(3));
+  const len = mp3Buffer.length;
+  let offset = 0;
+
+  // Skip ID3v2 tag if present ("ID3" = 0x49 0x44 0x33)
+  if (
+    len > 10 &&
+    mp3Buffer[0] === 0x49 &&
+    mp3Buffer[1] === 0x44 &&
+    mp3Buffer[2] === 0x33
+  ) {
+    // ID3v2 size is encoded as 4 × 7-bit syncsafe integers (big-endian)
+    const id3Size =
+      ((mp3Buffer[6]! & 0x7f) << 21) |
+      ((mp3Buffer[7]! & 0x7f) << 14) |
+      ((mp3Buffer[8]! & 0x7f) <<  7) |
+       (mp3Buffer[9]! & 0x7f);
+    offset = 10 + id3Size;
+  }
+
+  let totalFrames = 0;
+  let durationSec = 0;
+
+  while (offset + 4 <= len) {
+    // Sync word: 0xFF followed by 0xE0 or higher (upper 11 bits all 1)
+    if (mp3Buffer[offset] !== 0xff || (mp3Buffer[offset + 1]! & 0xe0) !== 0xe0) {
+      offset++;
+      continue;
+    }
+
+    const b1 = mp3Buffer[offset + 1]!;
+    const b2 = mp3Buffer[offset + 2]!;
+
+    const mpegVerIdx = (b1 >> 3) & 0x3; // bits 20-19: 3=MPEG1, 2=MPEG2, 0=MPEG2.5, 1=reserved
+    const layerIdx   = (b1 >> 1) & 0x3; // bits 18-17: 3=L1, 2=L2, 1=L3, 0=reserved
+    const bitrateIdx = (b2 >> 4) & 0xf; // bits 15-12
+    const srIdx      = (b2 >> 2) & 0x3; // bits 11-10
+    const padding    = (b2 >> 1) & 0x1; // bit 9
+
+    // Skip reserved/invalid values
+    if (
+      mpegVerIdx === 1 ||
+      layerIdx   === 0 ||
+      srIdx      === 3 ||
+      bitrateIdx === 0 ||
+      bitrateIdx === 15
+    ) {
+      offset++;
+      continue;
+    }
+
+    const sampleRates = MP3_SAMPLE_RATES[mpegVerIdx];
+    if (!sampleRates) { offset++; continue; }
+    const sampleRate = sampleRates[srIdx]!;
+
+    const layer = 4 - layerIdx; // layerIdx 3→L1, 2→L2, 1→L3
+
+    const bitrateTable = mpegVerIdx === 3 ? BITRATES_MPEG1_L3 : BITRATES_MPEG2_L3;
+    const bitrateBps   = (bitrateTable[bitrateIdx] ?? 0) * 1000; // kbps → bps
+    if (bitrateBps === 0) { offset++; continue; }
+
+    // Frame size in bytes
+    let frameLen: number;
+    if (layer === 1) {
+      frameLen = Math.floor(12 * bitrateBps / sampleRate + padding) * 4;
+    } else {
+      frameLen = Math.floor(144 * bitrateBps / sampleRate + padding);
+    }
+    if (frameLen < 4) { offset++; continue; }
+
+    // Samples per frame: L1=384, L2=1152, L3 MPEG1=1152, L3 MPEG2/2.5=576
+    const spf =
+      layer === 1 ? 384
+      : layer === 2 ? 1152
+      : mpegVerIdx === 3 ? 1152  // MPEG1 Layer3
+      : 576;                      // MPEG2/2.5 Layer3
+
+    durationSec += spf / sampleRate;
+    totalFrames++;
+    offset += frameLen;
+  }
+
+  if (totalFrames === 0) {
+    // Fallback: CBR 64kbps size estimate (should not normally reach here)
+    return parseFloat(((mp3Buffer.byteLength * 8) / 64_000).toFixed(3));
+  }
+
+  return parseFloat(durationSec.toFixed(3));
 }
 
 /**
