@@ -16,6 +16,46 @@ import type { ScriptFullReadRow, ScriptShortReadRow } from "../types.js";
 const SHEET_NAME = "04_Script_Full";
 
 /**
+ * 事前にロード済みの 04_Script_Full 行データから、指定 project_id の Full Script をフィルタする。
+ * batchGet で一括取得した rows を渡すことで API 呼び出しを省略できる。
+ *
+ * @param rows      - readSheetsBatch で取得した 04_Script_Full の行データ
+ * @param projectId - 検索する project_id
+ * @returns ScriptFullReadRow[]（generation_status=GENERATED のみ、scene_no 昇順）
+ */
+export function filterFullScriptByProjectId(
+  rows: Array<Record<string, string>>,
+  projectId: string
+): ScriptFullReadRow[] {
+  const target = projectId.trim();
+  const scripts: ScriptFullReadRow[] = [];
+
+  for (const row of rows) {
+    if ((row["project_id"] ?? "").trim() !== target) continue;
+    if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
+
+    scripts.push({
+      project_id:       row["project_id"]       ?? "",
+      record_id:        row["record_id"]         ?? "",
+      narration_draft:  row["narration_draft"]   ?? "",
+      narration_tts:    row["narration_tts"]     ?? "",
+      subtitle_short_1: row["subtitle_short_1"]  ?? "",
+      subtitle_short_2: row["subtitle_short_2"]  ?? "",
+      emotion:          row["emotion"]           ?? "",
+      pause_hint:       row["pause_hint"]        ?? "",
+    });
+  }
+
+  scripts.sort((a, b) => {
+    const sceneNoA = parseInt((a as unknown as Record<string, string>)["scene_no"] ?? "0", 10);
+    const sceneNoB = parseInt((b as unknown as Record<string, string>)["scene_no"] ?? "0", 10);
+    return sceneNoA - sceneNoB;
+  });
+
+  return scripts;
+}
+
+/**
  * 指定 project_id の Full Script 行を全件取得する。
  *
  * @param spreadsheetId - 対象スプレッドシートID

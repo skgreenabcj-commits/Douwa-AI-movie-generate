@@ -63,10 +63,11 @@ import type {
   ScriptShortRow,
   ScriptFullReadRow,
 } from "../types.js";
-import { loadRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
-import { readProjectsByIds } from "../lib/load-project-input.js";
-import { loadScenesByProjectId } from "../lib/load-scenes.js";
-import { loadFullScriptByProjectId } from "../lib/load-script.js";
+import { parseRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
+import { filterProjectsByIds } from "../lib/load-project-input.js";
+import { filterScenesByProjectId } from "../lib/load-scenes.js";
+import { filterFullScriptByProjectId } from "../lib/load-script.js";
+import { readSheetsBatch } from "../lib/sheets-client.js";
 import { loadStep04Assets, loadStep05Assets } from "../lib/load-assets.js";
 import { buildStep04Prompt, buildStep05Prompt } from "../lib/build-prompt.js";
 import {
@@ -196,8 +197,13 @@ export async function runStep04_05ScriptBuild(
     dry_run: payload.dry_run,
   });
 
-  const configMap = await loadRuntimeConfig(spreadsheetId);
-  logInfo("94_Runtime_Config loaded", { size: configMap.size });
+  // ── batchGet: 必要な全シートを 1 回の API コールで取得 ──────────────────────
+  const BATCH_SHEETS = ["94_Runtime_Config", "00_Project", "02_Scenes", "04_Script_Full"] as const;
+  logInfo("STEP_04_05 loading sheets via batchGet", { sheets: BATCH_SHEETS });
+  const batchData = await readSheetsBatch(spreadsheetId, [...BATCH_SHEETS]);
+
+  const configMap = parseRuntimeConfig(batchData.get("94_Runtime_Config") ?? []);
+  logInfo("94_Runtime_Config parsed", { size: configMap.size });
 
   const geminiOptionsStep05 = buildGeminiOptionsStep05(configMap);
   const geminiOptionsStep04 = buildGeminiOptionsStep04(configMap);
@@ -208,7 +214,7 @@ export async function runStep04_05ScriptBuild(
     getConfigValue(configMap, "allow_record_id_index_fallback", "false") === "true";
 
   const targetIds = payload.project_ids.slice(0, payload.max_items);
-  const projects = await readProjectsByIds(spreadsheetId, targetIds);
+  const projects = filterProjectsByIds(batchData.get("00_Project") ?? [], targetIds);
 
   if (projects.length === 0) {
     logInfo("No matching projects found. STEP_04_05 finished with no-op.", { project_ids: targetIds });
@@ -244,21 +250,11 @@ export async function runStep04_05ScriptBuild(
     // short+full モードでは Short は Full の成功を前提とする（Fix #1）
     const shortDependsOnFull = videoFormat === "short+full";
 
-    // ── 02_Scenes 読み込み ─────────────────────────────────────────────────
-    let allScenes: SceneReadRow[] = [];
-    try {
-      allScenes = await loadScenesByProjectId(spreadsheetId, projectId);
-    } catch (e) {
-      const msg = `Failed to load 02_Scenes: ${e instanceof Error ? e.message : String(e)}`;
-      logError(msg);
-      try {
-        await appendAppLog(
-          spreadsheetId,
-          buildStep04_05PreflightFailureLog(projectId, projectRecordId, "load_scenes_failure", msg)
-        );
-      } catch (_) { /* ignore */ }
-      continue;
-    }
+    // ── 02_Scenes フィルタ（batchGet 済みデータをメモリ内検索）────────────────
+    const allScenes: SceneReadRow[] = filterScenesByProjectId(
+      batchData.get("02_Scenes") ?? [],
+      projectId
+    );
 
     if (allScenes.length === 0) {
       const msg = `No GENERATED scenes found in 02_Scenes for project_id="${projectId}".`;
@@ -455,28 +451,16 @@ export async function runStep04_05ScriptBuild(
             let hasFullScript = false;
 
             if (videoFormat === "short+full" && fullSuccess) {
-              try {
-                fullScripts = await loadFullScriptByProjectId(spreadsheetId, projectId);
-                hasFullScript = fullScripts.length > 0;
-                if (!hasFullScript) {
-                  // Full rows が 0 件 → Short は Full 参照前提のため dependency failure として skip
-                  const msg =
-                    "[STEP_04] loadFullScriptByProjectId returned 0 rows. " +
-                    "Short Script requires Full reference in short+full mode. Skipping.";
-                  logError(msg);
-                  try {
-                    await appendAppLog(
-                      spreadsheetId,
-                      buildStep04DependencySkippedLog(projectId, projectRecordId, msg)
-                    );
-                  } catch (_) { /* ignore */ }
-                  shortResult = "skipped";
-                }
-              } catch (err) {
-                // load 失敗 → Full 参照不能 → dependency failure として skip
+              // Full script をメモリ内フィルタ（batchGet 済みデータを使用、API 呼び出しなし）
+              fullScripts = filterFullScriptByProjectId(
+                batchData.get("04_Script_Full") ?? [],
+                projectId
+              );
+              hasFullScript = fullScripts.length > 0;
+              if (!hasFullScript) {
+                // Full rows が 0 件 → Short は Full 参照前提のため dependency failure として skip
                 const msg =
-                  `[STEP_04] loadFullScriptByProjectId failed: ` +
-                  `${err instanceof Error ? err.message : String(err)}. ` +
+                  "[STEP_04] filterFullScriptByProjectId returned 0 rows. " +
                   "Short Script requires Full reference in short+full mode. Skipping.";
                 logError(msg);
                 try {
