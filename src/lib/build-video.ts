@@ -167,12 +167,11 @@ export async function mergeScenes(
 
   const N = clipPaths.length;
 
-  // Use concat filter (no transitions) — simpler and more reliable than
-  // a 15-stage xfade chain, which can silently produce black frames.
-  // xfade can be re-introduced once basic scene display is confirmed.
-  const videoInputs = Array.from({ length: N }, (_, i) => `[${i}:v]`).join("");
-  const audioInputs = Array.from({ length: N }, (_, i) => `[${i}:a]`).join("");
-  const filterComplex = `${videoInputs}concat=n=${N}:v=1:a=0[v];${audioInputs}concat=n=${N}:v=0:a=1[a]`;
+  // Use concat filter with interleaved v/a pairs — this keeps video and audio
+  // in sync. Separate concat filters for v and a can cause audio to switch
+  // before the previous scene's audio finishes.
+  const inputPairs = Array.from({ length: N }, (_, i) => `[${i}:v][${i}:a]`).join("");
+  const filterComplex = `${inputPairs}concat=n=${N}:v=1:a=1[v][a]`;
 
   const inputs: string[] = [];
   for (const p of clipPaths) inputs.push("-i", p);
@@ -224,9 +223,10 @@ export async function concatClips(
     filterComplex += `[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
       `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[sv${i}];`;
   }
-  const vInputs = Array.from({ length: N }, (_, i) => `[sv${i}]`).join("");
-  const aInputs = Array.from({ length: N }, (_, i) => `[${i}:a]`).join("");
-  filterComplex += `${vInputs}concat=n=${N}:v=1:a=0[v];${aInputs}concat=n=${N}:v=0:a=1[a]`;
+  // Interleave scaled-video and original-audio pairs for concat — ensures
+  // video and audio stay in sync across all clips.
+  const inputPairs = Array.from({ length: N }, (_, i) => `[sv${i}][${i}:a]`).join("");
+  filterComplex += `${inputPairs}concat=n=${N}:v=1:a=1[v][a]`;
 
   await runFfmpeg([
     "-y",
