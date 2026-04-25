@@ -54,9 +54,12 @@ export function resolveResolution(aspect: string | undefined): string {
 
 // ─── Internal helper ──────────────────────────────────────────────────────────
 
+// 64 MB — enough for verbose ffmpeg output on long videos
+const FFMPEG_MAX_BUFFER = 64 * 1024 * 1024;
+
 function runFfmpeg(args: string[]): void {
   const bin = getFfmpegBin();
-  execFileSync(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+  execFileSync(bin, args, { stdio: ["ignore", "pipe", "pipe"], maxBuffer: FFMPEG_MAX_BUFFER });
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -259,7 +262,7 @@ export function probeVideoDuration(videoPath: string): number {
         "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1",
         videoPath,
-      ]).toString().trim();
+      ], { maxBuffer: FFMPEG_MAX_BUFFER }).toString().trim();
       return parseFloat(out) || 0;
     }
   } catch {
@@ -268,7 +271,7 @@ export function probeVideoDuration(videoPath: string): number {
 
   // ffmpeg -i でヘッダー情報を読み取る（stderr に出力される）
   try {
-    execFileSync(bin, ["-i", videoPath], { stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync(bin, ["-i", videoPath], { stdio: ["ignore", "pipe", "pipe"], maxBuffer: FFMPEG_MAX_BUFFER });
   } catch (err) {
     // ffmpeg -i は exit code 1 を返すが、stderr に情報が含まれる
     const stderr = (err as { stderr?: Buffer }).stderr?.toString() ?? "";
