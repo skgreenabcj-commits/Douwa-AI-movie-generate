@@ -149,6 +149,11 @@ async function buildVideoForVersion(params: {
     mergedScenesPath,
     DEFAULT_XFADE_DURATION
   );
+  {
+    const mergedSize = fs.statSync(mergedScenesPath).size;
+    const mergedActualDur = await probeVideoDuration(mergedScenesPath);
+    logInfo(`[STEP_10][${projectId}][${version}] mergedScenes: size=${mergedSize}B, calcDur=${mergedDuration.toFixed(2)}s, actualDur=${mergedActualDur.toFixed(2)}s`);
+  }
 
   // ── 4. ブラッククリップを生成 ──────────────────────────────────────────────
   const blackInPath  = path.join(tempDir, `black_intro_${version}.mp4`);
@@ -162,6 +167,11 @@ async function buildVideoForVersion(params: {
     [introPath, blackInPath, mergedScenesPath, blackOutPath, quizPath],
     concatPath
   );
+  {
+    const concatSize = fs.statSync(concatPath).size;
+    const concatActualDur = await probeVideoDuration(concatPath);
+    logInfo(`[STEP_10][${projectId}][${version}] concat: size=${concatSize}B, actualDur=${concatActualDur.toFixed(2)}s`);
+  }
 
   // ── 6. ASS 字幕を生成して焼き込む ──────────────────────────────────────────
   const introOffset = introDuration + INTRO_BLACK_DURATION;

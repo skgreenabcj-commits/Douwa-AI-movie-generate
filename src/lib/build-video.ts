@@ -181,9 +181,18 @@ export async function mergeScenes(
       `${inV1}${inV2}xfade=transition=wipeleft:duration=${xfadeDuration}:offset=${offset.toFixed(3)}${outV};`;
   }
 
-  // Audio: シンプル concat
-  const audioInputs = Array.from({ length: N }, (_, i) => `[${i}:a]`).join("");
-  filterComplex += `${audioInputs}concat=n=${N}:v=0:a=1[a]`;
+  // Audio: acrossfade chain — mirrors the video xfade so audio transitions
+  // happen at the same time as video transitions (avoids early audio switch).
+  if (N === 2) {
+    filterComplex += `[0:a][1:a]acrossfade=d=${xfadeDuration}:c1=tri:c2=tri[a]`;
+  } else {
+    for (let k = 0; k < N - 1; k++) {
+      const inA1 = k === 0 ? `[${k}:a]` : `[afa${k - 1}]`;
+      const inA2 = `[${k + 1}:a]`;
+      const outA = k === N - 2 ? "[a]" : `[afa${k}]`;
+      filterComplex += `${inA1}${inA2}acrossfade=d=${xfadeDuration}:c1=tri:c2=tri${outA};`;
+    }
+  }
 
   const inputs: string[] = [];
   for (const p of clipPaths) inputs.push("-i", p);
@@ -314,15 +323,15 @@ export function generateAssFile(
   const header = [
     "[Script Info]",
     "ScriptType: v4.00+",
-    "WrapStyle: 0",
+    "WrapStyle: 1",   // smart word wrap — prevents overflow
     `PlayResX: ${w}`,
     `PlayResY: ${h}`,
     "ScaledBorderAndShadow: yes",
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    // Noto Sans CJK JP is available on Ubuntu (fonts-noto-cjk package)
-    "Style: Default,Noto Sans CJK JP,60,&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,20,20,50,1",
+    // Font size 48px, margins 60px sides + 80px bottom — fits within 1080p/1920p frames
+    "Style: Default,Noto Sans CJK JP,48,&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,60,60,80,1",
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
