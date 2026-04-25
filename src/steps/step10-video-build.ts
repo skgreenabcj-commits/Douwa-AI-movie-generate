@@ -188,8 +188,8 @@ export async function runStep10VideoBuild(
   const { project_ids, max_items, dry_run } = payload;
   const results: Step10Result[] = [];
 
-  // 一括読み込み
-  const BATCH_SHEETS = ["94_Runtime_Config", "00_Project", "09_Edit_Plan", "08_TTS_Subtitles"] as const;
+  // 一括読み込み（06_Image_Prompts を追加して画像 URL を直接取得）
+  const BATCH_SHEETS = ["94_Runtime_Config", "00_Project", "09_Edit_Plan", "08_TTS_Subtitles", "06_Image_Prompts"] as const;
   const batchData = await readSheetsBatch(spreadsheetId, [...BATCH_SHEETS]);
 
   const configMap = parseRuntimeConfig(batchData.get("94_Runtime_Config") ?? []);
@@ -235,6 +235,7 @@ export async function runStep10VideoBuild(
         const scenes = filterVideoAssets(
           batchData.get("09_Edit_Plan")      ?? [],
           batchData.get("08_TTS_Subtitles")  ?? [],
+          batchData.get("06_Image_Prompts")  ?? [],
           projectId,
           version
         );
