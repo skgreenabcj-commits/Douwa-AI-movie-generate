@@ -129,8 +129,10 @@ async function buildVideoForVersion(params: {
 
     await buildSceneClip(imgPath, audPath, clipPath, scene.durationSec, resolution);
 
+    // Probe actual clip duration — covers cases where durationSec=0 in the sheet
+    const actualDuration = await probeVideoDuration(clipPath);
     sceneClipPaths.push(clipPath);
-    sceneDurations.push(scene.durationSec);
+    sceneDurations.push(actualDuration > 0 ? actualDuration : scene.durationSec);
   }
 
   // ── 3. シーンを wipe_left xfade で結合 ────────────────────────────────────

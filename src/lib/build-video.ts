@@ -96,6 +96,10 @@ export async function buildSceneClip(
   resolution: string
 ): Promise<void> {
   const [w, h] = resolution.split("x");
+  // When durationSec is 0 (missing in sheet), omit -t and rely on -shortest
+  // so the audio track length determines clip length.
+  // Also prepend format=rgb24 to handle RGBA PNG images correctly.
+  const durationArgs = durationSec > 0 ? ["-t", String(durationSec)] : [];
   await runFfmpeg([
     "-y",
     "-loop", "1",
@@ -106,11 +110,12 @@ export async function buildSceneClip(
     "-crf", "18",
     "-c:a", "aac",
     "-b:a", "128k",
+    "-ar", "44100",
     "-pix_fmt", "yuv420p",
     "-r", "30",
     "-vf",
-    `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1`,
-    "-t", String(durationSec),
+    `format=rgb24,scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1`,
+    ...durationArgs,
     "-shortest",
     outputPath,
   ]);
@@ -312,7 +317,8 @@ export function generateAssFile(
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    "Style: Default,MS Gothic,60,&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,20,20,50,1",
+    // Noto Sans CJK JP is available on Ubuntu (fonts-noto-cjk package)
+    "Style: Default,Noto Sans CJK JP,60,&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,20,20,50,1",
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
