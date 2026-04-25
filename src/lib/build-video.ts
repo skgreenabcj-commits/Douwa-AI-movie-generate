@@ -181,8 +181,10 @@ export async function mergeScenes(
     const stepOut = isLast
       ? outputPath
       : path.join(tmpDir, `_xfstep${k}_${path.basename(outputPath)}`);
-    // offset = how far into currentInput the transition begins
-    const offset = Math.max(0.001, currentDuration - xfadeDuration);
+    // offset = how far into currentInput the transition begins.
+    // Subtract 0.1s safety margin: probeVideoDuration may slightly overestimate
+    // the actual clip length, causing offset > real duration → black frames.
+    const offset = Math.max(0.001, currentDuration - xfadeDuration - 0.1);
 
     await runFfmpeg([
       "-y",
@@ -340,12 +342,11 @@ function toAssTime(sec: number): string {
 const SUBTITLE_FONT_SIZE = 60;
 
 /**
- * テキストを指定文字数で折り返し、ASS ハード改行 (\N) で結合する。
- * libass の WrapStyle は日本語テキストで効かない場合があるため
- * コード側で折り返しを行う。
+ * テキストを指定文字数ごとに分割して行配列を返す。
+ * \N に依存せず複数 Dialogue エントリで絶対座標指定する方式のために使用。
  */
-function wrapSubtitleText(text: string, charsPerLine: number): string {
-  if (charsPerLine <= 0 || text.length <= charsPerLine) return text;
+function splitSubtitleLines(text: string, charsPerLine: number): string[] {
+  if (charsPerLine <= 0 || text.length <= charsPerLine) return [text];
   const lines: string[] = [];
   let remaining = text;
   while (remaining.length > charsPerLine) {
@@ -353,11 +354,14 @@ function wrapSubtitleText(text: string, charsPerLine: number): string {
     remaining = remaining.slice(charsPerLine);
   }
   if (remaining.length > 0) lines.push(remaining);
-  return lines.join("\\N");
+  return lines;
 }
 
 /**
  * ASS ファイルを生成する。
+ *
+ * 行折り返しは \N ではなく複数 Dialogue エントリ + \pos() 絶対座標方式を使用する。
+ * ffmpeg 4.x の libass は \N をテキスト内ハード改行として正しく処理しない場合があるため。
  */
 export function generateAssFile(
   entries:    SubtitleEntry[],
@@ -366,33 +370,45 @@ export function generateAssFile(
 ): void {
   const [w, h] = resolution.split("x").map(Number);
   const marginH = Math.max(50, Math.round(w * 0.06));
-  // Japanese chars are approx. 1 em wide; use conservative 0.9 factor for safety
-  // Full-width CJK chars are exactly 1em = SUBTITLE_FONT_SIZE px wide.
-  // Dividing by SUBTITLE_FONT_SIZE (not 0.9x) prevents over-counting and
-  // ensures each wrapped line fits within the margin-constrained area.
+  // CJK full-width chars = 1em = SUBTITLE_FONT_SIZE px wide
   const charsPerLine = Math.floor((w - marginH * 2) / SUBTITLE_FONT_SIZE);
+  // Vertical spacing between wrapped lines (font size + ~25% leading)
+  const lineH = Math.round(SUBTITLE_FONT_SIZE * 1.25);
+  // Bottom Y of the lowest subtitle line (bottom-center anchor \an2)
+  const bottomY = h - Math.round(h * 0.06);
+  const cx = Math.round(w / 2);
 
   const header = [
     "[Script Info]",
     "ScriptType: v4.00+",
-    "WrapStyle: 1",
+    "WrapStyle: 2",   // no auto-wrap; all wrapping is explicit via multiple Dialogue entries
     `PlayResX: ${w}`,
     `PlayResY: ${h}`,
     "ScaledBorderAndShadow: yes",
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    `Style: Default,Noto Sans CJK JP,${SUBTITLE_FONT_SIZE},&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,${marginH},${marginH},${Math.round(h * 0.06)},1`,
+    `Style: Default,Noto Sans CJK JP,${SUBTITLE_FONT_SIZE},&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,0,0,0,1`,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
   ].join("\n");
 
-  const dialogues = entries.map((e) => {
-    const wrapped = wrapSubtitleText(e.text, charsPerLine);
-    const text = `{\\fad(500,0)}${wrapped}`;
-    return `Dialogue: 0,${toAssTime(e.startSec)},${toAssTime(e.endSec)},Default,,0,0,0,,${text}`;
-  });
+  // Each subtitle entry is split into lines; each line becomes its own Dialogue
+  // entry with \an2\pos(cx,cy) to anchor it at the correct absolute Y position.
+  const dialogues: string[] = [];
+  for (const e of entries) {
+    const lines = splitSubtitleLines(e.text, charsPerLine);
+    const N = lines.length;
+    for (let li = 0; li < N; li++) {
+      // li=0 is the topmost line, li=N-1 is the bottom line
+      const cy = bottomY - (N - 1 - li) * lineH;
+      dialogues.push(
+        `Dialogue: 0,${toAssTime(e.startSec)},${toAssTime(e.endSec)},Default,,0,0,0,,` +
+        `{\\an2\\pos(${cx},${cy})\\fad(500,0)}${lines[li]}`
+      );
+    }
+  }
 
   const content = header + "\n" + dialogues.join("\n") + "\n";
   fs.writeFileSync(outputPath, content, "utf8");
