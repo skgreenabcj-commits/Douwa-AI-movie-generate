@@ -44,8 +44,8 @@ export const DEFAULT_XFADE_DURATION = 0.8;
 export const INTRO_BLACK_DURATION = 0.8;
 // アウトロ前ブラック尺
 export const OUTRO_BLACK_DURATION = 1.0;
-// シーン間ブラック尺
-export const SCENE_GAP_DURATION = 0.7;
+// シーン間トランジション尺（xfade wipeleft）
+export const SCENE_TRANSITION_DURATION = 0.7;
 
 // アスペクト比 → 解像度マッピング
 const ASPECT_TO_RESOLUTION: Record<string, string> = {
@@ -166,20 +166,41 @@ export async function mergeScenes(
   }
 
   const N = clipPaths.length;
-
-  // Use concat filter with interleaved v/a pairs — this keeps video and audio
-  // in sync. Separate concat filters for v and a can cause audio to switch
-  // before the previous scene's audio finishes.
-  const inputPairs = Array.from({ length: N }, (_, i) => `[${i}:v][${i}:a]`).join("");
-  const filterComplex = `${inputPairs}concat=n=${N}:v=1:a=1[v][a]`;
-
   const inputs: string[] = [];
   for (const p of clipPaths) inputs.push("-i", p);
+
+  // Build chained xfade (wipeleft) + acrossfade filter complex.
+  //
+  // Correct offset formula for chained xfade:
+  //   offset[k] = sum(d[0..k]) - (k+1) * T
+  //
+  // Each xfade stage's two input labels are the PREVIOUS merged output and the
+  // next clip. Audio uses acrossfade with the same duration.
+  const parts: string[] = [];
+  let sumDur = 0;
+  let prevV = "[0:v]";
+  let prevA = "[0:a]";
+
+  for (let k = 0; k < N - 1; k++) {
+    sumDur += durations[k];
+    const offset = Math.max(0.001, sumDur - (k + 1) * xfadeDuration);
+    const outV = k === N - 2 ? "[v]" : `[xv${k}]`;
+    const outA = k === N - 2 ? "[a]" : `[xa${k}]`;
+
+    parts.push(
+      `${prevV}[${k + 1}:v]xfade=transition=wipeleft:duration=${xfadeDuration.toFixed(3)}:offset=${offset.toFixed(3)}${outV}`
+    );
+    parts.push(
+      `${prevA}[${k + 1}:a]acrossfade=d=${xfadeDuration.toFixed(3)}:curve1=tri:curve2=tri${outA}`
+    );
+    prevV = outV;
+    prevA = outA;
+  }
 
   await runFfmpeg([
     "-y",
     ...inputs,
-    "-filter_complex", filterComplex,
+    "-filter_complex", parts.join(";"),
     "-map", "[v]",
     "-map", "[a]",
     "-c:v", "libx264",
@@ -192,8 +213,8 @@ export async function mergeScenes(
     outputPath,
   ]);
 
-  // No xfade overlap: total duration = sum of all clip durations
-  return durations.reduce((s, d) => s + d, 0);
+  // Total duration shrinks by xfadeDuration for each transition
+  return durations.reduce((s, d) => s + d, 0) - (N - 1) * xfadeDuration;
 }
 
 /**
@@ -317,6 +338,26 @@ function toAssTime(sec: number): string {
   return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
 
+// Fixed subtitle font size (px at PlayRes scale)
+const SUBTITLE_FONT_SIZE = 60;
+
+/**
+ * テキストを指定文字数で折り返し、ASS ハード改行 (\N) で結合する。
+ * libass の WrapStyle は日本語テキストで効かない場合があるため
+ * コード側で折り返しを行う。
+ */
+function wrapSubtitleText(text: string, charsPerLine: number): string {
+  if (charsPerLine <= 0 || text.length <= charsPerLine) return text;
+  const lines: string[] = [];
+  let remaining = text;
+  while (remaining.length > charsPerLine) {
+    lines.push(remaining.slice(0, charsPerLine));
+    remaining = remaining.slice(charsPerLine);
+  }
+  if (remaining.length > 0) lines.push(remaining);
+  return lines.join("\\N");
+}
+
 /**
  * ASS ファイルを生成する。
  */
@@ -326,26 +367,29 @@ export function generateAssFile(
   resolution: string
 ): void {
   const [w, h] = resolution.split("x").map(Number);
+  const marginH = Math.max(50, Math.round(w * 0.06));
+  // Japanese chars are approx. 1 em wide; use conservative 0.9 factor for safety
+  const charsPerLine = Math.floor((w - marginH * 2) / (SUBTITLE_FONT_SIZE * 0.9));
 
   const header = [
     "[Script Info]",
     "ScriptType: v4.00+",
-    "WrapStyle: 1",   // smart word wrap — prevents overflow
+    "WrapStyle: 1",
     `PlayResX: ${w}`,
     `PlayResY: ${h}`,
     "ScaledBorderAndShadow: yes",
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    // Font size: 60px (fixed). Margins: at least 50px each side (6% of width), 6% of height at bottom.
-    `Style: Default,Noto Sans CJK JP,60,&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,${Math.max(50, Math.round(w * 0.06))},${Math.max(50, Math.round(w * 0.06))},${Math.round(h * 0.06)},1`,
+    `Style: Default,Noto Sans CJK JP,${SUBTITLE_FONT_SIZE},&H00FFFFFF,&H000000FF,&H00808080,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,${marginH},${marginH},${Math.round(h * 0.06)},1`,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
   ].join("\n");
 
   const dialogues = entries.map((e) => {
-    const text = `{\\fad(500,0)}${e.text}`;
+    const wrapped = wrapSubtitleText(e.text, charsPerLine);
+    const text = `{\\fad(500,0)}${wrapped}`;
     return `Dialogue: 0,${toAssTime(e.startSec)},${toAssTime(e.endSec)},Default,,0,0,0,,${text}`;
   });
 
@@ -356,36 +400,60 @@ export function generateAssFile(
 /**
  * SceneVideoInput 配列からタイムコードを計算して SubtitleEntry[] を構築する。
  *
- * @param scenes         - シーン情報配列
- * @param actualDurations - buildSceneClip 後にプローブした実際の秒数（scenes と同インデックス）
- * @param introOffset    - イントロ + イントロ後ブラックの合計秒数
- * @param gapDuration    - シーン間ブラック秒数
- * @param subtitleDelay  - シーン開始後に字幕を表示するまでの遅延秒数
+ * シーン間は xfade（wipeleft）を想定。
+ * - シーン i は merged 動画内で「前の xfade が終わった時点」から dominant になる。
+ * - 字幕は incoming transition 終了後 + subtitleDelay から表示し、
+ *   outgoing transition 開始の 0.3s 前に消す。
+ *
+ * @param scenes          - シーン情報配列
+ * @param actualDurations - probeVideoDuration で取得した実秒数（scenes と同インデックス）
+ * @param introOffset     - イントロ + イントロ後ブラックの合計秒数
+ * @param xfadeDuration   - シーン間 xfade 秒数
+ * @param subtitleDelay   - シーンが dominant になってから字幕表示までの遅延秒数
  */
 export function buildSubtitleEntries(
   scenes:          SceneVideoInput[],
   actualDurations: number[],
   introOffset:     number,
-  gapDuration:     number,
+  xfadeDuration:   number,
   subtitleDelay    = 1.0
 ): SubtitleEntry[] {
   const entries: SubtitleEntry[] = [];
-  let cumulativeDur = 0;
+  const N = scenes.length;
 
-  for (let i = 0; i < scenes.length; i++) {
+  // Pre-compute when each scene becomes dominant in the merged video.
+  // Scene 0: 0 (no incoming transition)
+  // Scene i (i > 0): previous dominantStart + prev_dur - xfadeDuration + xfadeDuration
+  //   = prevDominantStart + prev_dur
+  //   (the xfade occupies the last T sec of scene i-1 and first T sec of scene i,
+  //    so scene i becomes dominant exactly at the end of the previous scene)
+  // Cumulative:
+  //   dominantStart[0] = 0
+  //   dominantStart[i] = dominantStart[i-1] + dur[i-1]   (i > 0, i-1 not last)
+  //   BUT since the xfade overlaps, the next scene's content in the merged timeline
+  //   starts at dominantStart[i-1] + dur[i-1] - xfadeDuration (= xfade offset).
+  //   It becomes "fully dominant" T seconds later = dominantStart[i-1] + dur[i-1].
+  const dominantStarts: number[] = [0];
+  for (let i = 1; i < N; i++) {
+    const prev = (actualDurations[i - 1] ?? 0) > 0 ? actualDurations[i - 1] : scenes[i - 1].durationSec;
+    dominantStarts.push(dominantStarts[i - 1] + prev);
+  }
+
+  for (let i = 0; i < N; i++) {
     const scene = scenes[i];
-    // Use probed actual duration; fall back to sheet value if missing
+    if (!scene.subtitleText) continue;
+
     const dur = (actualDurations[i] ?? 0) > 0 ? actualDurations[i] : scene.durationSec;
+    const hasOutgoing = i < N - 1;
 
-    if (scene.subtitleText) {
-      const finalStart = introOffset + cumulativeDur + subtitleDelay;
-      const finalEnd   = introOffset + cumulativeDur + dur - 0.5;
-      if (finalEnd > finalStart) {
-        entries.push({ text: scene.subtitleText, startSec: finalStart, endSec: finalEnd });
-      }
+    // Show after incoming transition ends; hide before outgoing transition starts
+    const finalStart = introOffset + dominantStarts[i] + subtitleDelay;
+    const finalEnd   = introOffset + dominantStarts[i] + dur
+      - (hasOutgoing ? xfadeDuration + 0.3 : 0.5);
+
+    if (finalEnd > finalStart) {
+      entries.push({ text: scene.subtitleText, startSec: finalStart, endSec: finalEnd });
     }
-
-    cumulativeDur += dur + (i < scenes.length - 1 ? gapDuration : 0);
   }
 
   return entries;
