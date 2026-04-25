@@ -127,7 +127,7 @@ async function buildVideoForVersion(params: {
     logInfo(`[STEP_10][${projectId}][${version}] scene ${scene.sceneNo}: aud=${scene.audioUrl}`);
     fs.writeFileSync(audPath, await downloadFromDriveUrl(scene.audioUrl).catch(e => { throw new Error(`scene ${scene.sceneNo} audio download failed (${scene.audioUrl}): ${e.message}`); }));
 
-    buildSceneClip(imgPath, audPath, clipPath, scene.durationSec, resolution);
+    await buildSceneClip(imgPath, audPath, clipPath, scene.durationSec, resolution);
 
     sceneClipPaths.push(clipPath);
     sceneDurations.push(scene.durationSec);
@@ -135,7 +135,7 @@ async function buildVideoForVersion(params: {
 
   // ── 3. シーンを wipe_left xfade で結合 ────────────────────────────────────
   const mergedScenesPath = path.join(tempDir, `merged_scenes_${version}.mp4`);
-  const mergedDuration   = mergeScenes(
+  const mergedDuration   = await mergeScenes(
     sceneClipPaths,
     sceneDurations,
     mergedScenesPath,
@@ -145,12 +145,12 @@ async function buildVideoForVersion(params: {
   // ── 4. ブラッククリップを生成 ──────────────────────────────────────────────
   const blackInPath  = path.join(tempDir, `black_intro_${version}.mp4`);
   const blackOutPath = path.join(tempDir, `black_outro_${version}.mp4`);
-  buildBlackClip(blackInPath,  INTRO_BLACK_DURATION, resolution);
-  buildBlackClip(blackOutPath, OUTRO_BLACK_DURATION, resolution);
+  await buildBlackClip(blackInPath,  INTRO_BLACK_DURATION, resolution);
+  await buildBlackClip(blackOutPath, OUTRO_BLACK_DURATION, resolution);
 
   // ── 5. 全クリップを結合（イントロ → ブラック → scenes → ブラック → クイズ） ─
   const concatPath = path.join(tempDir, `concat_${version}.mp4`);
-  concatClips(
+  await concatClips(
     [introPath, blackInPath, mergedScenesPath, blackOutPath, quizPath],
     concatPath
   );
@@ -166,7 +166,7 @@ async function buildVideoForVersion(params: {
   generateAssFile(subtitleEntries, assPath, resolution);
 
   const finalPath = path.join(tempDir, `final_${version}.mp4`);
-  burnSubtitles(concatPath, assPath, finalPath);
+  await burnSubtitles(concatPath, assPath, finalPath);
 
   // ── 7. 総尺を計算 ──────────────────────────────────────────────────────────
   const quizDuration = probeVideoDuration(quizPath);
