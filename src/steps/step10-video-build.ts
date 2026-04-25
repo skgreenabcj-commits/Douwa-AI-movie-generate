@@ -195,9 +195,10 @@ export async function runStep10VideoBuild(
   const configMap = parseRuntimeConfig(batchData.get("94_Runtime_Config") ?? []);
   const introUrl  = getConfigValue(configMap, "step_10_intro_video_url");
   const quizUrl   = getConfigValue(configMap, "step_10_quiz_video_url");
-  const driveFolderId = process.env.DRIVE_IMAGE_FOLDER_ID ?? "";
+  // 他ステップと同様に 94_Runtime_Config の google_drive_folder_id を使用する
+  const driveFolderId = getConfigValue(configMap, "google_drive_folder_id", "");
   if (!driveFolderId && !dry_run) {
-    throw new Error("DRIVE_IMAGE_FOLDER_ID is not set.");
+    throw new Error("94_Runtime_Config: google_drive_folder_id is missing or empty.");
   }
 
   const projects = filterProjectsByIds(batchData.get("00_Project") ?? [], project_ids)
