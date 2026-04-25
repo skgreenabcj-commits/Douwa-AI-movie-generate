@@ -14,7 +14,7 @@
  * 7. probeVideoDuration : ffprobe で動画の尺を取得
  */
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 // ffmpeg-static は ESM でも動作する。パスを文字列として取得。
@@ -241,40 +241,29 @@ export async function burnSubtitles(
  * ffprobe で動画の尺（秒）を取得する。
  * ffmpeg-static には ffprobe が含まれていないため、
  * ffmpeg -i で stderr から duration を読み取るフォールバックを使用。
- * (probeVideoDuration は短時間で完了するため spawnSync を維持)
  */
-export function probeVideoDuration(videoPath: string): number {
-  const bin = getFfmpegBin();
-  try {
-    const ffprobePath = bin.replace("ffmpeg", "ffprobe");
-    if (fs.existsSync(ffprobePath)) {
-      const r = spawnSync(ffprobePath, [
-        "-v", "error",
-        "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        videoPath,
-      ], { stdio: ["ignore", "pipe", "ignore"] });
-      if (!r.error && r.status === 0) {
-        return parseFloat(r.stdout?.toString().trim() ?? "0") || 0;
-      }
-    }
-  } catch {
-    // ffprobe 不可の場合はフォールバック
-  }
+export function probeVideoDuration(videoPath: string): Promise<number> {
+  return new Promise((resolve) => {
+    const bin = getFfmpegBin();
 
-  // ffmpeg -i でヘッダー情報を読み取る（stderr に出力される）
-  {
-    const r = spawnSync(bin, ["-i", videoPath], { stdio: ["ignore", "ignore", "pipe"] });
-    const stderr = r.stderr?.toString() ?? "";
-    const match = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(stderr);
-    if (match) {
-      const h = parseInt(match[1], 10);
-      const m = parseInt(match[2], 10);
-      const s = parseFloat(match[3]);
-      return h * 3600 + m * 60 + s;
-    }
-  }
-  return 0;
+    // ffmpeg -i はヘッダー読み取り後すぐ終了するため出力量は少ないが、
+    // spawnSync は ENOBUFS を引き起こすため async spawn を使用する。
+    const proc = spawn(bin, ["-i", videoPath], { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    proc.stderr?.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    proc.on("close", () => {
+      const match = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(stderr);
+      if (match) {
+        const h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const s = parseFloat(match[3]);
+        resolve(h * 3600 + m * 60 + s);
+      } else {
+        resolve(0);
+      }
+    });
+    proc.on("error", () => resolve(0));
+  });
 }
 
 // ─── ASS subtitle generation ──────────────────────────────────────────────────

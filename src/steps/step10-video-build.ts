@@ -111,7 +111,7 @@ async function buildVideoForVersion(params: {
   logInfo(`[STEP_10][${projectId}][${version}] Downloading quiz: ${quizUrl}`);
   fs.writeFileSync(quizPath,  await downloadFromDriveUrl(quizUrl).catch(e => { throw new Error(`quiz download failed (${quizUrl}): ${e.message}`); }));
 
-  const introDuration = probeVideoDuration(introPath);
+  const introDuration = await probeVideoDuration(introPath);
 
   // ── 2. シーンアセットをダウンロードしてシーンクリップを生成 ─────────────────
   const sceneClipPaths: string[] = [];
@@ -169,7 +169,7 @@ async function buildVideoForVersion(params: {
   await burnSubtitles(concatPath, assPath, finalPath);
 
   // ── 7. 総尺を計算 ──────────────────────────────────────────────────────────
-  const quizDuration = probeVideoDuration(quizPath);
+  const quizDuration = await probeVideoDuration(quizPath);
   const totalDuration = introDuration + INTRO_BLACK_DURATION + mergedDuration + OUTRO_BLACK_DURATION + quizDuration;
 
   // ── 8. Drive にアップロード ─────────────────────────────────────────────────
