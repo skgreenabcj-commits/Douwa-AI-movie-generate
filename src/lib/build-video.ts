@@ -46,6 +46,11 @@ export const INTRO_BLACK_DURATION = 0.8;
 export const OUTRO_BLACK_DURATION = 1.0;
 // シーン間トランジション尺（xfade wipeleft）
 export const SCENE_TRANSITION_DURATION = 0.7;
+// xfade offset safety margin — subtracted from currentDuration when computing
+// the xfade start offset to prevent black frames caused by probeVideoDuration
+// slightly overestimating actual clip length.  Must be consistent between
+// mergeScenes (offset calc + duration accumulation) and buildSubtitleEntries.
+export const XFADE_SAFETY = 0.1;
 
 // アスペクト比 → 解像度マッピング
 const ASPECT_TO_RESOLUTION: Record<string, string> = {
@@ -182,9 +187,9 @@ export async function mergeScenes(
       ? outputPath
       : path.join(tmpDir, `_xfstep${k}_${path.basename(outputPath)}`);
     // offset = how far into currentInput the transition begins.
-    // Subtract 0.1s safety margin: probeVideoDuration may slightly overestimate
-    // the actual clip length, causing offset > real duration → black frames.
-    const offset = Math.max(0.001, currentDuration - xfadeDuration - 0.1);
+    // Subtract XFADE_SAFETY: probeVideoDuration may slightly overestimate the
+    // actual clip length, causing offset > real duration → black frames.
+    const offset = Math.max(0.001, currentDuration - xfadeDuration - XFADE_SAFETY);
 
     await runFfmpeg([
       "-y",
@@ -211,7 +216,12 @@ export async function mergeScenes(
     }
     prevTemp = isLast ? null : stepOut;
     currentInput = stepOut;
-    currentDuration = currentDuration + durations[k + 1] - xfadeDuration;
+    // Accumulate the actual merged output duration.  The xfade offset uses
+    // XFADE_SAFETY so the real output duration is:
+    //   offset + d_{k+1} = (currentDuration - T - SAFETY) + d_{k+1}
+    // Without subtracting SAFETY here, currentDuration drifts +SAFETY per
+    // iteration (e.g. +1.5 s over 15 merges), making later offsets too large.
+    currentDuration = currentDuration + durations[k + 1] - xfadeDuration - XFADE_SAFETY;
   }
 
   return currentDuration;
@@ -438,22 +448,21 @@ export function buildSubtitleEntries(
   const entries: SubtitleEntry[] = [];
   const N = scenes.length;
 
-  // Pre-compute when each scene becomes dominant in the merged video.
-  // Scene 0: 0 (no incoming transition)
-  // Scene i (i > 0): previous dominantStart + prev_dur - xfadeDuration + xfadeDuration
-  //   = prevDominantStart + prev_dur
-  //   (the xfade occupies the last T sec of scene i-1 and first T sec of scene i,
-  //    so scene i becomes dominant exactly at the end of the previous scene)
-  // Cumulative:
-  //   dominantStart[0] = 0
-  //   dominantStart[i] = dominantStart[i-1] + dur[i-1]   (i > 0, i-1 not last)
-  //   BUT since the xfade overlaps, the next scene's content in the merged timeline
-  //   starts at dominantStart[i-1] + dur[i-1] - xfadeDuration (= xfade offset).
-  //   It becomes "fully dominant" T seconds later = dominantStart[i-1] + dur[i-1].
+  // Pre-compute when each scene becomes dominant in the pairwise-xfade merged video.
+  //
+  // With offset = mergedDur - T - SAFETY, scene i is fully dominant at:
+  //   dominantStart[i] = mergedDur_before_step_i - SAFETY
+  // where mergedDur accumulates as:
+  //   mergedDur += d_i - T - SAFETY   (each pairwise merge step)
+  //
+  // Using sum(actualDurations[0..i-1]) as dominantStart[i] ignores SAFETY and
+  // drifts by i × 0.8 s — scene 15 would be ~11 s late.
   const dominantStarts: number[] = [0];
+  let mergedDur = (actualDurations[0] ?? 0) > 0 ? actualDurations[0] : scenes[0].durationSec;
   for (let i = 1; i < N; i++) {
-    const prev = (actualDurations[i - 1] ?? 0) > 0 ? actualDurations[i - 1] : scenes[i - 1].durationSec;
-    dominantStarts.push(dominantStarts[i - 1] + prev);
+    dominantStarts.push(mergedDur - XFADE_SAFETY);
+    const d = (actualDurations[i] ?? 0) > 0 ? actualDurations[i] : scenes[i].durationSec;
+    mergedDur += d - xfadeDuration - XFADE_SAFETY;
   }
 
   for (let i = 0; i < N; i++) {
@@ -463,10 +472,12 @@ export function buildSubtitleEntries(
     const dur = (actualDurations[i] ?? 0) > 0 ? actualDurations[i] : scene.durationSec;
     const hasOutgoing = i < N - 1;
 
-    // Show after incoming transition ends; hide before outgoing transition starts
+    // Show after incoming transition ends; hide before outgoing transition starts.
+    // Next xfade starts at dominantStarts[i] + dur - T - SAFETY, so subtitle
+    // must end (T + SAFETY + 0.3) s before that to give a 0.3 s buffer.
     const finalStart = introOffset + dominantStarts[i] + subtitleDelay;
     const finalEnd   = introOffset + dominantStarts[i] + dur
-      - (hasOutgoing ? xfadeDuration + 0.3 : 0.5);
+      - (hasOutgoing ? xfadeDuration + XFADE_SAFETY + 0.3 : 0.5);
 
     if (finalEnd > finalStart) {
       entries.push({ text: scene.subtitleText, startSec: finalStart, endSec: finalEnd });
