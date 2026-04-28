@@ -78,6 +78,22 @@ async function main(): Promise<void> {
       await runStep06VisualBible(payload, spreadsheetId);
       break;
 
+    case "STEP_01_TO_06":
+      // Run STEP_01 through STEP_06 sequentially (STEP_04_05 combined pattern).
+      // Any step that fails will throw or call process.exit(1), stopping the chain.
+      console.log("[INFO] STEP_01_TO_06: Running STEP_01 → 02 → 03 → 04_05 → 06 sequentially.");
+      await runStep01RightsValidation(payload, spreadsheetId);
+      console.log("[INFO] STEP_01_TO_06: STEP_01 complete. Proceeding to STEP_02.");
+      await runStep02SourceBuild(payload, spreadsheetId);
+      console.log("[INFO] STEP_01_TO_06: STEP_02 complete. Proceeding to STEP_03.");
+      await runStep03ScenesBuild(payload, spreadsheetId);
+      console.log("[INFO] STEP_01_TO_06: STEP_03 complete. Proceeding to STEP_04_05.");
+      await runStep04_05ScriptBuild(payload, spreadsheetId);
+      console.log("[INFO] STEP_01_TO_06: STEP_04_05 complete. Proceeding to STEP_06.");
+      await runStep06VisualBible(payload, spreadsheetId);
+      console.log("[INFO] STEP_01_TO_06: All steps completed successfully.");
+      break;
+
     case "STEP_07":
       await runStep07ImagePrompts(payload, spreadsheetId);
       break;
