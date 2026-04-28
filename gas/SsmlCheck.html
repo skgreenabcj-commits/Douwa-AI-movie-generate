@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Google Sans', Arial, sans-serif;
+      font-size: 13px;
+      color: #202124;
+      padding: 16px 20px 12px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    h2 { font-size: 15px; font-weight: 600; color: #1a73e8; margin-bottom: 14px; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    select {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #202124;
+      background: #fff;
+    }
+    select:focus { outline: 2px solid #1a73e8; border-color: transparent; }
+
+    button {
+      padding: 7px 18px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #btn-check {
+      background: #1a73e8;
+      color: #fff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    #btn-check:hover { background: #1557b0; }
+    #btn-check:disabled { background: #bdc1c6; cursor: not-allowed; }
+    #btn-close {
+      background: #f1f3f4;
+      color: #3c4043;
+      white-space: nowrap;
+    }
+    #btn-close:hover { background: #e8eaed; }
+
+    /* Summary bar */
+    #summary {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      display: none;
+    }
+    #summary.ok    { background: #e6f4ea; color: #137333; border: 1px solid #a8d5b5; }
+    #summary.error { background: #fce8e6; color: #d93025; border: 1px solid #f5c6c4; }
+
+    /* Results list */
+    #results {
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 6px 0;
+      min-height: 60px;
+    }
+
+    .row-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f3f4;
+    }
+    .row-item:last-child { border-bottom: none; }
+
+    .row-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .record-id {
+      font-weight: 600;
+      font-size: 12px;
+      color: #3c4043;
+      font-family: 'Roboto Mono', monospace;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 10px;
+    }
+    .badge.ok    { background: #e6f4ea; color: #137333; }
+    .badge.error { background: #fce8e6; color: #d93025; }
+
+    .error-list {
+      padding-left: 4px;
+      margin-top: 2px;
+    }
+    .error-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      font-size: 12px;
+      color: #d93025;
+      padding: 2px 0;
+      line-height: 1.5;
+    }
+    .error-item::before {
+      content: '▸';
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Placeholder / loading */
+    .placeholder {
+      padding: 20px;
+      text-align: center;
+      color: #5f6368;
+      font-size: 12px;
+    }
+    .loading { color: #1a73e8; }
+  </style>
+</head>
+<body>
+  <h2>SSML 構文チェック</h2>
+
+  <div class="toolbar">
+    <select id="project-select">
+      <option value="">— プロジェクトを読み込み中 —</option>
+    </select>
+    <button id="btn-check" onclick="onCheck()" disabled>チェック実行</button>
+    <button id="btn-close" onclick="google.script.host.close()">✕ 閉じる</button>
+  </div>
+
+  <div id="summary"></div>
+
+  <div id="results">
+    <div class="placeholder">プロジェクトを選択して「チェック実行」を押してください</div>
+  </div>
+
+  <script>
+    // Load project list on open
+    google.script.run
+      .withSuccessHandler(function(projects) {
+        var sel = document.getElementById('project-select');
+        if (!projects || projects.length === 0) {
+          sel.innerHTML = '<option value="">アクティブなプロジェクトなし</option>';
+          return;
+        }
+        sel.innerHTML = '<option value="">— project_id を選択 —</option>' +
+          projects.map(function(p) {
+            return '<option value="' + esc(p.project_id) + '">' + esc(p.label) + '</option>';
+          }).join('');
+        document.getElementById('btn-check').disabled = false;
+      })
+      .withFailureHandler(function(e) {
+        var sel = document.getElementById('project-select');
+        sel.innerHTML = '<option value="">読み込みエラー: ' + esc(e.message) + '</option>';
+      })
+      .getActiveProjects();
+
+    function onCheck() {
+      var sel = document.getElementById('project-select');
+      var projectId = sel.value;
+      if (!projectId) {
+        showSummary('error', 'プロジェクトを選択してください');
+        return;
+      }
+
+      document.getElementById('btn-check').disabled = true;
+      document.getElementById('results').innerHTML =
+        '<div class="placeholder loading">チェック中...</div>';
+      hideSummary();
+
+      google.script.run
+        .withSuccessHandler(renderResults)
+        .withFailureHandler(function(e) {
+          document.getElementById('btn-check').disabled = false;
+          document.getElementById('results').innerHTML =
+            '<div class="placeholder" style="color:#d93025;">エラー: ' + esc(e.message) + '</div>';
+        })
+        .checkSsmlRetakeRows(projectId);
+    }
+
+    function renderResults(data) {
+      document.getElementById('btn-check').disabled = false;
+
+      if (data.error) {
+        showSummary('error', data.error);
+        document.getElementById('results').innerHTML =
+          '<div class="placeholder" style="color:#d93025;">' + esc(data.error) + '</div>';
+        return;
+      }
+
+      var results = data.results || [];
+      if (results.length === 0) {
+        showSummary('ok', 'RETAKE 対象行が見つかりませんでした（approval_status="RETAKE" の行なし）');
+        document.getElementById('results').innerHTML =
+          '<div class="placeholder">RETAKE 対象行がありません</div>';
+        return;
+      }
+
+      // Summary
+      if (data.errorCount === 0) {
+        showSummary('ok',
+          '✓ 全 ' + data.checkedCount + ' 件チェック完了 — エラーなし');
+      } else {
+        showSummary('error',
+          '⚠ ' + data.checkedCount + ' 件中 ' + data.errorCount +
+          ' 件にエラーがあります。修正後に再チェックしてください。');
+      }
+
+      // Rows
+      var html = results.map(function(r) {
+        var hasError = r.errors.length > 0;
+        var badge = hasError
+          ? '<span class="badge error">エラー ' + r.errors.length + '件</span>'
+          : '<span class="badge ok">OK</span>';
+        var errorItems = hasError
+          ? '<div class="error-list">' +
+              r.errors.map(function(e) {
+                return '<div class="error-item">' + esc(e) + '</div>';
+              }).join('') +
+            '</div>'
+          : '';
+        return '<div class="row-item">' +
+          '<div class="row-header">' +
+            '<span class="record-id">' + esc(r.record_id) + '</span>' +
+            badge +
+          '</div>' +
+          errorItems +
+        '</div>';
+      }).join('');
+
+      document.getElementById('results').innerHTML = html;
+    }
+
+    function showSummary(type, msg) {
+      var el = document.getElementById('summary');
+      el.textContent = msg;
+      el.className = type;
+      el.style.display = 'block';
+    }
+    function hideSummary() {
+      document.getElementById('summary').style.display = 'none';
+    }
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

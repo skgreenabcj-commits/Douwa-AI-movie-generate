@@ -33,6 +33,8 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('AI動画制作')
     .addItem('ワークフロー実行...', 'showRunnerDialog')
+    .addSeparator()
+    .addItem('SSML 構文チェック...', 'showSsmlCheckDialog')
     .addToUi();
 }
 
