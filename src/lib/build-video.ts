@@ -103,19 +103,24 @@ function runFfmpeg(args: string[]): Promise<void> {
  * これにより xfade トランジション中（SCENE_TRANSITION_DURATION 秒）は
  * clip0 の末尾無音 + clip1 の先頭無音が再生され、セリフが途切れない。
  * clip 総尺 = T_silence + TTS_dur + T_silence。
+ *
+ * NOTE: -loop 1 (infinite image) + filter_complex + -shortest は
+ * ffmpeg が終端を検知できずハングするため、音声ファイルを probe して
+ * -t で総尺を明示指定する。
  */
 export async function buildSceneClip(
   imagePath: string,
   audioPath: string,
   outputPath: string,
-  _durationSec: number,  // kept for API compat; clip length is determined by audio
+  durationSec: number,  // fallback when probe fails
   resolution: string
 ): Promise<void> {
   const [w, h] = resolution.split("x");
   const T = SCENE_TRANSITION_DURATION; // silence padding duration (seconds)
-  // Build silence-padded audio and scaled video in a single filter_complex.
-  // [aout] has finite duration (T + TTS + T) due to atrim on the null sources.
-  // -shortest stops the infinite image loop when [aout] is exhausted.
+  // Probe actual TTS audio duration; fall back to GSS estimate on failure.
+  const ttsDur = await probeVideoDuration(audioPath);
+  const clipDur = (ttsDur > 0 ? ttsDur : durationSec) + 2 * T;
+
   await runFfmpeg([
     "-y",
     "-loop", "1",
@@ -129,6 +134,7 @@ export async function buildSceneClip(
     `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1[vout]`,
     "-map", "[vout]",
     "-map", "[aout]",
+    "-t", clipDur.toFixed(3),   // explicit duration — avoids -shortest hang with -loop 1
     "-c:v", "libx265",
     "-preset", "fast",
     "-crf", "24",
@@ -137,7 +143,6 @@ export async function buildSceneClip(
     "-ar", "44100",
     "-pix_fmt", "yuv420p",
     "-r", "30",
-    "-shortest",
     outputPath,
   ]);
 }
