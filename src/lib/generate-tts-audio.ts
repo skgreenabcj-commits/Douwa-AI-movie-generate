@@ -108,7 +108,9 @@ export async function generateTtsAudio(
     audioConfig: {
       audioEncoding: "MP3",
       speakingRate,
-      pitch: 0.0,
+      // pitch is intentionally omitted: Chirp3-HD does not support audioConfig.pitch
+      // (causes HTTP 400 INVALID_ARGUMENT). Neural2 default (0.0) is identical to omitting.
+      // Pitch control is handled via SSML <prosody pitch="..."> instead.
     },
   };
 
