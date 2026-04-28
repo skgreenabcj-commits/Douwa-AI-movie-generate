@@ -98,33 +98,45 @@ function runFfmpeg(args: string[]): Promise<void> {
 
 /**
  * 静止画（PNG）+ 音声（MP3）からシーン mp4 を生成する。
+ *
+ * 音声の前後に SCENE_TRANSITION_DURATION 秒の無音を追加する。
+ * これにより xfade トランジション中（SCENE_TRANSITION_DURATION 秒）は
+ * clip0 の末尾無音 + clip1 の先頭無音が再生され、セリフが途切れない。
+ * clip 総尺 = T_silence + TTS_dur + T_silence。
  */
 export async function buildSceneClip(
   imagePath: string,
   audioPath: string,
   outputPath: string,
-  _durationSec: number,  // kept for API compat; clip length is determined by -shortest
+  _durationSec: number,  // kept for API compat; clip length is determined by audio
   resolution: string
 ): Promise<void> {
   const [w, h] = resolution.split("x");
-  // Do NOT pass -t: let -shortest stop at the end of the audio track.
-  // GSS duration_sec may diverge from actual TTS audio length; relying on -t
-  // would cut audio short or pad with silence.
+  const T = SCENE_TRANSITION_DURATION; // silence padding duration (seconds)
+  // Build silence-padded audio and scaled video in a single filter_complex.
+  // [aout] has finite duration (T + TTS + T) due to atrim on the null sources.
+  // -shortest stops the infinite image loop when [aout] is exhausted.
   await runFfmpeg([
     "-y",
     "-loop", "1",
     "-i", imagePath,
     "-i", audioPath,
-    "-c:v", "libx264",
+    "-filter_complex",
+    `anullsrc=r=44100:cl=stereo,atrim=duration=${T}[spre];` +
+    `anullsrc=r=44100:cl=stereo,atrim=duration=${T}[spost];` +
+    `[spre][1:a][spost]concat=n=3:v=0:a=1[aout];` +
+    `[0:v]format=rgb24,scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
+    `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1[vout]`,
+    "-map", "[vout]",
+    "-map", "[aout]",
+    "-c:v", "libx265",
     "-preset", "fast",
-    "-crf", "18",
+    "-crf", "24",
     "-c:a", "aac",
     "-b:a", "128k",
     "-ar", "44100",
     "-pix_fmt", "yuv420p",
     "-r", "30",
-    "-vf",
-    `format=rgb24,scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1`,
     "-shortest",
     outputPath,
   ]);
@@ -142,9 +154,9 @@ export async function buildBlackClip(
     "-y",
     "-f", "lavfi", "-i", `color=black:s=${resolution}:r=30`,
     "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-    "-c:v", "libx264",
+    "-c:v", "libx265",
     "-preset", "fast",
-    "-crf", "18",
+    "-crf", "24",
     "-c:a", "aac",
     "-b:a", "128k",
     "-pix_fmt", "yuv420p",
@@ -191,22 +203,28 @@ export async function mergeScenes(
     // actual clip length, causing offset > real duration → black frames.
     const offset = Math.max(0.001, currentDuration - xfadeDuration - XFADE_SAFETY);
 
+    // Audio: simple concat (no crossfade).  Scene clips have silence-padded
+    // audio (buildSceneClip), so clip0 is in its trailing silence and clip1 in
+    // its leading silence during the xfade window — effectively silent.
+    // concat audio total = clip0_dur + clip1_dur (longer than video by T).
+    // -shortest trims to video duration, cutting clip1's trailing silence only.
     await runFfmpeg([
       "-y",
       "-i", currentInput,
       "-i", clipPaths[k + 1],
       "-filter_complex",
       `[0:v][1:v]xfade=transition=wipeleft:duration=${xfadeDuration.toFixed(3)}:offset=${offset.toFixed(3)}[v];` +
-      `[0:a][1:a]acrossfade=d=${xfadeDuration.toFixed(3)}:curve1=tri:curve2=tri[a]`,
+      `[0:a][1:a]concat=n=2:v=0:a=1[a]`,
       "-map", "[v]",
       "-map", "[a]",
-      "-c:v", "libx264",
+      "-c:v", "libx265",
       "-preset", "fast",
-      "-crf", "18",
+      "-crf", "24",
       "-c:a", "aac",
       "-b:a", "128k",
       "-pix_fmt", "yuv420p",
       "-r", "30",
+      "-shortest",
       stepOut,
     ]);
 
@@ -265,9 +283,9 @@ export async function concatClips(
     "-filter_complex", filterComplex,
     "-map", "[v]",
     "-map", "[a]",
-    "-c:v", "libx264",
+    "-c:v", "libx265",
     "-preset", "fast",
-    "-crf", "18",
+    "-crf", "24",
     "-c:a", "aac",
     "-b:a", "128k",
     "-ar", "44100",
@@ -290,9 +308,9 @@ export async function burnSubtitles(
     "-y",
     "-i", inputPath,
     "-vf", `ass=${escapedAss}`,
-    "-c:v", "libx264",
+    "-c:v", "libx265",
     "-preset", "fast",
-    "-crf", "18",
+    "-crf", "24",
     "-pix_fmt", "yuv420p",
     "-c:a", "copy",
     "-movflags", "+faststart",
@@ -352,16 +370,29 @@ function toAssTime(sec: number): string {
 const SUBTITLE_FONT_SIZE = 60;
 
 /**
- * テキストを指定文字数ごとに分割して行配列を返す。
+ * テキストを指定文字数以内の行に分割して返す。
+ * 全角スペース・半角スペース・句点・読点・コンマ の直後を優先して折り返す。
+ * 自然な折り返し位置が見つからない場合は charsPerLine でハードブレーク。
  * \N に依存せず複数 Dialogue エントリで絶対座標指定する方式のために使用。
  */
 function splitSubtitleLines(text: string, charsPerLine: number): string[] {
   if (charsPerLine <= 0 || text.length <= charsPerLine) return [text];
+  // Characters after which a line break is acceptable
+  const BREAK_AFTER = new Set(["　", " ", "。", "、", ",", "，"]);
   const lines: string[] = [];
   let remaining = text;
   while (remaining.length > charsPerLine) {
-    lines.push(remaining.slice(0, charsPerLine));
-    remaining = remaining.slice(charsPerLine);
+    // Search backwards from charsPerLine for a natural break character
+    let breakPos = -1;
+    for (let i = charsPerLine - 1; i >= 0; i--) {
+      if (BREAK_AFTER.has(remaining[i])) {
+        breakPos = i + 1; // break after this character
+        break;
+      }
+    }
+    if (breakPos <= 0) breakPos = charsPerLine; // fallback: hard break
+    lines.push(remaining.slice(0, breakPos).trimEnd());
+    remaining = remaining.slice(breakPos).trimStart();
   }
   if (remaining.length > 0) lines.push(remaining);
   return lines;
@@ -379,7 +410,7 @@ export function generateAssFile(
   resolution: string
 ): void {
   const [w, h] = resolution.split("x").map(Number);
-  const marginH = Math.max(50, Math.round(w * 0.06));
+  const marginH = Math.max(50, Math.round(w * 0.03));
   // CJK full-width chars = 1em = SUBTITLE_FONT_SIZE px wide
   const charsPerLine = Math.floor((w - marginH * 2) / SUBTITLE_FONT_SIZE);
   // Vertical spacing between wrapped lines (font size + ~25% leading)
