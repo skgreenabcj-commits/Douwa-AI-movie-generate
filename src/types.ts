@@ -684,6 +684,20 @@ export interface TtsSubtitleReadRow {
 }
 
 /**
+ * RETAKE モード用 TTS サブタイトル read 型。
+ * approval_status = "RETAKE" の行を取得する。
+ * ユーザーが手動編集した tts_text をそのまま TTS API へ渡す。
+ */
+export interface TtsSubtitleRetakeRow {
+  record_id:       string;
+  related_version: TtsSubtitleVersion;
+  tts_text:        string;   // ユーザーが手動編集済み。STEP_08B がそのまま TTS API へ渡す
+  voice_style:     string;
+  speech_rate:     string;
+  audio_file:      string;   // 既存 URL（上書きされる）
+}
+
+/**
  * STEP_08A Edit Plan — AI が返す 1 scene 分の編集計画 row
  * スキーマ: tts_subtitle_schema_ai_v1.json（TTS と同一レスポンスに含まれる）
  */

@@ -92,6 +92,20 @@
     </div>
 
     <div class="mode-option">
+      <input type="radio" name="mode" id="mode-08b" value="STEP_08B">
+      <div class="mode-option-body">
+        <div class="mode-title">STEP_08B  音声生成（個別）</div>
+        <div class="mode-desc">TTS 字幕は変更せず音声ファイルのみ再生成</div>
+        <div id="retake-row-08b" style="display:none; margin-top:4px; padding:6px 10px; background:#fef7e0; border-radius:4px; border:1px solid #fdd663;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px;">
+            <input type="checkbox" id="chk-retake-08b">
+            RETAKE モード（<code>approval_status = "RETAKE"</code> の行のみ再生成）
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="mode-option">
       <input type="radio" name="mode" id="mode-09" value="STEP_09">
       <div class="mode-option-body">
         <div class="mode-title">STEP_09  Q&A 生成（個別）</div>
@@ -144,11 +158,13 @@
       }).join('');
     }
 
-    // Show/hide RETAKE option when STEP_07 is selected
+    // Show/hide RETAKE options based on selected mode
     document.querySelectorAll('input[name="mode"]').forEach(function(radio) {
       radio.addEventListener('change', function() {
         document.getElementById('retake-row').style.display =
           this.value === 'STEP_07' ? 'block' : 'none';
+        document.getElementById('retake-row-08b').style.display =
+          this.value === 'STEP_08B' ? 'block' : 'none';
       });
     });
 
@@ -171,7 +187,12 @@
       }
 
       var stepId = document.querySelector('input[name="mode"]:checked').value;
-      var isRetake = document.getElementById('chk-retake').checked;
+      // Determine RETAKE flag from the checkbox that belongs to the selected mode
+      var isRetake = stepId === 'STEP_07'
+        ? document.getElementById('chk-retake').checked
+        : stepId === 'STEP_08B'
+          ? document.getElementById('chk-retake-08b').checked
+          : false;
       var dryRun = document.getElementById('chk-dryrun').checked;
 
       document.getElementById('btn-run').disabled = true;

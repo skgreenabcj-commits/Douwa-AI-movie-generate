@@ -147,6 +147,10 @@ export async function patchTtsAudio(
       merged["tc_out"]     = patch.tc_out;
       merged["updated_at"] = patch.updated_at;
       merged["updated_by"] = patch.updated_by;
+      // Auto-reset RETAKE → PENDING on successful audio patch (STEP_07 pattern)
+      if ((rows[i]["approval_status"] ?? "").trim() === "RETAKE") {
+        merged["approval_status"] = "PENDING";
+      }
 
       const rowIndex = calcRowIndex(i);
       await updateRow(spreadsheetId, SHEET_NAME, rowIndex, TTS_HEADERS, merged);

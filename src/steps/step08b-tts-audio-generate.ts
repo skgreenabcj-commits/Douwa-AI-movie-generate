@@ -28,7 +28,10 @@ import type {
 } from "../types.js";
 import { loadRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
 import { readProjectsByIds } from "../lib/load-project-input.js";
-import { loadTtsSubtitlesByProjectId } from "../lib/load-tts-subtitles.js";
+import {
+  loadTtsSubtitlesByProjectId,
+  loadRetakeTtsSubtitlesByProjectId,
+} from "../lib/load-tts-subtitles.js";
 import { patchTtsAudio } from "../lib/write-tts-subtitles.js";
 import { patchEditPlanAudio } from "../lib/write-edit-plan.js";
 import {
@@ -115,26 +118,45 @@ export async function runStep08bTtsAudioGenerate(
         continue;
       }
 
-      // ── 未生成 TTS 行の取得（audio_file = "" のもの） ───────────────────────
+      // ── RETAKE モード検出 ──────────────────────────────────────────────────
+      // approval_status = "RETAKE" の行が 1 件でもあれば RETAKE モードで動作する。
+      // STEP_07 と同じ判定パターン（WorkflowPayload にフラグ不要）。
+      const retakeRows = await loadRetakeTtsSubtitlesByProjectId(spreadsheetId, projectId);
+      const isRetakeMode = retakeRows.length > 0;
+
+      if (isRetakeMode) {
+        logInfo(`[STEP_08B][RETAKE] Retake mode: ${retakeRows.length} row(s) targeted for project ${projectId}`);
+      }
+
+      // ── 処理対象行の選択 ─────────────────────────────────────────────────
+      // 通常モード: audio_file = "" の未生成行
+      // RETAKE モード: approval_status = "RETAKE" の行（tts_text はユーザー手動編集済み）
       const allTtsRows = await loadTtsSubtitlesByProjectId(spreadsheetId, projectId);
       const unprocessedRows = allTtsRows.filter((r) => (r.audio_file ?? "").trim() === "");
+      const targetRows = isRetakeMode ? retakeRows : unprocessedRows;
 
-      if (unprocessedRows.length === 0) {
-        logInfo(`[STEP_08B] No unprocessed TTS rows for project ${projectId}. Skipping.`);
+      if (targetRows.length === 0) {
+        logInfo(`[STEP_08B] No target TTS rows for project ${projectId}. Skipping.`);
         continue;
       }
 
-      logInfo(`[STEP_08B] ${unprocessedRows.length} unprocessed TTS rows for ${projectId}`);
+      logInfo(
+        `[STEP_08B] ${targetRows.length} target TTS rows for ${projectId}` +
+        (isRetakeMode ? " [RETAKE]" : "")
+      );
 
       // ── 各 TTS 行に対して音声生成 ────────────────────────────────────────────
-      for (const ttsRow of unprocessedRows) {
+      for (const ttsRow of targetRows) {
         const recordId       = ttsRow.record_id;
         const relatedVersion = ttsRow.related_version;
 
-        logInfo(`[STEP_08B] Generating TTS audio for ${recordId} (${relatedVersion})`);
+        logInfo(
+          `[STEP_08B] Generating TTS audio for ${recordId} (${relatedVersion})` +
+          (isRetakeMode ? " [RETAKE]" : "")
+        );
 
         if (payload.dry_run) {
-          logInfo(`[STEP_08B][DRY_RUN] Would generate audio for ${recordId}_${relatedVersion}`);
+          logInfo(`[STEP_08B][DRY_RUN] Would generate audio for ${recordId}_${relatedVersion}${isRetakeMode ? " [RETAKE]" : ""}`);
           logInfo(`  tts_text length: ${ttsRow.tts_text.length}, speech_rate: ${ttsRow.speech_rate}`);
           atLeastOneSuccess = true;
           continue;
