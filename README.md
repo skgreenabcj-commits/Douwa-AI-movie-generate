@@ -311,14 +311,16 @@ Short は Full の出力を参照する派生物。`short_use=Y` のシーンの
 
 | 項目 | 内容 |
 |---|---|
-| 入力シート | `00_Project`, `08_TTS_Subtitles`（`audio_file = ""` の行） |
-| 出力シート | `08_TTS_Subtitles`（`audio_file` パス patch）, `09_Edit_Plan`（タイムコード patch） |
-| AI | Cloud Text-to-Speech API |
+| 入力シート | `00_Project`, `08_TTS_Subtitles`（通常: `audio_file=""` の行 / RETAKE: `approval_status="RETAKE"` の行） |
+| 出力シート | `08_TTS_Subtitles`（`audio_file` / `tc_in` / `tc_out` patch）, `09_Edit_Plan`（`asset_audio` / `duration_sec` patch） |
+| AI | Cloud Text-to-Speech API（`ja-JP-Chirp3-HD-*` または `ja-JP-Neural2-B`） |
 | 外部出力 | Google Drive（MP3 ファイル） |
 | 前提条件 | `08_TTS_Subtitles` 生成済み |
-| 仕様書 | `specs/step08b_implementation_spec_v0.2.md` |
+| 仕様書 | `specs/step08b_implementation_spec_v0.3.md` |
 
-Cloud TTS で MP3 を生成 → MP3 時間を推定 → `tc_out` 計算 → Drive アップロード → シートにパスを記録。
+Cloud TTS で MP3 を生成 → **MP3 フレームヘッダー解析**で正確な duration を取得 → `tc_out` 計算 → Drive アップロード → シートにパスを記録。
+
+**RETAKE モード**: ユーザーが `tts_text` を直接編集 → `approval_status = "RETAKE"` → GAS ダイアログで `STEP_08B` + RETAKE チェックで実行。完了後 `approval_status` は自動的に `"PENDING"` に戻る。
 
 ---
 
@@ -505,6 +507,24 @@ npm run build       # dist/ へコンパイル
 ---
 
 ## 設計上の変更履歴
+
+### 2026-04-29 — STEP_08B: MP3 フレームヘッダー解析・RETAKE モード・`audioConfig.pitch` 除去
+
+**背景**
+- `duration_sec` / `tc_out` の算出に CBR 64kbps サイズ推算を使っていたが、実際の TTS 出力ビットレートは約 32kbps のため約 2 倍の誤差が発生していた（SCN-001 full: 推定 12.8s vs 実測 25s 超）
+- 特定シーンだけ音声を再生成する手段がなく、1シーンの修正でも全行を再生成する必要があった
+- Chirp3-HD 系ボイス使用時に `audioConfig.pitch: 0.0` が `HTTP 400 INVALID_ARGUMENT` を返すことが判明
+
+**変更内容**
+
+| # | 変更 | 影響ファイル |
+|---|---|---|
+| 1 | `estimateMp3DurationSec` を MP3 フレームヘッダー解析方式に変更 | `src/lib/generate-tts-audio.ts` |
+| 2 | RETAKE モード追加（`approval_status="RETAKE"` 行のみ再生成） | `src/types.ts`, `src/lib/load-tts-subtitles.ts`, `src/lib/write-tts-subtitles.ts`, `src/steps/step08b-tts-audio-generate.ts` |
+| 3 | GAS ダイアログに `STEP_08B`（音声のみ）選択肢と RETAKE チェックを追加 | `gas/Code.gs`, `gas/Dialog.html` |
+| 4 | `audioConfig.pitch` を除去（Chirp3-HD 非対応。Neural2 でも 0.0 = デフォルトと等価） | `src/lib/generate-tts-audio.ts` |
+
+---
 
 ### 2026-04-25 — STEP_04/05: Google Sheets Read クォータ対策（batchGet 一括取得）
 
