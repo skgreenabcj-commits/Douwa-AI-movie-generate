@@ -52,6 +52,19 @@ export const SCENE_TRANSITION_DURATION = 0.7;
 // mergeScenes (offset calc + duration accumulation) and buildSubtitleEntries.
 export const XFADE_SAFETY = 0.1;
 
+// Codec settings for intermediate clips (re-encoded by burnSubtitles, so quality
+// doesn't matter here — use H.264 ultrafast to minimize total encode time).
+// Pairwise merging is O(n^2) in encoded video-seconds; H.265 fast would make
+// 24-scene Full videos take 40+ minutes in mergeScenes alone.
+const INTERMEDIATE_CODEC = "libx264";
+const INTERMEDIATE_PRESET = "ultrafast";
+const INTERMEDIATE_CRF = "18";
+
+// Final output codec — used only by burnSubtitles (single full-video encode).
+const OUTPUT_CODEC = "libx265";
+const OUTPUT_PRESET = "fast";
+const OUTPUT_CRF = "24";
+
 // アスペクト比 → 解像度マッピング
 const ASPECT_TO_RESOLUTION: Record<string, string> = {
   "16:9": "1920x1080",
@@ -135,9 +148,9 @@ export async function buildSceneClip(
     "-map", "[vout]",
     "-map", "[aout]",
     "-t", clipDur.toFixed(3),   // explicit duration — avoids -shortest hang with -loop 1
-    "-c:v", "libx265",
-    "-preset", "fast",
-    "-crf", "24",
+    "-c:v", INTERMEDIATE_CODEC,
+    "-preset", INTERMEDIATE_PRESET,
+    "-crf", INTERMEDIATE_CRF,
     "-c:a", "aac",
     "-b:a", "128k",
     "-ar", "44100",
@@ -159,9 +172,9 @@ export async function buildBlackClip(
     "-y",
     "-f", "lavfi", "-i", `color=black:s=${resolution}:r=30`,
     "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-    "-c:v", "libx265",
-    "-preset", "fast",
-    "-crf", "24",
+    "-c:v", INTERMEDIATE_CODEC,
+    "-preset", INTERMEDIATE_PRESET,
+    "-crf", INTERMEDIATE_CRF,
     "-c:a", "aac",
     "-b:a", "128k",
     "-pix_fmt", "yuv420p",
@@ -222,9 +235,9 @@ export async function mergeScenes(
       `[0:a][1:a]concat=n=2:v=0:a=1[a]`,
       "-map", "[v]",
       "-map", "[a]",
-      "-c:v", "libx265",
-      "-preset", "fast",
-      "-crf", "24",
+      "-c:v", INTERMEDIATE_CODEC,
+      "-preset", INTERMEDIATE_PRESET,
+      "-crf", INTERMEDIATE_CRF,
       "-c:a", "aac",
       "-b:a", "128k",
       "-pix_fmt", "yuv420p",
@@ -288,9 +301,9 @@ export async function concatClips(
     "-filter_complex", filterComplex,
     "-map", "[v]",
     "-map", "[a]",
-    "-c:v", "libx265",
-    "-preset", "fast",
-    "-crf", "24",
+    "-c:v", INTERMEDIATE_CODEC,
+    "-preset", INTERMEDIATE_PRESET,
+    "-crf", INTERMEDIATE_CRF,
     "-c:a", "aac",
     "-b:a", "128k",
     "-ar", "44100",
@@ -313,9 +326,9 @@ export async function burnSubtitles(
     "-y",
     "-i", inputPath,
     "-vf", `ass=${escapedAss}`,
-    "-c:v", "libx265",
-    "-preset", "fast",
-    "-crf", "24",
+    "-c:v", OUTPUT_CODEC,
+    "-preset", OUTPUT_PRESET,
+    "-crf", OUTPUT_CRF,
     "-pix_fmt", "yuv420p",
     "-c:a", "copy",
     "-movflags", "+faststart",
