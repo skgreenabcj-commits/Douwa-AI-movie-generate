@@ -30,3 +30,48 @@
     ]
   }
 }
+
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git *)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rtk hook claude",
+            "statusMessage": "Optimizing git command output..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": {
+          "tool_name": "write_file",
+          "file_paths": ["src/**"]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npm run typecheck && npm run build",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "tool_name": "write_file",
+          "file_paths": ["dist/**"]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[BLOCKED] dist/ への直接編集は禁止です。src/ を編集してください。' && exit 1",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
