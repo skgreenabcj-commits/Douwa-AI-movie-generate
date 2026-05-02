@@ -80,8 +80,8 @@ import {
   validateScriptFullAiResponse,
   validateScriptShortAiResponse,
 } from "../lib/validate-json.js";
-import { upsertScriptFull } from "../lib/write-script-full.js";
-import { upsertScriptShort } from "../lib/write-script-short.js";
+import { upsertScriptFull, markScriptFullGenerationFailed } from "../lib/write-script-full.js";
+import { upsertScriptShort, markScriptShortGenerationFailed } from "../lib/write-script-short.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   appendAppLog,
@@ -407,6 +407,15 @@ export async function runStep04_05ScriptBuild(
       }
     }
 
+    // 04_Script_Full の generation_status を "FAILED" に更新（Full 失敗時のみ）
+    if (runFull && !fullSuccess && !payload.dry_run) {
+      try {
+        await markScriptFullGenerationFailed(spreadsheetId, projectId, new Date().toISOString());
+      } catch (markErr) {
+        logError(`Failed to mark generation_status=FAILED for ${projectId} in 04_Script_Full`, markErr);
+      }
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // STEP_04 Short Script Build
     // ─────────────────────────────────────────────────────────────────────
@@ -610,6 +619,15 @@ export async function runStep04_05ScriptBuild(
           } catch (_) { /* ignore */ }
           shortResult = "fail";
         }
+      }
+    }
+
+    // 03_Script_Short の generation_status を "FAILED" に更新（Short 失敗時のみ）
+    if (runShort && shortResult === "fail" && !payload.dry_run) {
+      try {
+        await markScriptShortGenerationFailed(spreadsheetId, projectId, new Date().toISOString());
+      } catch (markErr) {
+        logError(`Failed to mark generation_status=FAILED for ${projectId} in 03_Script_Short`, markErr);
       }
     }
 

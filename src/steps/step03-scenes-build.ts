@@ -37,7 +37,7 @@ import {
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
 import { validateSceneAiResponse } from "../lib/validate-json.js";
-import { upsertScene, generateSceneId } from "../lib/write-scenes.js";
+import { upsertScene, generateSceneId, markScenesGenerationFailed } from "../lib/write-scenes.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   appendAppLog,
@@ -359,5 +359,12 @@ async function handleStep03Failure(
     await appendAppLog(spreadsheetId, failLog);
   } catch (logErr) {
     logError(`Failed to write failure log for ${projectId}`, logErr);
+  }
+
+  // 02_Scenes の generation_status を "FAILED" に更新（行が存在する場合のみ）
+  try {
+    await markScenesGenerationFailed(spreadsheetId, projectId, now);
+  } catch (markErr) {
+    logError(`Failed to mark generation_status=FAILED for ${projectId} in 02_Scenes`, markErr);
   }
 }

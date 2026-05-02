@@ -42,7 +42,7 @@ import { filterProjectsByIds } from "../lib/load-project-input.js";
 import { filterVideoAssets } from "../lib/load-video-assets.js";
 import { readSheetsBatch } from "../lib/sheets-client.js";
 import { downloadFileFromDrive, uploadImageToDrive, ensurePjtFolder } from "../lib/upload-to-drive.js";
-import { upsertVideoAsset } from "../lib/write-assets.js";
+import { upsertVideoAsset, markAssetsGenerationFailed } from "../lib/write-assets.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import { appendAppLog } from "../lib/write-app-log.js";
 import { logInfo, logError } from "../lib/logger.js";
@@ -323,6 +323,14 @@ export async function runStep10VideoBuild(
             timestamp:    new Date().toISOString(),
             app_log:      `[ERROR][VIDEO_BUILD_FAILED] version=${version}: ${err instanceof Error ? err.message : String(err)}`,
           });
+
+          if (!dry_run) {
+            try {
+              await markAssetsGenerationFailed(spreadsheetId, projectId, new Date().toISOString());
+            } catch (markErr) {
+              logError(`[STEP_10] Failed to mark generation_status=FAILED for ${projectId} in 07_Assets`, markErr);
+            }
+          }
         }
       }
 

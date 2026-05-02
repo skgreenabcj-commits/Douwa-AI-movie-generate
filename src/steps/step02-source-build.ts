@@ -34,7 +34,7 @@ import { loadStep02Assets } from "../lib/load-assets.js";
 import { buildStep02Prompt } from "../lib/build-prompt.js";
 import { callGemini, buildGeminiOptionsStep02, GeminiSpendingCapError } from "../lib/call-gemini.js";
 import { validateSourceAiResponse } from "../lib/validate-json.js";
-import { upsertSource } from "../lib/write-source.js";
+import { upsertSource, markSourceGenerationFailed } from "../lib/write-source.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   appendAppLog,
@@ -314,5 +314,12 @@ async function handleStep02Failure(
     await appendAppLog(spreadsheetId, failLog);
   } catch (logErr) {
     logError(`Failed to write failure log for ${projectId}`, logErr);
+  }
+
+  // 01_Source の generation_status を "FAILED" に更新（行が存在する場合のみ）
+  try {
+    await markSourceGenerationFailed(spreadsheetId, projectId, now);
+  } catch (markErr) {
+    logError(`Failed to mark generation_status=FAILED for ${projectId} in 01_Source`, markErr);
   }
 }

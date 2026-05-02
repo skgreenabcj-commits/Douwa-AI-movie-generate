@@ -15,6 +15,8 @@ var DEFAULT_REF = 'main';
 /** @const */
 var SHEET_PROJECT = '00_Project';
 /** @const */
+var SHEET_SOURCE = '01_Source';
+/** @const */
 var SHEET_IMAGE_PROMPTS = '06_Image_Prompts';
 /** @const */
 var SHEET_TTS_SUBTITLES = '08_TTS_Subtitles';
@@ -91,6 +93,67 @@ function getActiveProjects() {
       var title = titleIdx >= 0 && row[titleIdx] ? String(row[titleIdx]).trim() : '';
       return { project_id: pid, label: title ? pid + '  ' + title : pid };
     });
+}
+
+/**
+ * Validates that all given project IDs have 01_Source.approval_status = "APPROVED".
+ * Called before dispatching STEP_02_TO_06 to prevent running downstream steps
+ * without human review of the source material.
+ * @param {string[]} projectIds
+ * @returns {{valid: boolean, message?: string}}
+ */
+function validateSourceApproval(projectIds) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_SOURCE);
+  if (!sheet) return { valid: false, message: '01_Source シートが見つかりません' };
+
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < HEADER_ROW || lastCol < START_COL) {
+    return { valid: false, message: '01_Source にデータがありません。STEP_01 を先に実行してください。' };
+  }
+
+  var colCount = lastCol - START_COL + 1;
+  var headers = sheet.getRange(HEADER_ROW, START_COL, 1, colCount).getValues()[0];
+  var pidIdx = headers.indexOf('project_id');
+  var approvalIdx = headers.indexOf('approval_status');
+
+  if (pidIdx < 0 || approvalIdx < 0) {
+    return { valid: false, message: '01_Source に必要なカラム (project_id / approval_status) が見つかりません' };
+  }
+  if (lastRow < DATA_START_ROW) {
+    return { valid: false, message: '01_Source にデータ行がありません。STEP_01 を先に実行してください。' };
+  }
+
+  var rowCount = lastRow - DATA_START_ROW + 1;
+  var rows = sheet.getRange(DATA_START_ROW, START_COL, rowCount, colCount).getValues();
+
+  var notApproved = [];
+  projectIds.forEach(function(pid) {
+    var found = false;
+    rows.forEach(function(row) {
+      var rowPid = row[pidIdx] ? String(row[pidIdx]).trim() : '';
+      if (rowPid !== pid) return;
+      found = true;
+      var approval = row[approvalIdx] ? String(row[approvalIdx]).trim() : '';
+      if (approval !== 'APPROVED') {
+        notApproved.push(pid + '（現在: ' + (approval || '未設定') + '）');
+      }
+    });
+    if (!found) {
+      notApproved.push(pid + '（01_Source に行なし — STEP_01 未実行）');
+    }
+  });
+
+  if (notApproved.length > 0) {
+    return {
+      valid: false,
+      message: '以下のプロジェクトは 01_Source.approval_status が APPROVED ではありません。\n' +
+               '01_Source シートで approval_status を APPROVED に設定してから実行してください。\n\n' +
+               notApproved.join('\n')
+    };
+  }
+  return { valid: true };
 }
 
 /**
@@ -203,6 +266,14 @@ function runWorkflow(params) {
 
   if (!projectIds || projectIds.length === 0) {
     return { success: false, alertMessage: 'project_id を1つ以上選択してください' };
+  }
+
+  // Pre-flight: STEP_02_TO_06 requires 01_Source.approval_status = APPROVED
+  if (stepId === 'STEP_02_TO_06') {
+    var sourceValidation = validateSourceApproval(projectIds);
+    if (!sourceValidation.valid) {
+      return { success: false, alertMessage: sourceValidation.message };
+    }
   }
 
   // RETAKE pre-flight check (GAS-side, before touching GitHub)

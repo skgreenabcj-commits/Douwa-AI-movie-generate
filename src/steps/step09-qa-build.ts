@@ -52,7 +52,7 @@ import {
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
 import { validateQaAiResponse } from "../lib/validate-json.js";
-import { upsertQa } from "../lib/write-qa.js";
+import { upsertQa, markQaGenerationFailed } from "../lib/write-qa.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   appendAppLog,
@@ -459,6 +459,11 @@ export async function runStep09QaBuild(
         }
       }
 
+      // 失敗時: 10_QA の既存行を FAILED に更新
+      if (!atLeastOneSuccess && !payload.dry_run) {
+        try { await markQaGenerationFailed(spreadsheetId, projectId, new Date().toISOString()); } catch (_) {}
+      }
+
       // ── 00_Project 最小更新 ────────────────────────────────────────────────
       if (atLeastOneSuccess && !payload.dry_run) {
         const patch: ProjectMinimalPatch = {
@@ -491,6 +496,9 @@ export async function runStep09QaBuild(
           buildStep09FailureLog(projectId, projectRecordId, "unexpected_error", msg)
         );
       } catch (_) {}
+      if (!payload.dry_run) {
+        try { await markQaGenerationFailed(spreadsheetId, projectId, new Date().toISOString()); } catch (_) {}
+      }
     }
   }
 

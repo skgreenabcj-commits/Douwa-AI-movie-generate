@@ -32,8 +32,8 @@ import { loadRuntimeConfig } from "../lib/load-runtime-config.js";
 import { readProjectsByIds } from "../lib/load-project-input.js";
 import { loadStep08aAssets } from "../lib/load-assets.js";
 import { loadFullScriptByProjectId, loadShortScriptByProjectId } from "../lib/load-script.js";
-import { batchUpsertTtsSubtitles } from "../lib/write-tts-subtitles.js";
-import { batchUpsertEditPlans } from "../lib/write-edit-plan.js";
+import { batchUpsertTtsSubtitles, markTtsSubtitlesGenerationFailed } from "../lib/write-tts-subtitles.js";
+import { batchUpsertEditPlans, markEditPlanGenerationFailed } from "../lib/write-edit-plan.js";
 import { buildStep08aFullPrompt, buildStep08aShortPrompt } from "../lib/build-prompt.js";
 import {
   callGemini,
@@ -455,6 +455,13 @@ export async function runStep08aTtsSubtitleEditPlan(
         }
       }
 
+      // 失敗時: 08_TTS_Subtitles / 09_Edit_Plan の既存行を FAILED に更新
+      if (!atLeastOneSuccess && !payload.dry_run) {
+        const nowFail = new Date().toISOString();
+        try { await markTtsSubtitlesGenerationFailed(spreadsheetId, projectId, nowFail); } catch (_) {}
+        try { await markEditPlanGenerationFailed(spreadsheetId, projectId, nowFail); } catch (_) {}
+      }
+
       // ── 00_Project 最小更新 ──────────────────────────────────────────────────
       if (atLeastOneSuccess && !payload.dry_run) {
         const patch: ProjectMinimalPatch = {
@@ -482,6 +489,11 @@ export async function runStep08aTtsSubtitleEditPlan(
         await appendAppLog(spreadsheetId,
           buildStep08aFailureLog(projectId, projectRecordId, "unexpected_error", msg));
       } catch (_) {}
+      if (!payload.dry_run) {
+        const nowFail = new Date().toISOString();
+        try { await markTtsSubtitlesGenerationFailed(spreadsheetId, projectId, nowFail); } catch (_) {}
+        try { await markEditPlanGenerationFailed(spreadsheetId, projectId, nowFail); } catch (_) {}
+      }
       totalFail++;
     }
 

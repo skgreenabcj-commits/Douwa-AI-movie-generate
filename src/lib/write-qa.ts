@@ -92,3 +92,31 @@ function buildRowData(row: QaRow): Record<string, string> {
   }
   return result;
 }
+
+/**
+ * Marks generation_status = "FAILED" for all existing rows of the given project_id.
+ * Preserves all other field values (read-modify-write).
+ * No-op if no matching rows exist or dryRun is true.
+ */
+export async function markQaGenerationFailed(
+  spreadsheetId: string,
+  projectId: string,
+  now: string,
+  dryRun = false
+): Promise<void> {
+  if (dryRun) return;
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  for (let i = 0; i < rows.length; i++) {
+    if ((rows[i]["project_id"] ?? "").trim() !== projectId.trim()) continue;
+    const rowData: Record<string, string> = {};
+    for (const key of QA_HEADERS) {
+      const k = String(key);
+      rowData[k] =
+        k === "generation_status" ? "FAILED"
+        : k === "updated_at"      ? now
+        : k === "updated_by"      ? "github_actions"
+        : (rows[i][k] ?? "");
+    }
+    await updateRow(spreadsheetId, SHEET_NAME, calcRowIndex(i), QA_HEADERS.map(String), rowData);
+  }
+}

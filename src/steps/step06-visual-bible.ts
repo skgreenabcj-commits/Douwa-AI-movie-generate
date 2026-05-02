@@ -51,7 +51,7 @@ import {
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
 import { validateVisualBibleAiResponse } from "../lib/validate-json.js";
-import { upsertVisualBible } from "../lib/write-visual-bible.js";
+import { upsertVisualBible, markVisualBibleGenerationFailed } from "../lib/write-visual-bible.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   appendAppLog,
@@ -186,6 +186,9 @@ export async function runStep06VisualBible(
             buildStep06FailureLog(projectId, projectRecordId, "schema_validation_failure", msg)
           );
         } catch (_) {}
+        try {
+          await markVisualBibleGenerationFailed(spreadsheetId, projectId, new Date().toISOString());
+        } catch (_) {}
         continue;
       }
 
@@ -304,6 +307,9 @@ export async function runStep06VisualBible(
           spreadsheetId,
           buildStep06FailureLog(projectId, projectRecordId, "unexpected_error", msg)
         );
+      } catch (_) {}
+      try {
+        await markVisualBibleGenerationFailed(spreadsheetId, projectId, new Date().toISOString());
       } catch (_) {}
     }
   }

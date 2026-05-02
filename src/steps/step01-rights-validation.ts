@@ -31,7 +31,7 @@ import { callGemini, buildGeminiOptions } from "../lib/call-gemini.js";
 import { validateAiResponse } from "../lib/validate-json.js";
 import { normalizeAiRow } from "../lib/normalize-ai-row.js";
 import { applyFastPass } from "../lib/apply-fast-pass.js";
-import { upsertRightsValidation } from "../lib/write-rights-validation.js";
+import { upsertRightsValidation, markRightsValidationGenerationFailed } from "../lib/write-rights-validation.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   appendAppLog,
@@ -256,5 +256,12 @@ async function handleProjectFailure(
       `Failed to write failure log for ${projectId}`,
       logErr
     );
+  }
+
+  // 00_Rights_Validation の generation_status を "FAILED" に更新（行が存在する場合のみ）
+  try {
+    await markRightsValidationGenerationFailed(spreadsheetId, projectId, now);
+  } catch (markErr) {
+    logError(`Failed to mark generation_status=FAILED for ${projectId} in 00_Rights_Validation`, markErr);
   }
 }
