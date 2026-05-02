@@ -1,6 +1,6 @@
 /**
  * StepId: GitHub Actions STEP_ID 環境変数で使用する値。
- * 複合ステップ（STEP_04_05 / STEP_01_TO_06 / STEP_02_TO_06）は1回の起動で複数 STEP を順次実行する。
+ * 複合ステップ（STEP_04_05 / STEP_01_TO_06 / STEP_01_02 / STEP_03_TO_06）は1回の起動で複数 STEP を順次実行する。
  */
 export type StepId =
   | "STEP_01"                       // Rights Validation
@@ -8,7 +8,8 @@ export type StepId =
   | "STEP_03"                       // Scenes Build
   | "STEP_04_05"                    // Short + Full Script Build (combined)
   | "STEP_01_TO_06"                 // STEP_01〜06 連続実行（後方互換）
-  | "STEP_02_TO_06"                 // STEP_02〜06 連続実行（GAS: 01_Source APPROVED 後に使用）
+  | "STEP_01_02"                    // STEP_01〜02 連続実行（権利確認 → ソース生成）
+  | "STEP_03_TO_06"                 // STEP_03〜06 連続実行（GAS: 01_Source APPROVED 後に使用）
   | "STEP_04_SHORT_SCRIPT_BUILD"    // GSS step_id / current_step 値（Short 完了）
   | "STEP_05_FULL_SCRIPT_BUILD"     // GSS step_id / current_step 値（Full 完了）
   | "STEP_04_05_COMBINED"           // current_step 値（Short+Full 両方完了）

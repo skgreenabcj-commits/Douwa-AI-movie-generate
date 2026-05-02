@@ -97,7 +97,7 @@ function getActiveProjects() {
 
 /**
  * Validates that all given project IDs have 01_Source.approval_status = "APPROVED".
- * Called before dispatching STEP_02_TO_06 to prevent running downstream steps
+ * Called before dispatching STEP_03_TO_06 to prevent running downstream steps
  * without human review of the source material.
  * @param {string[]} projectIds
  * @returns {{valid: boolean, message?: string}}
@@ -268,8 +268,8 @@ function runWorkflow(params) {
     return { success: false, alertMessage: 'project_id を1つ以上選択してください' };
   }
 
-  // Pre-flight: STEP_02_TO_06 requires 01_Source.approval_status = APPROVED
-  if (stepId === 'STEP_02_TO_06') {
+  // Pre-flight: STEP_03_TO_06 requires 01_Source.approval_status = APPROVED
+  if (stepId === 'STEP_03_TO_06') {
     var sourceValidation = validateSourceApproval(projectIds);
     if (!sourceValidation.valid) {
       return { success: false, alertMessage: sourceValidation.message };

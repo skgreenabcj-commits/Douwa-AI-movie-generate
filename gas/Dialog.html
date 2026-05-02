@@ -62,18 +62,18 @@
     <label class="section-label">実行モード</label>
 
     <div class="mode-option">
-      <input type="radio" name="mode" id="mode-01" value="STEP_01">
+      <input type="radio" name="mode" id="mode-01-02" value="STEP_01_02" checked>
       <div class="mode-option-body">
-        <div class="mode-title">STEP_01  権利確認（個別）</div>
-        <div class="mode-desc">著作権・権利ステータスを確認し 00_Rights_Validation に書き込む</div>
+        <div class="mode-title">STEP_01〜02  権利確認・ソース生成（連続）</div>
+        <div class="mode-desc">著作権確認 → ソース生成を順番に実行。00_Rights_Validation に APPROVED が必要（STEP_02 内部チェック）</div>
       </div>
     </div>
 
     <div class="mode-option">
-      <input type="radio" name="mode" id="mode-02-06" value="STEP_02_TO_06" checked>
+      <input type="radio" name="mode" id="mode-03-06" value="STEP_03_TO_06">
       <div class="mode-option-body">
-        <div class="mode-title">STEP_02〜06  ソース→ビジュアルバイブル（連続）</div>
-        <div class="mode-desc">01_Source.approval_status = APPROVED のプロジェクトのみ実行可。ソース → シーン → 脚本 → ビジュアルバイブルを順番に実行</div>
+        <div class="mode-title">STEP_03〜06  シーン→ビジュアルバイブル（連続）</div>
+        <div class="mode-desc">01_Source.approval_status = APPROVED のプロジェクトのみ実行可。シーン → 脚本 → ビジュアルバイブルを順番に実行</div>
       </div>
     </div>
 

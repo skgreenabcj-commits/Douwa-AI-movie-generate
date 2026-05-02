@@ -94,18 +94,26 @@ async function main(): Promise<void> {
       console.log("[INFO] STEP_01_TO_06: All steps completed successfully.");
       break;
 
-    case "STEP_02_TO_06":
-      // Run STEP_02 through STEP_06 sequentially.
-      // Requires 01_Source.approval_status = APPROVED (validated GAS-side before dispatch).
-      console.log("[INFO] STEP_02_TO_06: Running STEP_02 → 03 → 04_05 → 06 sequentially.");
+    case "STEP_01_02":
+      // Run STEP_01 then STEP_02 sequentially.
+      // STEP_02 internally checks 00_Rights_Validation.rights_status = APPROVED.
+      console.log("[INFO] STEP_01_02: Running STEP_01 → 02 sequentially.");
+      await runStep01RightsValidation(payload, spreadsheetId);
+      console.log("[INFO] STEP_01_02: STEP_01 complete. Proceeding to STEP_02.");
       await runStep02SourceBuild(payload, spreadsheetId);
-      console.log("[INFO] STEP_02_TO_06: STEP_02 complete. Proceeding to STEP_03.");
+      console.log("[INFO] STEP_01_02: All steps completed successfully.");
+      break;
+
+    case "STEP_03_TO_06":
+      // Run STEP_03 through STEP_06 sequentially.
+      // Requires 01_Source.approval_status = APPROVED (validated GAS-side before dispatch).
+      console.log("[INFO] STEP_03_TO_06: Running STEP_03 → 04_05 → 06 sequentially.");
       await runStep03ScenesBuild(payload, spreadsheetId);
-      console.log("[INFO] STEP_02_TO_06: STEP_03 complete. Proceeding to STEP_04_05.");
+      console.log("[INFO] STEP_03_TO_06: STEP_03 complete. Proceeding to STEP_04_05.");
       await runStep04_05ScriptBuild(payload, spreadsheetId);
-      console.log("[INFO] STEP_02_TO_06: STEP_04_05 complete. Proceeding to STEP_06.");
+      console.log("[INFO] STEP_03_TO_06: STEP_04_05 complete. Proceeding to STEP_06.");
       await runStep06VisualBible(payload, spreadsheetId);
-      console.log("[INFO] STEP_02_TO_06: All steps completed successfully.");
+      console.log("[INFO] STEP_03_TO_06: All steps completed successfully.");
       break;
 
     case "STEP_07":
