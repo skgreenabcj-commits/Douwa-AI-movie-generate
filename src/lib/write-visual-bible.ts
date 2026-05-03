@@ -82,6 +82,57 @@ export async function upsertVisualBible(
   return recordId;
 }
 
+/**
+ * Upserts multiple VisualBibleRows in a single batch.
+ * Reads the sheet once, builds a record_id → row-index map, then UPDATE/INSERT
+ * each row without re-reading. This avoids the N+1 readSheet quota issue.
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param rows          - 書き込む VisualBibleRow の配列
+ */
+export async function batchUpsertVisualBible(
+  spreadsheetId: string,
+  rows: VisualBibleRow[]
+): Promise<void> {
+  if (rows.length === 0) return;
+
+  // Read sheet once
+  const existingRows = await readSheet(spreadsheetId, SHEET_NAME);
+
+  // Build record_id → row-index map (0-based)
+  const recordIdMap = new Map<string, number>();
+  existingRows.forEach((r, i) => {
+    const rid = (r["record_id"] ?? "").trim();
+    if (rid) recordIdMap.set(rid, i);
+  });
+
+  let insertOffset = 0;
+  for (const row of rows) {
+    const rid = row.record_id.trim();
+    const rowData = buildRowData(row);
+    if (recordIdMap.has(rid)) {
+      // UPDATE existing row
+      await updateRow(
+        spreadsheetId,
+        SHEET_NAME,
+        calcRowIndex(recordIdMap.get(rid)!),
+        VISUAL_BIBLE_HEADERS,
+        rowData
+      );
+    } else {
+      // INSERT at next empty row
+      await updateRow(
+        spreadsheetId,
+        SHEET_NAME,
+        calcRowIndex(existingRows.length + insertOffset),
+        VISUAL_BIBLE_HEADERS,
+        rowData
+      );
+      insertOffset++;
+    }
+  }
+}
+
 // ─── Private helpers ─────────────────────────────────────────────────────────
 
 function buildRowData(row: VisualBibleRow): Record<string, string> {

@@ -66,7 +66,7 @@ import type {
 import { parseRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
 import { filterProjectsByIds } from "../lib/load-project-input.js";
 import { filterScenesByProjectId } from "../lib/load-scenes.js";
-import { filterFullScriptByProjectId } from "../lib/load-script.js";
+import { loadFullScriptByProjectId } from "../lib/load-script.js";
 import { readSheetsBatch } from "../lib/sheets-client.js";
 import { loadStep04Assets, loadStep05Assets } from "../lib/load-assets.js";
 import { buildStep04Prompt, buildStep05Prompt } from "../lib/build-prompt.js";
@@ -460,11 +460,8 @@ export async function runStep04_05ScriptBuild(
             let hasFullScript = false;
 
             if (videoFormat === "short+full" && fullSuccess) {
-              // Full script をメモリ内フィルタ（batchGet 済みデータを使用、API 呼び出しなし）
-              fullScripts = filterFullScriptByProjectId(
-                batchData.get("04_Script_Full") ?? [],
-                projectId
-              );
+              // Full script を直接 API 読み込み（batchData は STEP_05 書き込み前にキャッシュ済みのため使用不可）
+              fullScripts = await loadFullScriptByProjectId(spreadsheetId, projectId);
               hasFullScript = fullScripts.length > 0;
               if (!hasFullScript) {
                 // Full rows が 0 件 → Short は Full 参照前提のため dependency failure として skip

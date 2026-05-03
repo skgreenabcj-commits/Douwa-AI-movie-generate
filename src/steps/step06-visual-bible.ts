@@ -51,7 +51,7 @@ import {
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
 import { validateVisualBibleAiResponse } from "../lib/validate-json.js";
-import { upsertVisualBible, markVisualBibleGenerationFailed } from "../lib/write-visual-bible.js";
+import { batchUpsertVisualBible, markVisualBibleGenerationFailed } from "../lib/write-visual-bible.js";
 import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   appendAppLog,
@@ -217,41 +217,43 @@ export async function runStep06VisualBible(
       let successCount = 0;
       let failCount = 0;
 
-      for (const { ai, record_id } of assigned) {
-        const row: VisualBibleRow = {
-          ...ai,
-          project_id:        projectId,
-          record_id,
-          generation_status: "GENERATED",
-          approval_status:   "PENDING",
-          step_id:           "STEP_06_VISUAL_BIBLE",
-          updated_at:        now,
-          updated_by:        "github_actions",
-          notes:             "",
-        };
+      // Build all rows first, then upsert in a single batch (1 readSheet instead of N)
+      const visualBibleRows: VisualBibleRow[] = assigned.map(({ ai, record_id }) => ({
+        ...ai,
+        project_id:        projectId,
+        record_id,
+        generation_status: "GENERATED",
+        approval_status:   "PENDING",
+        step_id:           "STEP_06_VISUAL_BIBLE",
+        updated_at:        now,
+        updated_by:        "github_actions",
+        notes:             "",
+      }));
 
-        if (payload.dry_run) {
+      if (payload.dry_run) {
+        for (const { ai, record_id } of assigned) {
           logInfo(`[STEP_06][DRY_RUN] Would upsert: ${record_id} (${ai.category}: ${ai.key_name})`);
-          successCount++;
-          continue;
         }
-
+        successCount = assigned.length;
+      } else {
         try {
-          await upsertVisualBible(spreadsheetId, row);
-          logInfo(`[STEP_06] Upserted: ${record_id} (${ai.category}: ${ai.key_name})`);
-          successCount++;
+          await batchUpsertVisualBible(spreadsheetId, visualBibleRows);
+          for (const { ai, record_id } of assigned) {
+            logInfo(`[STEP_06] Upserted: ${record_id} (${ai.category}: ${ai.key_name})`);
+          }
+          successCount = assigned.length;
         } catch (upsertErr) {
           const msg =
-            `[STEP_06] upsertVisualBible failed for ${record_id}: ` +
+            `[STEP_06] batchUpsertVisualBible failed for ${projectId}: ` +
             (upsertErr instanceof Error ? upsertErr.message : String(upsertErr));
           logError(msg);
           try {
             await appendAppLog(
               spreadsheetId,
-              buildStep06FailureLog(projectId, record_id, "upsert_failure", msg)
+              buildStep06FailureLog(projectId, projectRecordId, "upsert_failure", msg)
             );
           } catch (_) {}
-          failCount++;
+          failCount = assigned.length;
         }
       }
 
