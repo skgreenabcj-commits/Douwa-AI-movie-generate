@@ -20,6 +20,7 @@ import { runStep03ScenesBuild } from "./steps/step03-scenes-build.js";
 import { runStep04_05ScriptBuild } from "./steps/step04-05-script-build.js";
 import { runStep06VisualBible } from "./steps/step06-visual-bible.js";
 import { runStep07ImagePrompts } from "./steps/step07-image-prompts.js";
+import { runStep07bImageGenerate } from "./steps/step07b-image-generate.js";
 import { runStep08aTtsSubtitleEditPlan } from "./steps/step08a-tts-subtitle-edit-plan.js";
 import { runStep08bTtsAudioGenerate } from "./steps/step08b-tts-audio-generate.js";
 import { runStep09QaBuild } from "./steps/step09-qa-build.js";
@@ -118,6 +119,10 @@ async function main(): Promise<void> {
 
     case "STEP_07":
       await runStep07ImagePrompts(payload, spreadsheetId);
+      break;
+
+    case "STEP_07B":
+      await runStep07bImageGenerate(payload, spreadsheetId);
       break;
 
     case "STEP_08A":

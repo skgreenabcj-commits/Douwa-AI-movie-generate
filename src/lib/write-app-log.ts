@@ -371,6 +371,51 @@ export function buildStep07FailureLog(
   };
 }
 
+// ─── STEP_07B ログビルダー（Image Generate）─────────────────────────────────
+
+export function buildStep07bSuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_07B_IMAGE_GENERATE",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep07bPartialSuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_07B_IMAGE_GENERATE",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[WARN][partial_success] ${message}`,
+  };
+}
+
+export function buildStep07bFailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_07B_IMAGE_GENERATE",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[ERROR][${errorType}] ${message}`,
+  };
+}
+
 // ─── STEP_08A ログビルダー（TTS Subtitle & Edit Plan Build）─────────────────
 
 export function buildStep08aSuccessLog(

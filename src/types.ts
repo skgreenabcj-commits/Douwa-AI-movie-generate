@@ -562,6 +562,31 @@ export interface ImagePromptRetakeRow {
   image_take_2:       string;  // 退避先（既存値を上書きしないよう参照）
 }
 
+/**
+ * STEP_07B 画像生成用 read 型。
+ * generation_status = "PENDING" の行を取得し、既存プロンプトで画像を生成する。
+ * approval_status = "RETAKE" の行は旧 image_take_1 を image_take_2 に退避する。
+ */
+export interface ImagePromptPendingRow {
+  project_id:              string;
+  record_id:               string;
+  related_version:         string;  // = 02_Scenes.record_id
+  approval_status:         string;  // "PENDING" | "RETAKE"
+  scene_no:                string;
+  prompt_full:             string;
+  prompt_base:             string;
+  prompt_character:        string;
+  prompt_scene:            string;
+  prompt_composition:      string;
+  negative_prompt:         string;
+  image_take_1:            string;  // RETAKE 時に image_take_2 に退避する旧 Drive URL
+  image_take_2:            string;
+  selected_asset:          string;
+  revision_note:           string;
+  style_consistency_check: string;
+  notes:                   string;
+}
+
 // ─── 10_QA ───────────────────────────────────────────────────────────────────
 
 /** 10_QA の qa_type 固定 enum（schemas/qa_schema_ai_v1.json と同期） */

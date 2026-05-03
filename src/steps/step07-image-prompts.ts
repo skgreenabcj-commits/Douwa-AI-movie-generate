@@ -3,7 +3,7 @@
  *
  * STEP_07 Image Prompts Build のオーケストレーター。
  *
- * ─── 処理概要 ──────────────────────────────────────────────────────────────────
+ * ─── 処理概要（STEP_07A: プロンプト生成フェーズ）──────────────────────────────
  *
  * 1. 00_Project から ProjectRow を取得
  * 2. video_format を検証（"full" | "short" | "short+full"）
@@ -11,26 +11,27 @@
  * 4. 05_Visual_Bible から全 VB 要素を取得（0 件は preflight failure）
  * 5. Runtime Config から google_drive_folder_id を取得
  * 6. ensurePjtFolder で PJT-### フォルダを確保
- * 7. シーンごとに以下を実行:
+ * 7. キャラクターシートを生成して Drive の character_book/ に保存
+ * 8. シーンごとに以下を実行:
  *    a. buildStep07Prompt → callGemini でプロンプトパーツ生成
  *    b. validateImagePromptAiResponse でスキーマ検証
  *    c. buildPromptFull でコード側が prompt_full を組み立て
- *    d. generateImageStep07 で Gemini Image 生成（失敗時は image_take_1 = ""）
- *    e. uploadImageToDrive で Google Drive にアップロード（失敗時は image_take_1 = ""）
- *    f. upsertImagePrompts で 06_Image_Prompts に書き込み
- * 8. 00_Project を最小更新（current_step = STEP_07_IMAGE_PROMPTS）
- * 9. 100_App_Logs にログ記録
+ *    d. upsertImagePrompts で 06_Image_Prompts に書き込み
+ *       （generation_status = "PENDING", image_take_1 = "" — 画像生成は STEP_07B が担当）
+ * 9. 00_Project を最小更新（current_step = STEP_07_IMAGE_PROMPTS）
+ * 10. 100_App_Logs にログ記録
  *
  * ─── record_id 採番方針 ────────────────────────────────────────────────────────
  *
- * - 既存行（generation_status = "GENERATED"）の record_id をインデックス順で再利用
+ * - 既存行（generation_status = "GENERATED" | "PENDING"）の record_id をインデックス順で再利用
  * - 超過分は新規採番（{projectId}-IMG-{i+1:03d}）
  * - 再実行時に件数が減少した場合: 余剰既存行は残置（DELETE 禁止）
  *
- * ─── 画像生成エラーの扱い ──────────────────────────────────────────────────────
+ * ─── Retake モード ────────────────────────────────────────────────────────────
  *
- * 画像生成 / Drive アップロードに失敗した場合でも、プロンプト行は upsert する。
- * image_take_1 = "" のままにして failure log を記録し、次シーンへ進む。
+ * approval_status = "RETAKE" 行が存在する場合に Retake モードで動作する。
+ * 既存プロンプトを再利用し、generation_status = "PENDING" に戻すことで
+ * STEP_07B が画像を再生成できるようにする。既存の画像 URL は保持する。
  */
 
 import type {
@@ -59,7 +60,6 @@ import {
   callGemini,
   buildGeminiOptionsStep07,
   buildImageGenOptions,
-  generateImageStep07,
   generateCharacterSheet,
   GeminiSpendingCapError,
 } from "../lib/call-gemini.js";
@@ -69,7 +69,6 @@ import { updateProjectMinimal } from "../lib/update-project.js";
 import {
   ensurePjtFolder,
   uploadImageToDrive,
-  resolveVersionLabel,
   convertToJpeg,
   listFilesInFolder,
   downloadFileFromDrive,
@@ -431,7 +430,6 @@ export async function runStep07ImagePrompts(
           let promptCharacter: string;
           let promptScene: string;
           let promptComposition: string;
-          let charRefs: string[] = [];
 
           if (isRetakeMode) {
             // Retake: reuse existing prompt without calling text AI
@@ -479,61 +477,19 @@ export async function runStep07ImagePrompts(
             promptCharacter   = aiRow.prompt_character;
             promptScene       = aiRow.prompt_scene;
             promptComposition = aiRow.prompt_composition;
-            charRefs          = Array.isArray(aiRow.character_refs) ? aiRow.character_refs : [];
+            // character_refs is captured by AI but not stored in GSS (not in field master).
+            // Image generation is deferred to STEP_07B which uses prompt_full + character sheets.
           }
+          // Image generation is handled by STEP_07B (step07b-image-generate.ts).
+          // STEP_07A only writes prompts with generation_status = "PENDING".
 
-          // ── 画像生成 + JPEG 変換 + Drive アップロード ─────────────────────────
-          let driveUrl = "";
-
-          if (payload.dry_run) {
-            logInfo(`[STEP_07][DRY_RUN] Would generate image for ${recordId}`);
-          } else {
-            try {
-              // Always inject all available character sheets.
-              // Retake: reuses existing prompts, no character_refs from AI.
-              // Normal: exact key_name matching is fragile (AI may reformat Japanese strings),
-              //         so pass all sheets and let prompt_character control which to render.
-              const refImages = Array.from(characterSheets.values());
-              const pngBuffer = await generateImageStep07(
-                promptFull,
-                negativePrompt,
-                imageGenOptions.primaryModel,
-                imageGenOptions.secondaryModel,
-                refImages.length > 0 ? refImages : undefined,
-              );
-              // Convert PNG to JPEG (quality 90%) to reduce file size (~300KB target)
-              const jpegBuffer = await convertToJpeg(pngBuffer);
-              const versionLabel = resolveVersionLabel(scene.short_use, scene.full_use);
-              const fileName = `${scene.record_id}_${versionLabel}_${dateStr}.jpg`;
-              driveUrl = await uploadImageToDrive(pjtFolderId, fileName, jpegBuffer, "image/jpeg");
-              logInfo(`[STEP_07] Image uploaded: ${driveUrl}`);
-            } catch (imageErr) {
-              const isSpendingCap = imageErr instanceof GeminiSpendingCapError;
-              if (isSpendingCap) throw imageErr; // 全停止
-
-              const errType = (imageErr instanceof Error && imageErr.message.includes("Drive"))
-                ? "drive_upload_error"
-                : "gemini_image_error";
-              const msg =
-                `[STEP_07] Image generation/upload failed for ${recordId}: ` +
-                (imageErr instanceof Error ? imageErr.message : String(imageErr));
-              logError(msg);
-              try {
-                await appendAppLog(
-                  spreadsheetId,
-                  buildStep07FailureLog(projectId, recordId, errType, msg)
-                );
-              } catch (_) {}
-              // driveUrl = "" のままプロンプト行は upsert する
-            }
-          }
-
-          // ── GSS Upsert ────────────────────────────────────────────────────────
-          // Retake: 旧 image_take_1 を image_take_2 に退避、approval_status を PENDING に戻す
+          // ── GSS Upsert ─────────────────────────────────────────────────────────
+          // generation_status = "PENDING" で書き込む（画像生成は STEP_07B に委譲）。
+          // Retake 行: 既存の image_take_1/2 を保持する（STEP_07B が退避・上書きを担当）。
           const row: ImagePromptRow = {
             project_id:              projectId,
             record_id:               recordId,
-            generation_status:       "GENERATED",
+            generation_status:       "PENDING",
             approval_status:         "PENDING",
             step_id:                 "STEP_07_IMAGE_PROMPTS",
             scene_no:                scene.scene_no,
@@ -544,9 +500,11 @@ export async function runStep07ImagePrompts(
             prompt_composition:      promptComposition,
             negative_prompt:         negativePrompt,
             prompt_full:             promptFull,
-            image_take_1:            driveUrl,
-            image_take_2:            isRetakeMode
+            image_take_1:            isRetakeMode
                                        ? (retakeMap.get(scene.record_id)?.image_take_1 ?? "")
+                                       : "",
+            image_take_2:            isRetakeMode
+                                       ? (retakeMap.get(scene.record_id)?.image_take_2 ?? "")
                                        : "",
             image_take_3:            "",
             selected_asset:          "",
@@ -558,8 +516,8 @@ export async function runStep07ImagePrompts(
           };
 
           if (payload.dry_run) {
-            logInfo(`[STEP_07][DRY_RUN] Would upsert: ${recordId} (scene: ${scene.scene_title})`);
-            logInfo(`[STEP_07][DRY_RUN] prompt_full preview: ${promptFull.slice(0, 200)}`);
+            logInfo(`[STEP_07A][DRY_RUN] Would upsert prompt (PENDING): ${recordId} (scene: ${scene.scene_title})`);
+            logInfo(`[STEP_07A][DRY_RUN] prompt_full preview: ${promptFull.slice(0, 200)}`);
             successCount++;
             if (!firstUpsertedId) firstUpsertedId = recordId;
             continue;
@@ -613,8 +571,8 @@ export async function runStep07ImagePrompts(
 
       // ── 完了ログ ──────────────────────────────────────────────────────────
       const summaryMsg =
-        `Image Prompts Build complete: success=${successCount}, fail=${failCount}, ` +
-        `total=${targetScenes.length}, project=${projectId}`;
+        `Image Prompts Build (STEP_07A) complete: success=${successCount}, fail=${failCount}, ` +
+        `total=${targetScenes.length}, project=${projectId}. Run STEP_07B to generate images.`;
       logInfo(`[STEP_07] ${summaryMsg}`);
 
       try {

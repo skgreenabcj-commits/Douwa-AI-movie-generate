@@ -11,7 +11,7 @@
  */
 
 import { readSheet } from "./sheets-client.js";
-import type { ImagePromptReadRow, ImagePromptRetakeRow } from "../types.js";
+import type { ImagePromptReadRow, ImagePromptRetakeRow, ImagePromptPendingRow } from "../types.js";
 
 const SHEET_NAME = "06_Image_Prompts";
 
@@ -75,6 +75,50 @@ export async function loadRetakeImagePromptsByProjectId(
       negative_prompt:    (row["negative_prompt"]    ?? "").trim(),
       image_take_1:       (row["image_take_1"]       ?? "").trim(),
       image_take_2:       (row["image_take_2"]       ?? "").trim(),
+    });
+  }
+
+  return result;
+}
+
+/**
+ * 指定 project_id の Image Prompts 行のうち generation_status = "PENDING" のものを取得する。
+ * STEP_07B の画像生成対象行の取得に使用する。
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param projectId     - 検索する project_id
+ * @returns ImagePromptPendingRow[]（シート行順）
+ */
+export async function loadPendingImagePromptsByProjectId(
+  spreadsheetId: string,
+  projectId: string
+): Promise<ImagePromptPendingRow[]> {
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  const target = projectId.trim();
+
+  const result: ImagePromptPendingRow[] = [];
+  for (const row of rows) {
+    if ((row["project_id"]        ?? "").trim() !== target)    continue;
+    if ((row["generation_status"] ?? "").trim() !== "PENDING") continue;
+
+    result.push({
+      project_id:              (row["project_id"]              ?? "").trim(),
+      record_id:               (row["record_id"]               ?? "").trim(),
+      related_version:         (row["related_version"]         ?? "").trim(),
+      approval_status:         (row["approval_status"]         ?? "").trim(),
+      scene_no:                (row["scene_no"]                ?? "").trim(),
+      prompt_full:             (row["prompt_full"]             ?? "").trim(),
+      prompt_base:             (row["prompt_base"]             ?? "").trim(),
+      prompt_character:        (row["prompt_character"]        ?? "").trim(),
+      prompt_scene:            (row["prompt_scene"]            ?? "").trim(),
+      prompt_composition:      (row["prompt_composition"]      ?? "").trim(),
+      negative_prompt:         (row["negative_prompt"]         ?? "").trim(),
+      image_take_1:            (row["image_take_1"]            ?? "").trim(),
+      image_take_2:            (row["image_take_2"]            ?? "").trim(),
+      selected_asset:          (row["selected_asset"]          ?? "").trim(),
+      revision_note:           (row["revision_note"]           ?? "").trim(),
+      style_consistency_check: (row["style_consistency_check"] ?? "").trim(),
+      notes:                   (row["notes"]                   ?? "").trim(),
     });
   }
 

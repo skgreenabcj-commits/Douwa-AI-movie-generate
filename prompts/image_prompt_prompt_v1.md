@@ -35,12 +35,15 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
   - 高解像度指示 `high resolution, 2K quality` を必ず含める
   - 例: `"Children's picture-book illustration, soft watercolor style, warm pastel tones, 16:9 landscape, high resolution, 2K quality"`
 
-- **prompt_character**: シーンに登場するキャラクターの描写
-  - Visual Bible の `character` カテゴリのルール（外見・衣装・表情）を反映する
-  - シーンの `emotion` を表情ルールに適用する
-  - シーンに複数キャラクターが登場する場合はカンマ区切りで並べる
+- **prompt_character**: シーンに登場するキャラクターの動き・表情・感情の描写
+  - **「表情・感情・動き・視線方向・ポーズ」のみを記述すること**
+  - 衣装・体型・髪型・肌の色などの **外見は記述しない**（外見は character_book の参照画像が担う）
+  - シーンの `emotion` フィールドを表情・ポーズに適用する
+  - Visual Bible の `expression_rule` を参考にするが、外見記述は除外する
+  - シーンに複数キャラクターが登場する場合はセミコロン区切りで並べる
   - 登場しないキャラクターは含めない
-  - 例: `"Momotaro: cheerful boy in red-white kimono, bright surprised eyes; Grandmother: small elderly woman in pale-green kimono, gentle smile"`
+  - **NG 例**: `"Momotaro: cheerful boy in red-white kimono, bob haircut, holding a large axe, bright surprised eyes"` ← 外見・衣装・持ち物は NG
+  - **OK 例**: `"Momotaro: bright surprised eyes, mouth wide open, leaning forward with excitement; Grandmother: gentle smile, hands clasped together in delight"`
 
 - **prompt_scene**: 背景・場所・環境の描写
   - Visual Bible の `background` カテゴリのルールを反映する
@@ -72,6 +75,8 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 5. `prompt_full` は返さないこと（コード側で組み立てる）
 6. Visual Bible の `avoid` ルールを `negative_prompt` に必ず反映すること
 7. キャラクター・背景のスタイルは Visual Bible のルールに準拠すること
+11. `prompt_character` には外見（衣装・体型・髪型・持ち物）を含めないこと。
+    外見は character_book 参照画像が担うため、prompt_character に含めると画像と競合する。
 8. `negative_prompt` には必ず `no text, no letters, no captions, no subtitles, no story narration text` を含めること
 9. `INPUT_DATA.scene.scene_type` が `"thought_bubble"` の場合、`prompt_composition` に雲形吹き出しの指示を含めること
 10. `character_refs` には、このシーンに登場する `category="character"` の VB エントリの `key_name` を **変更せず** 列挙すること
@@ -111,7 +116,7 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
       "scene_record_id": "PJT-001-SCN-001",
       "character_refs": ["おばあさん（60歳以上・老年期）"],
       "prompt_base": "Children's picture-book illustration, soft watercolor style, warm pastel tones, gentle ink outlines, 16:9 landscape, high resolution, 2K quality",
-      "prompt_character": "Grandmother: small elderly woman in pale-green kimono with white apron, white hair in bun, wide surprised eyes and open mouth, standing at river's edge looking down at peach",
+      "prompt_character": "Grandmother: wide surprised eyes, mouth open in astonishment, leaning slightly forward toward the peach with both hands raised",
       "prompt_scene": "Peaceful shallow riverside, large round pink peach floating gently downstream with small ripples, lush green riverbanks with wildflowers, soft afternoon sunlight filtering through trees",
       "prompt_composition": "Wide establishing shot, large pink peach as focal point in left-center stream, grandmother standing mid-right looking toward peach, open sky upper third, warm golden-hour backlight creating gentle rim light",
       "negative_prompt": "dark tones, scary expressions, violence, blood, photorealistic, 3D render, fluorescent colors, neon colors, adult content, modern objects, no text, no letters, no captions, no subtitles, no story narration text, watermark, logo, blurry, low quality"
@@ -129,7 +134,7 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
       "scene_record_id": "PJT-001-SCN-009",
       "character_refs": ["桃太郎（5〜9歳・幼少期）"],
       "prompt_base": "Children's picture-book illustration, soft watercolor style, warm pastel tones, gentle ink outlines, 16:9 landscape, high resolution, 2K quality",
-      "prompt_character": "Momotaro: cheerful boy in red-white kimono, looking upward attentively with wide curious eyes",
+      "prompt_character": "Momotaro: looking upward attentively with wide curious eyes, slightly tense posture, listening intently",
       "prompt_scene": "Sunny village path, wooden fence and thatched roof in background, warm afternoon light",
       "prompt_composition": "Medium shot, cloud-shaped thought bubble occupying upper-right third of frame, inside the bubble a menacing red oni figure with horns and club, Momotaro standing lower-left looking up at the thought bubble with determined expression, all faces clearly visible",
       "negative_prompt": "dark tones, realistic gore, photorealistic, 3D render, fluorescent colors, neon colors, adult content, modern objects, no text, no letters, no captions, no subtitles, no story narration text, watermark, logo, blurry, low quality"
