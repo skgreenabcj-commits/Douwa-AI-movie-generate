@@ -140,8 +140,12 @@ export async function buildSceneClip(
     "-i", imagePath,
     "-i", audioPath,
     "-filter_complex",
-    `anullsrc=r=44100:cl=stereo,atrim=duration=${T}[spre];` +
-    `anullsrc=r=44100:cl=stereo,atrim=duration=${T}[spost];` +
+    // Use 24000 Hz mono null-source pads to match Google TTS native format.
+    // All three concat inputs share the same sample rate and channel layout,
+    // so ffmpeg performs no implicit resampling — eliminating the boundary
+    // "shu" noise caused by SWR transient response at format mismatches.
+    `anullsrc=r=24000:cl=mono,atrim=duration=${T}[spre];` +
+    `anullsrc=r=24000:cl=mono,atrim=duration=${T}[spost];` +
     `[spre][1:a][spost]concat=n=3:v=0:a=1[aout];` +
     `[0:v]format=rgb24,scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
     `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1[vout]`,
@@ -152,8 +156,9 @@ export async function buildSceneClip(
     "-preset", INTERMEDIATE_PRESET,
     "-crf", INTERMEDIATE_CRF,
     "-c:a", "aac",
-    "-b:a", "128k",
-    "-ar", "44100",
+    "-b:a", "32k",
+    "-ar", "24000",
+    "-ac", "1",
     "-pix_fmt", "yuv420p",
     "-r", "30",
     outputPath,
@@ -171,12 +176,13 @@ export async function buildBlackClip(
   await runFfmpeg([
     "-y",
     "-f", "lavfi", "-i", `color=black:s=${resolution}:r=30`,
-    "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+    "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono",
     "-c:v", INTERMEDIATE_CODEC,
     "-preset", INTERMEDIATE_PRESET,
     "-crf", INTERMEDIATE_CRF,
     "-c:a", "aac",
-    "-b:a", "128k",
+    "-b:a", "32k",
+    "-ac", "1",
     "-pix_fmt", "yuv420p",
     "-t", String(durationSec),
     outputPath,
@@ -239,7 +245,7 @@ export async function mergeScenes(
       "-preset", INTERMEDIATE_PRESET,
       "-crf", INTERMEDIATE_CRF,
       "-c:a", "aac",
-      "-b:a", "128k",
+      "-b:a", "32k",
       "-pix_fmt", "yuv420p",
       "-r", "30",
       "-shortest",
@@ -284,15 +290,17 @@ export async function concatClips(
   const inputs: string[] = [];
   for (const p of clipPaths) inputs.push("-i", p);
 
-  // Scale each input to target resolution, then concat
+  // Scale each input to target resolution and normalize audio to 24 kHz mono,
+  // then concat.  Explicit aresample ensures intro/outro clips (which may be
+  // 44.1 kHz stereo) are converted without implicit SWR transient noise.
   let filterComplex = "";
   for (let i = 0; i < N; i++) {
     filterComplex += `[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
       `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[sv${i}];`;
+    filterComplex += `[${i}:a]aresample=24000,aformat=channel_layouts=mono[sa${i}];`;
   }
-  // Interleave scaled-video and original-audio pairs for concat — ensures
-  // video and audio stay in sync across all clips.
-  const inputPairs = Array.from({ length: N }, (_, i) => `[sv${i}][${i}:a]`).join("");
+  // Interleave normalized video/audio pairs for concat.
+  const inputPairs = Array.from({ length: N }, (_, i) => `[sv${i}][sa${i}]`).join("");
   filterComplex += `${inputPairs}concat=n=${N}:v=1:a=1[v][a]`;
 
   await runFfmpeg([
@@ -305,8 +313,9 @@ export async function concatClips(
     "-preset", INTERMEDIATE_PRESET,
     "-crf", INTERMEDIATE_CRF,
     "-c:a", "aac",
-    "-b:a", "128k",
-    "-ar", "44100",
+    "-b:a", "32k",
+    "-ar", "24000",
+    "-ac", "1",
     "-pix_fmt", "yuv420p",
     "-movflags", "+faststart",
     outputPath,
