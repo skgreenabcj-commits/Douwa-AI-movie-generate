@@ -80,14 +80,22 @@
     <div class="mode-option">
       <input type="radio" name="mode" id="mode-07" value="STEP_07">
       <div class="mode-option-body">
-        <div class="mode-title">STEP_07  画像生成（個別）</div>
-        <div class="mode-desc">画像プロンプト生成・画像生成を実行</div>
+        <div class="mode-title">STEP_07A  プロンプト生成</div>
+        <div class="mode-desc">キャラクターシート生成 + シーンプロンプト生成。06_Image_Prompts に generation_status="PENDING" で書き込む（画像生成は STEP_07B で実行）</div>
         <div id="retake-row">
           <label>
             <input type="checkbox" id="chk-retake">
-            RETAKE モード（<code>approval_status = "RETAKE"</code> の行のみ再生成）
+            RETAKE モード（<code>approval_status = "RETAKE"</code> の行のみプロンプト再生成）
           </label>
         </div>
+      </div>
+    </div>
+
+    <div class="mode-option">
+      <input type="radio" name="mode" id="mode-07b" value="STEP_07B">
+      <div class="mode-option-body">
+        <div class="mode-title">STEP_07B  画像生成</div>
+        <div class="mode-desc">STEP_07A で生成したプロンプトをもとに画像を生成。generation_status="PENDING" の行が対象。RETAKE 行は旧画像を image_take_2 に退避して再生成</div>
       </div>
     </div>
 
