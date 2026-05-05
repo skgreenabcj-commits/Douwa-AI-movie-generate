@@ -38,16 +38,28 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 - **prompt_character**: シーンに登場するキャラクターの動き・表情・感情の描写
   - **「表情・感情・動き・視線方向・ポーズ」のみを記述すること**
   - 衣装・体型・髪型・肌の色などの **外見は記述しない**（外見は character_book の参照画像が担う）
+  - **シーン固有の道具・食べ物・物体を伴う行動も記述しない**（おにぎりを持つ・ジョウロで水をやる・米を渡す等）
+    - そのような行動が `scene_summary` / `visual_focus` に含まれていても、`prompt_character` には書かない
+    - 道具・食べ物・物体は `prompt_scene` の背景要素として記述すること
   - シーンの `emotion` フィールドを表情・ポーズに適用する
   - Visual Bible の `expression_rule` を参考にするが、外見記述は除外する
   - シーンに複数キャラクターが登場する場合はセミコロン区切りで並べる
   - 登場しないキャラクターは含めない
-  - **NG 例**: `"Momotaro: cheerful boy in red-white kimono, bob haircut, holding a large axe, bright surprised eyes"` ← 外見・衣装・持ち物は NG
-  - **OK 例**: `"Momotaro: bright surprised eyes, mouth wide open, leaning forward with excitement; Grandmother: gentle smile, hands clasped together in delight"`
+  - **NG 例（外見・衣装）**: `"Momotaro: cheerful boy in red-white kimono, bob haircut, holding a large axe, bright surprised eyes"` ← 外見・衣装・持ち物は NG
+  - **NG 例（シーン固有の道具行動）**:
+    - `"Crab: holding a delicious onigiri in one claw"` ← おにぎりは NG（`prompt_scene` へ）
+    - `"Crab: holding a small watering can with its claws, gently pouring water"` ← ジョウロは NG（`prompt_scene` へ）
+    - `"Crab: carefully handing over a rice ball with one claw"` ← 物体の受け渡しは NG（`prompt_scene` へ）
+  - **OK 例（感情・表情・ポーズのみ）**:
+    - `"Crab: cheerful and energetic expression, arms outstretched in a welcoming gesture, looking forward with bright eyes"`
+    - `"Momotaro: bright surprised eyes, mouth wide open, leaning forward with excitement; Grandmother: gentle smile, hands clasped together in delight"`
 
-- **prompt_scene**: 背景・場所・環境の描写
+- **prompt_scene**: 背景・場所・環境の描写、およびシーン固有の道具・食べ物・物体の描写
   - Visual Bible の `background` カテゴリのルールを反映する
   - シーンの `scene_summary` / `visual_focus` から背景要素を抽出する
+  - **`prompt_character` に書けないシーン固有の道具・食べ物・物体（おにぎり・ジョウロ・米等）はここに含める**
+    - 例: キャラクターがおにぎりを持つシーン → `"sunny riverbank, a round onigiri (rice ball) held by the Crab"`
+    - 例: キャラクターが水をやるシーン → `"garden with young sprout, small watering can near the Crab"`
   - 例: `"Riverside with shallow clear stream, large round pink peach floating downstream, lush green banks, soft sunlight"`
 
 - **prompt_composition**: 構図・フレーミング・視点の指示
@@ -87,6 +99,8 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 7. キャラクター・背景のスタイルは Visual Bible のルールに準拠すること
 11. `prompt_character` には外見（衣装・体型・髪型・持ち物）を含めないこと。
     外見は character_book 参照画像が担うため、prompt_character に含めると画像と競合する。
+    **シーン固有の道具・食べ物・物体を伴う行動（おにぎりを持つ・ジョウロで水をやる・物を渡す等）も含めないこと。**
+    そのような要素は `prompt_scene` に記述すること。
 8. `negative_prompt` には必ず `no text, no letters, no captions, no subtitles, no story narration text` を含めること
 9. `INPUT_DATA.scene.scene_type` が `"thought_bubble"` の場合、`prompt_composition` に雲形吹き出しの指示を含めること
 10. `character_refs` には、このシーンに登場する `category="character"` の VB エントリの `key_name` を **変更せず** 列挙すること
