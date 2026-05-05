@@ -87,6 +87,7 @@ sheet_name	field_name	field_label	data_type	is_required	role_category	used_as_ai
 02_Scenes	approval_status	approval_status	string	Y	HUMAN_REVIEW	Y	N	N	N	Y	all	システム制御または案件識別に使う	PENDING	role_sync=done
 02_Scenes	step_id	step_id	string	Y	SYSTEM_CONTROL	Y	N	N	N	Y	all	システム制御または案件識別に使う		role_sync=done
 02_Scenes	scene_no	scene_no	number	N	SYSTEM_CONTROL	Y	N	N	N	N	all	運用上の補助列	1	role_sync=done
+02_Scenes	scene_type	scene_type	string	Y	HUMAN_INPUT	Y	N	N	N	N	all	生成されたシーンに対してユーザーが後続処理用にタイプ分別	normal,thought_bubble	role_sync=done
 02_Scenes	chapter	chapter	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
 02_Scenes	scene_title	scene_title	string	N	AI_OUTPUT	Y	Y	N	N	N	all	AI生成結果であり、後続AIの入力にもなる		role_sync=done
 02_Scenes	scene_summary	scene_summary	string	N	AI_OUTPUT	Y	Y	N	N	N	all	AI生成結果であり、後続AIの入力にもなる	おばあさんが川で大きな桃を見つける	role_sync=done
@@ -173,6 +174,7 @@ sheet_name	field_name	field_label	data_type	is_required	role_category	used_as_ai
 06_Image_Prompts	related_version	related_version	string	N	SYSTEM_CONTROL	Y	N	N	N	N	all	運用上の補助列	short	role_sync=done
 06_Image_Prompts	prompt_base	prompt_base	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
 06_Image_Prompts	prompt_character	prompt_character	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
+06_Image_Prompts	character_refs	character_refs	string	N	AI_OUTPUT	Y	N	N	N	N	all	カンマ区切りのVB key_nameリスト。STEP_07Bのキャラクターシートフィルタに使用		role_sync=done
 06_Image_Prompts	prompt_scene	prompt_scene	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
 06_Image_Prompts	prompt_composition	prompt_composition	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
 06_Image_Prompts	negative_prompt	negative_prompt	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
@@ -267,9 +269,9 @@ sheet_name	field_name	field_label	data_type	is_required	role_category	used_as_ai
 10_QA	answer_short	answer_short	string	N	AI_OUTPUT	Y	Y	N	N	N	all	AI生成結果であり、後続AIの入力にもなる		role_sync=done
 10_QA	answer_narration	answer_narration	string	N	AI_OUTPUT	Y	Y	N	N	N	all	AI生成結果であり、後続AIの入力にもなる		role_sync=done
 10_QA	subtitle	subtitle	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
-10_QA	card_visual	card_visual	string	N	UNUSED	N	N	N	N	N	all	STEP_09では使用しない		role_sync=done
-10_QA	duration_sec	duration_sec	number	N	UNUSED	N	N	N	N	N	all	STEP_09では使用しない		role_sync=done
-10_QA	learning_goal	learning_goal	string	N	UNUSED	N	N	N	N	N	all	STEP_09では使用しない		role_sync=done
+10_QA	card_visual	card_visual	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
+10_QA	duration_sec	duration_sec	number	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
+10_QA	learning_goal	learning_goal	string	N	AI_OUTPUT	Y	N	N	N	N	all	運用上の補助列		role_sync=done
 10_QA	updated_at	updated_at	datetime	Y	SYSTEM_CONTROL	Y	N	N	N	Y	all	システム制御または案件識別に使う		role_sync=done
 10_QA	updated_by	updated_by	string	Y	SYSTEM_CONTROL	Y	N	N	N	Y	all	システム制御または案件識別に使う		role_sync=done
 10_QA	notes	notes	string	N	HUMAN_REVIEW	Y	N	N	N	N	all	運用上の補助列		role_sync=done

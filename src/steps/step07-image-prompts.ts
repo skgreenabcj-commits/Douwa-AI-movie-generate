@@ -91,6 +91,10 @@ function buildCharacterSheetPrompt(char: VisualBibleCharacterRow): string {
     `Generate a character reference sheet for the following character.`,
     `Front-facing view, even neutral lighting, full body visible, centered in frame.`,
     `Plain white or very light background. No scene elements, no other characters.`,
+    // Neutral pose enforcement: prevent scene-specific props from appearing
+    `The character must be in a neutral standing pose only.`,
+    `Do NOT depict the character holding, carrying, or using any props, tools, food, or objects.`,
+    `Do NOT reference any scene context, story event, or specific action.`,
   ];
   if (char.description)    parts.push(`Character overview: ${char.description}`);
   if (char.character_rule) parts.push(`Design rules: ${char.character_rule}`);
@@ -428,6 +432,7 @@ export async function runStep07ImagePrompts(
           let negativePrompt: string;
           let promptBase: string;
           let promptCharacter: string;
+          let characterRefsStr: string;
           let promptScene: string;
           let promptComposition: string;
 
@@ -438,6 +443,7 @@ export async function runStep07ImagePrompts(
             negativePrompt    = retakeRow.negative_prompt;
             promptBase        = retakeRow.prompt_base;
             promptCharacter   = retakeRow.prompt_character;
+            characterRefsStr  = retakeRow.character_refs;
             promptScene       = retakeRow.prompt_scene;
             promptComposition = retakeRow.prompt_composition;
             logInfo(`[STEP_07][RETAKE] Reusing prompt_full for ${recordId}`);
@@ -475,10 +481,10 @@ export async function runStep07ImagePrompts(
             negativePrompt    = aiRow.negative_prompt;
             promptBase        = aiRow.prompt_base;
             promptCharacter   = aiRow.prompt_character;
+            // Store character_refs as comma-separated string for STEP_07B character sheet filtering
+            characterRefsStr  = (aiRow.character_refs ?? []).join(",");
             promptScene       = aiRow.prompt_scene;
             promptComposition = aiRow.prompt_composition;
-            // character_refs is captured by AI but not stored in GSS (not in field master).
-            // Image generation is deferred to STEP_07B which uses prompt_full + character sheets.
           }
           // Image generation is handled by STEP_07B (step07b-image-generate.ts).
           // STEP_07A only writes prompts with generation_status = "PENDING".
@@ -496,6 +502,7 @@ export async function runStep07ImagePrompts(
             related_version:         scene.record_id,
             prompt_base:             promptBase,
             prompt_character:        promptCharacter,
+            character_refs:          characterRefsStr,
             prompt_scene:            promptScene,
             prompt_composition:      promptComposition,
             negative_prompt:         negativePrompt,

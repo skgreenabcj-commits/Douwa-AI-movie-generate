@@ -29,6 +29,7 @@ import type {
 } from "../types.js";
 import { loadRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
 import { readProjectsByIds } from "../lib/load-project-input.js";
+import { loadCharactersByProjectId } from "../lib/load-visual-bible.js";
 import { loadPendingImagePromptsByProjectId } from "../lib/load-image-prompts.js";
 import {
   buildImageGenOptions,
@@ -138,28 +139,37 @@ export async function runStep07bImageGenerate(
         }
       }
 
-      // ── character_book からキャラクターシートを全件読み込む ──────────────
-      // character_refs は GSS に保存されていないため全シートを渡す。
-      // prompt_character に外見記述がないため（STEP_07A の prompt 改修済み）、
-      // 全シートを渡してもキャラクター混同は発生しにくい。
-      const characterSheets: Buffer[] = [];
-      if (!payload.dry_run) {
+      // ── character_book からキャラクターシートを key_name → Buffer の Map で読み込む ──
+      // character_refs（カンマ区切りの VB key_name）でフィルタし、シーンに登場する
+      // キャラクターのシートのみを各画像生成リクエストに渡す。
+      // これにより、登場しないキャラクターの外見が画像に混入する問題を防ぐ。
+      const characterSheetsMap = new Map<string, Buffer>();
+      const charEntries = await loadCharactersByProjectId(spreadsheetId, projectId);
+
+      if (!payload.dry_run && charEntries.length > 0) {
         try {
           const charBookFolderId = await ensurePjtFolder(pjtFolderId, "character_book");
           const driveFiles = await listFilesInFolder(charBookFolderId);
-          for (const file of driveFiles) {
-            try {
-              const buf = await downloadFileFromDrive(file.id);
-              characterSheets.push(buf);
-            } catch (dlErr) {
-              logError(
-                `[STEP_07B] Failed to download character sheet "${file.name}": ` +
-                (dlErr instanceof Error ? dlErr.message : String(dlErr)) +
-                " — skipping this sheet."
-              );
+          for (const char of charEntries) {
+            if (!char.key_name) continue;
+            const safeFileName = char.key_name.replace(/[^\w　-鿿゠-ヿ]/g, "_");
+            const match = driveFiles.find((f) => f.name.startsWith(safeFileName + "_"));
+            if (match) {
+              try {
+                const buf = await downloadFileFromDrive(match.id);
+                characterSheetsMap.set(char.key_name, buf);
+              } catch (dlErr) {
+                logError(
+                  `[STEP_07B] Failed to download character sheet "${char.key_name}": ` +
+                  (dlErr instanceof Error ? dlErr.message : String(dlErr)) +
+                  " — skipping this sheet."
+                );
+              }
+            } else {
+              logError(`[STEP_07B] Character sheet not found in Drive for "${char.key_name}"`);
             }
           }
-          logInfo(`[STEP_07B] Character sheets loaded: ${characterSheets.length} sheet(s)`);
+          logInfo(`[STEP_07B] Character sheets loaded: ${characterSheetsMap.size}/${charEntries.length} sheet(s)`);
         } catch (charErr) {
           logError(
             `[STEP_07B] character_book folder error for project ${projectId}: ` +
@@ -184,12 +194,37 @@ export async function runStep07bImageGenerate(
 
         logInfo(`[STEP_07B] Processing: ${recordId} (approval=${pending.approval_status})`);
 
+        // ── character_refs フィルタ ───────────────────────────────────────────
+        // character_refs（カンマ区切り）→ VB key_name の配列 → Map からシートを選択
+        // マッチ0件の場合は全シートにフォールバック（キャラ名変形などに対応）
+        const charRefs = pending.character_refs
+          ? pending.character_refs.split(",").map((s) => s.trim()).filter(Boolean)
+          : [];
+        let refImages: Buffer[];
+        if (charRefs.length > 0 && characterSheetsMap.size > 0) {
+          const matched = charRefs
+            .map((k) => characterSheetsMap.get(k))
+            .filter((b): b is Buffer => b !== undefined);
+          if (matched.length > 0) {
+            refImages = matched;
+            logInfo(`[STEP_07B] character_refs filter: ${charRefs.join(",")} → ${matched.length} sheet(s)`);
+          } else {
+            refImages = Array.from(characterSheetsMap.values());
+            logInfo(`[STEP_07B] character_refs filter matched 0 sheets for ${recordId} — fallback to all ${refImages.length} sheet(s)`);
+          }
+        } else {
+          refImages = Array.from(characterSheetsMap.values());
+          if (refImages.length > 0) {
+            logInfo(`[STEP_07B] No character_refs for ${recordId} — using all ${refImages.length} sheet(s)`);
+          }
+        }
+
         try {
           let driveUrl = "";
           const isRetakeRow = pending.approval_status === "RETAKE";
 
           if (payload.dry_run) {
-            logInfo(`[STEP_07B][DRY_RUN] Would generate image for ${recordId} (retake=${isRetakeRow})`);
+            logInfo(`[STEP_07B][DRY_RUN] Would generate image for ${recordId} (retake=${isRetakeRow}, refs=${charRefs.join(",") || "all"})`);
             logInfo(`[STEP_07B][DRY_RUN] prompt_full preview: ${promptFull.slice(0, 200)}`);
           } else {
             try {
@@ -198,7 +233,7 @@ export async function runStep07bImageGenerate(
                 negativePrompt,
                 imageGenOptions.primaryModel,
                 imageGenOptions.secondaryModel,
-                characterSheets.length > 0 ? characterSheets : undefined,
+                refImages.length > 0 ? refImages : undefined,
               );
               // Convert PNG to JPEG (quality 90%) to reduce file size (~300KB target)
               const jpegBuffer  = await convertToJpeg(pngBuffer);
@@ -249,6 +284,7 @@ export async function runStep07bImageGenerate(
             related_version:         pending.related_version,
             prompt_base:             pending.prompt_base,
             prompt_character:        pending.prompt_character,
+            character_refs:          pending.character_refs,
             prompt_scene:            pending.prompt_scene,
             prompt_composition:      pending.prompt_composition,
             negative_prompt:         negativePrompt,
