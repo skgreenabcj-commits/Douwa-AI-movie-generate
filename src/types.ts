@@ -523,6 +523,7 @@ export interface ImagePromptRow {
   related_version:         string;    // 02_Scenes.record_id の値（例: PJT-001-SCN-001）
   prompt_base:             string;
   prompt_character:        string;
+  character_refs:          string;    // カンマ区切りの VB key_name リスト（例: "蟹,栗"）。STEP_07B のキャラクターシートフィルタに使用
   prompt_scene:            string;
   prompt_composition:      string;
   negative_prompt:         string;
@@ -555,6 +556,7 @@ export interface ImagePromptRetakeRow {
   prompt_full:        string;  // 再利用する組み立て済みプロンプト
   prompt_base:        string;  // GSS 既存値を保持するためのプロンプト部品
   prompt_character:   string;
+  character_refs:     string;  // カンマ区切りの VB key_name リスト（既存値を再利用）
   prompt_scene:       string;
   prompt_composition: string;
   negative_prompt:    string;  // 再利用する禁止要素プロンプト
@@ -576,6 +578,7 @@ export interface ImagePromptPendingRow {
   prompt_full:             string;
   prompt_base:             string;
   prompt_character:        string;
+  character_refs:          string;  // カンマ区切りの VB key_name リスト（STEP_07B フィルタ用）
   prompt_scene:            string;
   prompt_composition:      string;
   negative_prompt:         string;

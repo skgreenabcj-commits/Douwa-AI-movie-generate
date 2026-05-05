@@ -14,7 +14,7 @@
  * フィールド構成（GSS 06_Image_Prompts ヘッダー順）:
  * SYSTEM:    project_id, record_id, generation_status, approval_status, step_id,
  *            scene_no, related_version
- * AI_OUTPUT: prompt_base, prompt_character, prompt_scene, prompt_composition,
+ * AI_OUTPUT: prompt_base, prompt_character, character_refs, prompt_scene, prompt_composition,
  *            negative_prompt, prompt_full
  * REFERENCE: image_take_1, image_take_2, image_take_3
  * HUMAN:     selected_asset, revision_note, style_consistency_check
@@ -37,6 +37,7 @@ const IMAGE_PROMPT_HEADERS: Array<keyof ImagePromptRow> = [
   "related_version",
   "prompt_base",
   "prompt_character",
+  "character_refs",
   "prompt_scene",
   "prompt_composition",
   "negative_prompt",

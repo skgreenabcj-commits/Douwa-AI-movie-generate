@@ -37,6 +37,7 @@
     "related_version":   { "type": "string", "minLength": 1 },
     "prompt_base":       { "type": "string", "minLength": 1 },
     "prompt_character":  { "type": "string", "minLength": 1 },
+    "character_refs":    { "type": "string", "description": "カンマ区切りの VB key_name リスト（例: '蟹,栗'）。STEP_07B のキャラクターシートフィルタに使用" },
     "prompt_scene":      { "type": "string", "minLength": 1 },
     "prompt_composition": { "type": "string", "minLength": 1 },
     "negative_prompt":   { "type": "string", "minLength": 1 },

@@ -53,10 +53,20 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 - **prompt_composition**: 構図・フレーミング・視点の指示
   - Visual Bible の `composition_rule` / `crop_rule` を反映する
   - シーンの `visual_focus` を構図の焦点として反映する
+  - **キャラクター数に注意**: シーンに1体しか登場しないキャラクターは必ず単数形で記述すること
+    - NG: `"the crabs looking up"` （蟹が1体のシーンで複数形は不可）
+    - OK: `"the Crab looking up"`
   - `INPUT_DATA.scene.scene_type` が `"thought_bubble"` の場合は、以下の指示を必ず追加すること:
     `"cloud-shaped thought bubble above the listening character(s), inside the bubble show [visual_focus の想起対象を英語で表現], characters looking worried or concerned"`
   - 例（通常）: `"Wide establishing shot, peach as focal point left-center, grandmother mid-right background, golden hour backlighting"`
   - 例（thought_bubble）: `"Medium group shot, cloud-shaped thought bubble above villagers showing a menacing oni figure inside, Momotaro listening seriously on the right, all faces clearly visible"`
+
+- **キャラクター名の英語表記ルール**: `character_refs` の key_name をプロンプト内の英語識別子に変換する際、以下の注意点を守ること
+  - key_name のリテラル翻訳を使用してはならない（誤解を招く場合があるため）
+  - 特に `牛のうんち` は `Cow dung` や `Cow` と訳すと牛の外見が生成されるため、
+    `Unchi`（可愛いデフォルメ排泄物キャラクター）と表記すること
+  - 同様に動物名を含む key_name は character_book の description/character_rule を優先し、
+    外見が動物と混同されない識別子を選ぶこと
 
 - **negative_prompt**: 禁止要素の英語列挙
   - Visual Bible の `avoid` カテゴリのルールを必ず含める
@@ -80,6 +90,8 @@ Visual Bible（ビジュアル設計辞書）とシーン情報をもとに、AI
 8. `negative_prompt` には必ず `no text, no letters, no captions, no subtitles, no story narration text` を含めること
 9. `INPUT_DATA.scene.scene_type` が `"thought_bubble"` の場合、`prompt_composition` に雲形吹き出しの指示を含めること
 10. `character_refs` には、このシーンに登場する `category="character"` の VB エントリの `key_name` を **変更せず** 列挙すること
+12. プロンプト内のキャラクター英語識別子に `牛のうんち` → `Unchi` を使用すること（`Cow dung` / `Cow` は禁止）
+13. `prompt_composition` でキャラクターを参照する際、シーンに1体しか登場しない場合は **単数形** を使用すること
 
 ---
 
