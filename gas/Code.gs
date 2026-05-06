@@ -37,6 +37,8 @@ function onOpen() {
     .addItem('ワークフロー実行...', 'showRunnerDialog')
     .addSeparator()
     .addItem('SSML 構文チェック...', 'showSsmlCheckDialog')
+    .addSeparator()
+    .addItem('🔍 Prompt 品質チェック', 'runPromptQualityCheck')
     .addToUi();
 }
 

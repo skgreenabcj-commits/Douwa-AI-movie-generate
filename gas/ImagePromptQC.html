@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Noto Sans JP', Arial, sans-serif;
+      margin: 0; padding: 12px 16px;
+      font-size: 13px; color: #333;
+      display: flex; flex-direction: column; height: 100vh;
+    }
+    h3 { margin: 0 0 10px; font-size: 15px; }
+
+    .legend {
+      display: flex; gap: 16px; align-items: center;
+      margin-bottom: 8px; font-size: 12px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px; border-radius: 12px;
+      font-size: 12px; font-weight: bold;
+    }
+    .badge-plural { background: #FFD966; color: #555; }
+    .badge-props  { background: #F4B942; color: #555; }
+
+    .summary {
+      padding: 7px 12px; background: #f0f4f8;
+      border-radius: 4px; margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .table-wrap {
+      flex: 1; overflow-y: auto;
+      border: 1px solid #ddd; border-radius: 4px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: #3d6eb4; color: white;
+      padding: 6px 8px; text-align: left;
+      position: sticky; top: 0; z-index: 1;
+      font-size: 12px;
+    }
+    td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    tr:hover td { background: #fafafa; }
+    tr.row-plural td { background: #fffce8; }
+    tr.row-props  td { background: #fff8ed; }
+    tr.row-plural:hover td { background: #fff7c0; }
+    tr.row-props:hover  td { background: #ffefc0; }
+
+    .detail { color: #c0392b; font-size: 11px; line-height: 1.6; }
+    code { font-size: 11px; background: #eee; padding: 1px 4px; border-radius: 3px; }
+
+    .empty {
+      text-align: center; padding: 50px 0;
+      color: #27ae60; font-size: 18px;
+    }
+
+    .footer {
+      margin-top: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .note { font-size: 11px; color: #888; }
+    button {
+      padding: 7px 22px; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 13px; font-weight: bold;
+    }
+    .btn-close { background: #e74c3c; color: white; }
+    .btn-close:hover { background: #c0392b; }
+    .btn-close:disabled { background: #ccc; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <h3>🔍 Prompt Quality Check 結果</h3>
+
+  <div class="legend">
+    <span><span class="badge badge-plural">■ 複数形</span>&nbsp;prompt_composition のキャラクター複数形</span>
+    <span><span class="badge badge-props">■ props混入</span>&nbsp;prompt_character の外見・道具記述</span>
+  </div>
+
+  <div class="summary" id="summary">集計中...</div>
+
+  <div class="table-wrap">
+    <div id="table-area"></div>
+  </div>
+
+  <div class="footer">
+    <span class="note">※ スプレッドシートを編集しながらこのダイアログを参照できます</span>
+    <button class="btn-close" id="btn-close" onclick="closeAndClear()">
+      ✕ 閉じてハイライト解除
+    </button>
+  </div>
+
+  <script>
+    var issues = <?= issuesJson ?>;
+
+    window.onload = function () {
+      var pluralCount = issues.filter(function(i) { return i.type === '複数形'; }).length;
+      var propsCount  = issues.filter(function(i) { return i.type === 'props混入'; }).length;
+
+      document.getElementById('summary').innerHTML =
+        '検出件数: <b>' + issues.length + '</b> 件　｜　' +
+        '<span class="badge badge-plural">複数形: ' + pluralCount + ' 件</span>　' +
+        '<span class="badge badge-props">props混入: ' + propsCount + ' 件</span>';
+
+      var area = document.getElementById('table-area');
+
+      if (issues.length === 0) {
+        area.innerHTML = '<div class="empty">✅ 問題は検出されませんでした</div>';
+        return;
+      }
+
+      var html = [
+        '<table>',
+        '<thead><tr>',
+        '<th style="width:72px">種別</th>',
+        '<th style="width:80px">Project</th>',
+        '<th style="width:148px">Record ID</th>',
+        '<th style="width:46px">SCN#</th>',
+        '<th style="width:136px">対象カラム</th>',
+        '<th>検出内容 / 修正ヒント</th>',
+        '</tr></thead>',
+        '<tbody>',
+      ];
+
+      issues.forEach(function(issue) {
+        var rowCls = issue.type === '複数形' ? 'row-plural' : 'row-props';
+        var badge  = issue.type === '複数形'
+          ? '<span class="badge badge-plural">複数形</span>'
+          : '<span class="badge badge-props">props</span>';
+        html.push(
+          '<tr class="' + rowCls + '">',
+          '<td>' + badge + '</td>',
+          '<td>' + esc(issue.projectId) + '</td>',
+          '<td>' + esc(issue.recordId) + '</td>',
+          '<td style="text-align:center">' + esc(String(issue.sceneNo)) + '</td>',
+          '<td><code>' + esc(issue.col) + '</code></td>',
+          '<td class="detail">' + esc(issue.detail) + '</td>',
+          '</tr>'
+        );
+      });
+
+      html.push('</tbody></table>');
+      area.innerHTML = html.join('');
+    };
+
+    function closeAndClear() {
+      var btn = document.getElementById('btn-close');
+      btn.disabled = true;
+      btn.textContent = '解除中...';
+
+      google.script.run
+        .withSuccessHandler(function() { google.script.host.close(); })
+        .withFailureHandler(function(err) {
+          alert('エラー: ' + err.message);
+          btn.disabled = false;
+          btn.textContent = '✕ 閉じてハイライト解除';
+        })
+        .clearAllHighlights();
+    }
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>
