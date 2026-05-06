@@ -5,149 +5,156 @@
   <style>
     * { box-sizing: border-box; }
     body {
-      font-family: 'Noto Sans JP', Arial, sans-serif;
-      margin: 0; padding: 12px 16px;
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 10px 14px;
       font-size: 13px; color: #333;
       display: flex; flex-direction: column; height: 100vh;
       overflow: hidden;
     }
-    h3 { margin: 0 0 8px; font-size: 15px; }
+    h3 { margin: 0 0 7px; font-size: 14px; }
 
     .legend {
-      display: flex; gap: 20px; align-items: center;
-      margin-bottom: 8px; font-size: 12px; flex-wrap: wrap;
+      display: flex; gap: 16px; align-items: center;
+      margin-bottom: 7px; font-size: 12px; flex-wrap: wrap;
     }
     .badge {
       display: inline-block;
-      padding: 2px 10px; border-radius: 12px;
-      font-size: 12px; font-weight: bold;
+      padding: 2px 9px; border-radius: 10px;
+      font-size: 11px; font-weight: bold;
     }
-    /* Fix 3: 色を判別しやすく変更
-       複数形 → 黄色系  props混入 → 赤系 */
     .badge-plural { background: #FFD966; color: #5a4000; }
-    .badge-props  { background: #F1948A; color: #7b1c1c; }
+    .badge-props  { background: #F1948A; color: #7b0000; }
 
     .summary {
-      padding: 7px 12px; background: #f0f4f8;
-      border-radius: 4px; margin-bottom: 8px;
-      font-size: 13px; flex-shrink: 0;
+      padding: 6px 10px; background: #f0f4f8;
+      border-radius: 4px; margin-bottom: 7px;
+      font-size: 12px; flex-shrink: 0;
     }
 
-    /* Fix 2: 縦横スクロール対応（ダイアログ自体はリサイズ不可のためここで吸収） */
     .table-wrap {
       flex: 1; overflow-x: auto; overflow-y: auto;
       border: 1px solid #ddd; border-radius: 4px;
       min-height: 0;
     }
-    table { border-collapse: collapse; white-space: nowrap; min-width: 700px; }
+    table { border-collapse: collapse; white-space: nowrap; min-width: 660px; }
     th {
       background: #3d6eb4; color: white;
-      padding: 6px 8px; text-align: left;
+      padding: 5px 8px; text-align: left;
       position: sticky; top: 0; z-index: 1;
-      font-size: 12px; white-space: nowrap;
+      font-size: 11px;
     }
-    td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
-    tr:hover td { background: #f5f5f5; }
+    td { padding: 4px 8px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 12px; }
 
-    /* Fix 3: 行背景も黄/赤で明確に区別 */
     tr.row-plural td { background: #fffbe6; }
     tr.row-props  td { background: #fff0ef; }
     tr.row-plural:hover td { background: #fff3b0; }
     tr.row-props:hover  td { background: #ffd6d4; }
 
-    .detail { color: #c0392b; font-size: 11px; line-height: 1.6; white-space: normal; min-width: 200px; max-width: 400px; }
+    .detail { color: #b03030; font-size: 11px; line-height: 1.5; white-space: normal; min-width: 180px; max-width: 380px; }
     code { font-size: 11px; background: #eee; padding: 1px 4px; border-radius: 3px; }
 
-    .empty {
-      text-align: center; padding: 50px 0;
-      color: #27ae60; font-size: 18px;
-    }
-    .error-msg {
-      text-align: center; padding: 30px;
-      color: #e74c3c; font-size: 14px;
-      background: #fff0ef; border-radius: 4px; margin: 10px 0;
-    }
+    .loading { text-align: center; padding: 40px; color: #888; }
+    .empty   { text-align: center; padding: 40px; color: #27ae60; font-size: 15px; }
+    .err     { text-align: center; padding: 20px; color: #c0392b; background: #fff0ef; border-radius: 4px; margin: 8px; font-size: 12px; }
 
     .footer {
-      margin-top: 8px; flex-shrink: 0;
+      margin-top: 7px; flex-shrink: 0;
       display: flex; justify-content: space-between; align-items: center;
     }
-    .note { font-size: 11px; color: #888; }
-    button {
-      padding: 7px 22px; border: none; border-radius: 4px;
+    .note { font-size: 10px; color: #999; }
+    .btn-close {
+      padding: 6px 20px; border: none; border-radius: 4px;
       cursor: pointer; font-size: 13px; font-weight: bold;
+      background: #e74c3c; color: white;
     }
-    .btn-close { background: #e74c3c; color: white; }
-    .btn-close:hover { background: #c0392b; }
+    .btn-close:hover    { background: #c0392b; }
     .btn-close:disabled { background: #ccc; cursor: not-allowed; }
   </style>
 </head>
 <body>
-  <h3>🔍 Prompt Quality Check 結果</h3>
+  <h3>Prompt Quality Check</h3>
 
   <div class="legend">
-    <span><span class="badge badge-plural">■ 複数形</span>&nbsp;prompt_composition のキャラクター複数形</span>
-    <span><span class="badge badge-props">■ props混入</span>&nbsp;prompt_character の外見・道具記述</span>
+    <span><span class="badge badge-plural">plural</span> prompt_composition キャラ複数形</span>
+    <span><span class="badge badge-props">props</span> prompt_character 外見・道具記述</span>
   </div>
 
-  <div class="summary" id="summary">集計中...</div>
+  <div class="summary" id="summary">読み込み中...</div>
 
-  <div class="table-wrap">
-    <div id="table-area"></div>
+  <div class="table-wrap" id="table-wrap">
+    <div id="table-area" class="loading">データを取得中...</div>
   </div>
 
   <div class="footer">
-    <span class="note">※ スプレッドシートを編集しながらこのダイアログを参照できます（リサイズ不可）</span>
+    <span class="note">スプレッドシートを編集しながら参照可（リサイズ不可）</span>
     <button class="btn-close" id="btn-close" onclick="closeAndClear()">
-      ✕ 閉じてハイライト解除
+      X 閉じてハイライト解除
     </button>
   </div>
 
   <script>
-    // Fix 1: <?!= ?> で GAS の HTML エスケープを回避し、JSON を直接 JS 値として代入
-    // NG: var x = '<?!= json ?>'  → JSON内の ' でSyntaxError
-    // OK: var x = <?!= json ?>;   → JSON はそのまま JS リテラルとして有効
-    var issues = <?!= issuesJson ?>;
+    // Data is loaded via google.script.run after dialog opens
+    // (avoids HtmlTemplate scriptlet escaping issues entirely)
+    window.onload = function() {
+      google.script.run
+        .withSuccessHandler(onDataLoaded)
+        .withFailureHandler(onDataError)
+        .getQcIssues();
+    };
 
-    window.onload = function () {
-      if (!Array.isArray(issues)) return;
+    function onDataLoaded(jsonStr) {
+      var issues;
+      try {
+        issues = JSON.parse(jsonStr);
+      } catch (e) {
+        onDataError(e);
+        return;
+      }
+      renderTable(issues);
+    }
 
-      var pluralCount = issues.filter(function(i) { return i.type === '複数形'; }).length;
-      var propsCount  = issues.filter(function(i) { return i.type === 'props混入'; }).length;
+    function onDataError(err) {
+      document.getElementById('summary').textContent = 'エラー';
+      document.getElementById('table-area').innerHTML =
+        '<div class="err">データ取得エラー: ' + (err.message || String(err)) + '</div>';
+    }
+
+    function renderTable(issues) {
+      var pluralCount = 0, propsCount = 0;
+      for (var i = 0; i < issues.length; i++) {
+        if (issues[i].type === 'plural') pluralCount++;
+        else propsCount++;
+      }
 
       document.getElementById('summary').innerHTML =
-        '検出件数: <b>' + issues.length + '</b> 件　｜　' +
-        '<span class="badge badge-plural">複数形: ' + pluralCount + ' 件</span>　' +
-        '<span class="badge badge-props">props混入: ' + propsCount + ' 件</span>';
+        '検出: <b>' + issues.length + '</b> 件  |  ' +
+        '<span class="badge badge-plural">plural: ' + pluralCount + '</span>  ' +
+        '<span class="badge badge-props">props: ' + propsCount + '</span>';
 
       var area = document.getElementById('table-area');
 
       if (issues.length === 0) {
-        area.innerHTML = '<div class="empty">✅ 問題は検出されませんでした</div>';
+        area.innerHTML = '<div class="empty">問題は検出されませんでした</div>';
         return;
       }
 
-      var html = [
-        '<table>',
-        '<thead><tr>',
-        '<th style="width:72px">種別</th>',
-        '<th style="width:80px">Project</th>',
-        '<th style="width:148px">Record ID</th>',
-        '<th style="width:46px">SCN#</th>',
-        '<th style="width:140px">対象カラム</th>',
+      var rows = [
+        '<table><thead><tr>',
+        '<th style="width:60px">種別</th>',
+        '<th style="width:76px">Project</th>',
+        '<th style="width:140px">Record ID</th>',
+        '<th style="width:42px">SCN</th>',
+        '<th style="width:130px">カラム</th>',
         '<th>検出内容 / 修正ヒント</th>',
-        '</tr></thead>',
-        '<tbody>',
+        '</tr></thead><tbody>',
       ];
 
-      issues.forEach(function(issue) {
-        var rowCls = issue.type === '複数形' ? 'row-plural' : 'row-props';
-        var badge  = issue.type === '複数形'
-          ? '<span class="badge badge-plural">複数形</span>'
-          : '<span class="badge badge-props">props</span>';
-        html.push(
-          '<tr class="' + rowCls + '">',
-          '<td>' + badge + '</td>',
+      for (var j = 0; j < issues.length; j++) {
+        var issue = issues[j];
+        var isPlural = (issue.type === 'plural');
+        rows.push(
+          '<tr class="' + (isPlural ? 'row-plural' : 'row-props') + '">',
+          '<td><span class="badge ' + (isPlural ? 'badge-plural">plural' : 'badge-props">props') + '</span></td>',
           '<td>' + esc(issue.projectId) + '</td>',
           '<td>' + esc(issue.recordId) + '</td>',
           '<td style="text-align:center">' + esc(String(issue.sceneNo)) + '</td>',
@@ -155,23 +162,22 @@
           '<td class="detail">' + esc(issue.detail) + '</td>',
           '</tr>'
         );
-      });
+      }
 
-      html.push('</tbody></table>');
-      area.innerHTML = html.join('');
-    };
+      rows.push('</tbody></table>');
+      area.innerHTML = rows.join('');
+    }
 
     function closeAndClear() {
       var btn = document.getElementById('btn-close');
       btn.disabled = true;
       btn.textContent = '解除中...';
-
       google.script.run
         .withSuccessHandler(function() { google.script.host.close(); })
         .withFailureHandler(function(err) {
           alert('エラー: ' + err.message);
           btn.disabled = false;
-          btn.textContent = '✕ 閉じてハイライト解除';
+          btn.textContent = 'X 閉じてハイライト解除';
         })
         .clearAllHighlights();
     }

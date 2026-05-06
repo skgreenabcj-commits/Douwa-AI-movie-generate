@@ -139,8 +139,8 @@ function runPromptQualityCheck() {
     if (pluralHits.length > 0) {
       sheet.getRange(sheetRow, START_COL + COL.composition).setBackground(QC_COLOR_PLURAL);
       issues.push({
-        type: '複数形', projectId: projectId, recordId: recordId, sceneNo: sceneNo,
-        col: 'prompt_composition', detail: pluralHits.join(' ／ '), rowIndex: sheetRow,
+        type: 'plural', projectId: projectId, recordId: recordId, sceneNo: sceneNo,
+        col: 'prompt_composition', detail: pluralHits.join(' / '), rowIndex: sheetRow,
       });
     }
 
@@ -154,8 +154,8 @@ function runPromptQualityCheck() {
     if (propsHits.length > 0) {
       sheet.getRange(sheetRow, START_COL + COL.character).setBackground(QC_COLOR_PROPS);
       issues.push({
-        type: 'props混入', projectId: projectId, recordId: recordId, sceneNo: sceneNo,
-        col: 'prompt_character', detail: propsHits.join(' ／ '), rowIndex: sheetRow,
+        type: 'props', projectId: projectId, recordId: recordId, sceneNo: sceneNo,
+        col: 'prompt_character', detail: propsHits.join(' / '), rowIndex: sheetRow,
       });
     }
   }
@@ -201,9 +201,23 @@ function qcClearHighlights_(sheet, lastRow, COL) {
     sheet.getRange(DATA_START_ROW, START_COL + COL.character, dataRows, 1).setBackground(null);
 }
 
+// Temporary cache: holds scan results until the dialog fetches them via getQcIssues()
+var QC_ISSUES_CACHE_ = [];
+
+/**
+ * Called from ImagePromptQC.html via google.script.run after the dialog opens.
+ * Returns the cached scan results as a JSON string (safe cross-boundary transfer).
+ */
+function getQcIssues() {
+  return JSON.stringify(QC_ISSUES_CACHE_);
+}
+
 function qcShowDialog_(issues) {
-  var tpl = HtmlService.createTemplateFromFile('ImagePromptQC');
-  tpl.issuesJson = JSON.stringify(issues);
-  var html = tpl.evaluate().setWidth(680).setHeight(420);
-  SpreadsheetApp.getUi().showModelessDialog(html, '🔍 Prompt Quality Check');
+  // Cache results so the dialog can fetch them via google.script.run
+  QC_ISSUES_CACHE_ = issues;
+  // Use createHtmlOutputFromFile (no scriptlets needed — data loaded client-side)
+  var html = HtmlService.createHtmlOutputFromFile('ImagePromptQC')
+    .setWidth(680)
+    .setHeight(420);
+  SpreadsheetApp.getUi().showModelessDialog(html, 'Prompt Quality Check');
 }
