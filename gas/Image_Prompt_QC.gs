@@ -13,7 +13,7 @@
  */
 
 /** @const */ var QC_COLOR_PLURAL = '#FFD966'; // yellow : plural-form issues
-/** @const */ var QC_COLOR_PROPS  = '#F4B942'; // orange : props / appearance issues
+/** @const */ var QC_COLOR_PROPS  = '#F1948A'; // salmon-red : props / appearance issues
 
 /**
  * Plural-form patterns to detect in prompt_composition.
@@ -204,6 +204,6 @@ function qcClearHighlights_(sheet, lastRow, COL) {
 function qcShowDialog_(issues) {
   var tpl = HtmlService.createTemplateFromFile('ImagePromptQC');
   tpl.issuesJson = JSON.stringify(issues);
-  var html = tpl.evaluate().setWidth(860).setHeight(520);
+  var html = tpl.evaluate().setWidth(680).setHeight(420);
   SpreadsheetApp.getUi().showModelessDialog(html, '🔍 Prompt Quality Check');
 }
