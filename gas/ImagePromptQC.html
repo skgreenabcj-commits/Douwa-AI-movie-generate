@@ -104,17 +104,10 @@
   </div>
 
   <script>
-    // Fix 1: <?!= ?> を使用して GAS の HTML エスケープを回避
-    // <?= ?> は " → &quot; 等に変換するため JSON.parse に失敗する
-    var issuesRaw = '<?!= issuesJson ?>';
-    var issues = [];
-    try {
-      issues = JSON.parse(issuesRaw);
-    } catch (e) {
-      document.getElementById('summary').textContent = 'データ読み込みエラー';
-      document.getElementById('table-area').innerHTML =
-        '<div class="error-msg">⚠️ JSON パースエラー: ' + e.message + '</div>';
-    }
+    // Fix 1: <?!= ?> で GAS の HTML エスケープを回避し、JSON を直接 JS 値として代入
+    // NG: var x = '<?!= json ?>'  → JSON内の ' でSyntaxError
+    // OK: var x = <?!= json ?>;   → JSON はそのまま JS リテラルとして有効
+    var issues = <?!= issuesJson ?>;
 
     window.onload = function () {
       if (!Array.isArray(issues)) return;
