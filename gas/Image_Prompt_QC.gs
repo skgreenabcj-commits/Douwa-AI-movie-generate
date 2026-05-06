@@ -72,7 +72,7 @@ var QC_PROPS_PATTERNS = [
  */
 function runPromptQualityCheck() {
   var html = HtmlService.createHtmlOutputFromFile('ImagePromptQC')
-    .setWidth(640)
+    .setWidth(400)
     .setHeight(460);
   SpreadsheetApp.getUi().showModelessDialog(html, 'Prompt Quality Check');
 }
