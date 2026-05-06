@@ -3,127 +3,258 @@
 <head>
   <base target="_top">
   <style>
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: Arial, sans-serif;
-      margin: 0; padding: 10px 14px;
       font-size: 13px; color: #333;
       display: flex; flex-direction: column; height: 100vh;
       overflow: hidden;
     }
-    h3 { margin: 0 0 7px; font-size: 14px; }
 
-    .legend {
-      display: flex; gap: 16px; align-items: center;
-      margin-bottom: 7px; font-size: 12px; flex-wrap: wrap;
+    /* ── Header (always visible) ─────────────────────── */
+    .header {
+      padding: 8px 12px 6px;
+      border-bottom: 1px solid #ddd;
+      flex-shrink: 0;
     }
+    .header h3 { font-size: 14px; margin-bottom: 4px; }
+    .legend { display: flex; gap: 14px; font-size: 11px; }
     .badge {
-      display: inline-block;
-      padding: 2px 9px; border-radius: 10px;
-      font-size: 11px; font-weight: bold;
+      display: inline-block; padding: 1px 8px;
+      border-radius: 10px; font-size: 11px; font-weight: bold;
     }
     .badge-plural { background: #FFD966; color: #5a4000; }
     .badge-props  { background: #F1948A; color: #7b0000; }
 
-    .summary {
-      padding: 6px 10px; background: #f0f4f8;
-      border-radius: 4px; margin-bottom: 7px;
-      font-size: 12px; flex-shrink: 0;
+    /* ── Page: project selector ──────────────────────── */
+    #page-select {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 10px 12px; overflow: hidden;
     }
-
-    .table-wrap {
-      flex: 1; overflow-x: auto; overflow-y: auto;
+    #page-select .label { font-size: 12px; color: #555; margin-bottom: 6px; }
+    .pjt-list {
+      flex: 1; overflow-y: auto;
       border: 1px solid #ddd; border-radius: 4px;
-      min-height: 0;
+      padding: 4px 0;
     }
-    table { border-collapse: collapse; white-space: nowrap; min-width: 660px; }
-    th {
-      background: #3d6eb4; color: white;
-      padding: 5px 8px; text-align: left;
-      position: sticky; top: 0; z-index: 1;
+    .pjt-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 10px; cursor: pointer; font-size: 13px;
+    }
+    .pjt-item:hover { background: #f0f4ff; }
+    .pjt-item input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; }
+    .sel-actions {
+      display: flex; gap: 8px; margin-top: 6px;
       font-size: 11px;
     }
-    td { padding: 4px 8px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 12px; }
+    .sel-actions a { color: #3d6eb4; cursor: pointer; text-decoration: underline; }
+    .run-bar {
+      margin-top: 8px; display: flex;
+      justify-content: flex-end; align-items: center; gap: 10px;
+    }
+    .spinner { display: none; font-size: 11px; color: #888; }
 
-    tr.row-plural td { background: #fffbe6; }
-    tr.row-props  td { background: #fff0ef; }
-    tr.row-plural:hover td { background: #fff3b0; }
-    tr.row-props:hover  td { background: #ffd6d4; }
+    /* ── Page: results ───────────────────────────────── */
+    #page-result { flex: 1; display: none; flex-direction: column; overflow: hidden; }
 
-    .detail { color: #b03030; font-size: 11px; line-height: 1.5; white-space: normal; min-width: 180px; max-width: 380px; }
+    .summary {
+      padding: 5px 12px;
+      background: #f0f4f8; font-size: 12px;
+      border-bottom: 1px solid #ddd; flex-shrink: 0;
+    }
+
+    /* Table: zero-gap scroll area */
+    .table-wrap {
+      flex: 1; overflow: auto;
+      /* No padding here — table fills the area flush */
+    }
+    table {
+      border-collapse: collapse;
+      /* Record ID col + detail col only; no min-width needed */
+    }
+    th {
+      background: #3d6eb4; color: #fff;
+      padding: 5px 8px; text-align: left;
+      font-size: 11px; white-space: nowrap;
+      position: sticky; top: 0; z-index: 2;
+    }
+    td { padding: 4px 8px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top; }
+
+    /* Freeze Record ID column */
+    th.col-id, td.col-id {
+      position: sticky; left: 0; z-index: 1;
+      white-space: nowrap;
+    }
+    th.col-id { z-index: 3; } /* header + frozen col intersection */
+    td.col-id { background: inherit; }
+
+    tr.row-plural td             { background: #fffbe6; }
+    tr.row-props  td             { background: #fff0ef; }
+    tr.row-plural:hover td       { background: #fff3b0; }
+    tr.row-props:hover  td       { background: #ffd6d4; }
+    /* frozen cell must also inherit hover */
+    tr.row-plural td.col-id      { background: #fffbe6; }
+    tr.row-props  td.col-id      { background: #fff0ef; }
+    tr.row-plural:hover td.col-id{ background: #fff3b0; }
+    tr.row-props:hover  td.col-id{ background: #ffd6d4; }
+
+    .detail {
+      color: #b03030; font-size: 11px; line-height: 1.5;
+      white-space: normal; min-width: 160px; max-width: 360px;
+    }
     code { font-size: 11px; background: #eee; padding: 1px 4px; border-radius: 3px; }
+    .empty { text-align: center; padding: 40px; color: #27ae60; font-size: 14px; }
+    .err   { padding: 12px; color: #c0392b; background: #fff0ef; font-size: 12px; }
 
-    .loading { text-align: center; padding: 40px; color: #888; }
-    .empty   { text-align: center; padding: 40px; color: #27ae60; font-size: 15px; }
-    .err     { text-align: center; padding: 20px; color: #c0392b; background: #fff0ef; border-radius: 4px; margin: 8px; font-size: 12px; }
-
+    /* ── Footer (always visible) ─────────────────────── */
     .footer {
-      margin-top: 7px; flex-shrink: 0;
+      padding: 6px 12px;
+      border-top: 1px solid #ddd; flex-shrink: 0;
       display: flex; justify-content: space-between; align-items: center;
     }
     .note { font-size: 10px; color: #999; }
-    .btn-close {
-      padding: 6px 20px; border: none; border-radius: 4px;
+    button {
+      padding: 5px 16px; border: none; border-radius: 4px;
       cursor: pointer; font-size: 13px; font-weight: bold;
-      background: #e74c3c; color: white;
     }
+    .btn-primary  { background: #3d6eb4; color: #fff; }
+    .btn-primary:hover    { background: #2d5a9a; }
+    .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+    .btn-close  { background: #e74c3c; color: #fff; }
     .btn-close:hover    { background: #c0392b; }
     .btn-close:disabled { background: #ccc; cursor: not-allowed; }
+    .btn-back { background: #eee; color: #333; margin-right: 6px; }
+    .btn-back:hover { background: #ddd; }
   </style>
 </head>
 <body>
-  <h3>Prompt Quality Check</h3>
 
-  <div class="legend">
-    <span><span class="badge badge-plural">plural</span> prompt_composition キャラ複数形</span>
-    <span><span class="badge badge-props">props</span> prompt_character 外見・道具記述</span>
+  <!-- Header -->
+  <div class="header">
+    <h3>Prompt Quality Check</h3>
+    <div class="legend">
+      <span><span class="badge badge-plural">plural</span> prompt_composition キャラ複数形</span>
+      <span><span class="badge badge-props">props</span> prompt_character 外見・道具記述</span>
+    </div>
   </div>
 
-  <div class="summary" id="summary">読み込み中...</div>
-
-  <div class="table-wrap" id="table-wrap">
-    <div id="table-area" class="loading">データを取得中...</div>
+  <!-- Page 1: project selector -->
+  <div id="page-select">
+    <div class="label">スキャン対象プロジェクトを選択してください</div>
+    <div class="pjt-list" id="pjt-list">読み込み中...</div>
+    <div class="sel-actions">
+      <a onclick="selectAll(true)">全選択</a>
+      <a onclick="selectAll(false)">全解除</a>
+    </div>
+    <div class="run-bar">
+      <span class="spinner" id="spinner">スキャン中...</span>
+      <button class="btn-primary" id="btn-run" onclick="startScan()" disabled>スキャン実行</button>
+    </div>
   </div>
 
+  <!-- Page 2: results -->
+  <div id="page-result">
+    <div class="summary" id="summary"></div>
+    <div class="table-wrap">
+      <div id="table-area"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
   <div class="footer">
     <span class="note">スプレッドシートを編集しながら参照可（リサイズ不可）</span>
-    <button class="btn-close" id="btn-close" onclick="closeAndClear()">
-      X 閉じてハイライト解除
-    </button>
+    <div>
+      <button class="btn-back" id="btn-back" style="display:none" onclick="goBack()">戻る</button>
+      <button class="btn-close" id="btn-close" onclick="closeAndClear()">X 閉じてハイライト解除</button>
+    </div>
   </div>
 
   <script>
-    // Data is loaded via google.script.run after dialog opens
-    // (avoids HtmlTemplate scriptlet escaping issues entirely)
+    /* ── init ── */
     window.onload = function() {
       google.script.run
-        .withSuccessHandler(onDataLoaded)
-        .withFailureHandler(onDataError)
-        .getQcIssues();
+        .withSuccessHandler(renderProjectList)
+        .withFailureHandler(function(e) {
+          document.getElementById('pjt-list').innerHTML =
+            '<div class="err">プロジェクト取得エラー: ' + esc(e.message) + '</div>';
+        })
+        .getActiveProjects();
     };
 
-    function onDataLoaded(jsonStr) {
+    /* ── Project list ── */
+    function renderProjectList(projects) {
+      var list = document.getElementById('pjt-list');
+      if (!projects || projects.length === 0) {
+        list.innerHTML = '<div style="padding:10px;color:#888">アクティブなプロジェクトがありません</div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < projects.length; i++) {
+        var p = projects[i];
+        html += '<label class="pjt-item">' +
+          '<input type="checkbox" value="' + esc(p.project_id) + '" onchange="updateRunBtn()">' +
+          esc(p.label) +
+          '</label>';
+      }
+      list.innerHTML = html;
+      document.getElementById('btn-run').disabled = false;
+    }
+
+    function selectAll(checked) {
+      var boxes = document.querySelectorAll('#pjt-list input[type=checkbox]');
+      for (var i = 0; i < boxes.length; i++) boxes[i].checked = checked;
+      updateRunBtn();
+    }
+
+    function updateRunBtn() {
+      var any = document.querySelectorAll('#pjt-list input[type=checkbox]:checked').length > 0;
+      document.getElementById('btn-run').disabled = !any;
+    }
+
+    /* ── Scan ── */
+    function startScan() {
+      var boxes = document.querySelectorAll('#pjt-list input[type=checkbox]:checked');
+      var ids = [];
+      for (var i = 0; i < boxes.length; i++) ids.push(boxes[i].value);
+      if (ids.length === 0) return;
+
+      document.getElementById('btn-run').disabled = true;
+      document.getElementById('spinner').style.display = 'inline';
+
+      google.script.run
+        .withSuccessHandler(onScanDone)
+        .withFailureHandler(function(e) {
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('btn-run').disabled = false;
+          alert('スキャンエラー: ' + e.message);
+        })
+        .runQcForProjects(ids);
+    }
+
+    function onScanDone(jsonStr) {
+      document.getElementById('spinner').style.display = 'none';
       var issues;
       try {
         issues = JSON.parse(jsonStr);
-      } catch (e) {
-        onDataError(e);
+      } catch(e) {
+        alert('結果パースエラー: ' + e.message);
+        document.getElementById('btn-run').disabled = false;
         return;
       }
-      renderTable(issues);
+      if (issues && issues.error) {
+        alert('エラー: ' + issues.error);
+        document.getElementById('btn-run').disabled = false;
+        return;
+      }
+      renderResults(issues);
+      showPage('result');
     }
 
-    function onDataError(err) {
-      document.getElementById('summary').textContent = 'エラー';
-      document.getElementById('table-area').innerHTML =
-        '<div class="err">データ取得エラー: ' + (err.message || String(err)) + '</div>';
-    }
-
-    function renderTable(issues) {
+    /* ── Results ── */
+    function renderResults(issues) {
       var pluralCount = 0, propsCount = 0;
       for (var i = 0; i < issues.length; i++) {
-        if (issues[i].type === 'plural') pluralCount++;
-        else propsCount++;
+        if (issues[i].type === 'plural') pluralCount++; else propsCount++;
       }
 
       document.getElementById('summary').innerHTML =
@@ -132,7 +263,6 @@
         '<span class="badge badge-props">props: ' + propsCount + '</span>';
 
       var area = document.getElementById('table-area');
-
       if (issues.length === 0) {
         area.innerHTML = '<div class="empty">問題は検出されませんでした</div>';
         return;
@@ -140,11 +270,9 @@
 
       var rows = [
         '<table><thead><tr>',
-        '<th style="width:60px">種別</th>',
-        '<th style="width:76px">Project</th>',
-        '<th style="width:140px">Record ID</th>',
-        '<th style="width:42px">SCN</th>',
-        '<th style="width:130px">カラム</th>',
+        '<th class="col-id">Record ID</th>',   /* frozen */
+        '<th>種別</th>',
+        '<th>対象カラム</th>',
         '<th>検出内容 / 修正ヒント</th>',
         '</tr></thead><tbody>',
       ];
@@ -154,34 +282,46 @@
         var isPlural = (issue.type === 'plural');
         rows.push(
           '<tr class="' + (isPlural ? 'row-plural' : 'row-props') + '">',
+          '<td class="col-id">' + esc(issue.recordId) + '</td>',
           '<td><span class="badge ' + (isPlural ? 'badge-plural">plural' : 'badge-props">props') + '</span></td>',
-          '<td>' + esc(issue.projectId) + '</td>',
-          '<td>' + esc(issue.recordId) + '</td>',
-          '<td style="text-align:center">' + esc(String(issue.sceneNo)) + '</td>',
           '<td><code>' + esc(issue.col) + '</code></td>',
           '<td class="detail">' + esc(issue.detail) + '</td>',
           '</tr>'
         );
       }
-
       rows.push('</tbody></table>');
       area.innerHTML = rows.join('');
     }
 
+    /* ── Page transitions ── */
+    function showPage(page) {
+      document.getElementById('page-select').style.display = page === 'select' ? 'flex' : 'none';
+      document.getElementById('page-result').style.display = page === 'result' ? 'flex' : 'none';
+      document.getElementById('btn-back').style.display    = page === 'result' ? 'inline-block' : 'none';
+    }
+
+    function goBack() {
+      document.getElementById('btn-run').disabled = false;
+      document.getElementById('spinner').style.display = 'none';
+      showPage('select');
+    }
+
+    /* ── Close ── */
     function closeAndClear() {
       var btn = document.getElementById('btn-close');
       btn.disabled = true;
       btn.textContent = '解除中...';
       google.script.run
         .withSuccessHandler(function() { google.script.host.close(); })
-        .withFailureHandler(function(err) {
-          alert('エラー: ' + err.message);
+        .withFailureHandler(function(e) {
+          alert('エラー: ' + e.message);
           btn.disabled = false;
           btn.textContent = 'X 閉じてハイライト解除';
         })
         .clearAllHighlights();
     }
 
+    /* ── Util ── */
     function esc(str) {
       return String(str)
         .replace(/&/g, '&amp;')

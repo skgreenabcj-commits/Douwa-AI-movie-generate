@@ -1,15 +1,16 @@
 /**
  * Image_Prompt_QC.gs — Prompt Quality Checker for 06_Image_Prompts
  *
- * Scans all rows in 06_Image_Prompts and detects:
- *   ① prompt_composition : plural character name patterns  (highlight: yellow)
- *   ② prompt_character   : scene-specific props / appearance patterns  (highlight: orange)
+ * Flow:
+ *   1. runPromptQualityCheck() → opens ImagePromptQC.html (project selector)
+ *   2. HTML calls getActiveProjects()  → populates checkboxes
+ *   3. User selects projects → HTML calls runQcForProjects(projectIds)
+ *   4. runQcForProjects() scans, highlights cells, returns issues JSON directly
+ *   5. HTML renders results table
+ *   6. "X 閉じてハイライト解除" → clearAllHighlights()
  *
  * Shared constants from Code.gs (same GAS global scope):
  *   SHEET_IMAGE_PROMPTS, HEADER_ROW, DATA_START_ROW, START_COL
- *
- * Entry point  : runPromptQualityCheck()  ← called from onOpen() menu in Code.gs
- * Clear entry  : clearAllHighlights()     ← called from ImagePromptQC.html close button
  */
 
 /** @const */ var QC_COLOR_PLURAL = '#FFD966'; // yellow : plural-form issues
@@ -18,75 +19,83 @@
 /**
  * Plural-form patterns to detect in prompt_composition.
  * Add entries here when new character types are introduced across projects.
- * @type {Array<{re: RegExp, hint: string}>}
  */
 var QC_PLURAL_PATTERNS = [
-  { re: /\bCrabs\b/i,          hint: '→ the Crab' },
-  { re: /\bMonkeys\b/i,        hint: '→ the Monkey' },
-  { re: /\bBees\b/i,           hint: '→ the Bee' },
-  { re: /\bChestnuts\b/i,      hint: '→ the Chestnut' },
-  { re: /\bMortars\b/i,        hint: '→ the Mortar' },
-  { re: /\bUnchis\b/i,         hint: '→ Unchi' },
-  { re: /\bGrandmothers\b/i,   hint: '→ Grandmother' },
-  { re: /\bGrandfathers\b/i,   hint: '→ Grandfather' },
-  { re: /\bVillagers\b/i,      hint: '→ the Villager' },
-  { re: /\bChildren\b/i,       hint: '→ the Child' },
-  { re: /\bOnis\b/i,           hint: '→ the Oni' },
-  { re: /\bSamurais\b/i,       hint: '→ the Samurai' },
-  { re: /\bDogs\b/i,           hint: '→ the Dog' },
-  { re: /\bPheasants\b/i,      hint: '→ the Pheasant' },
-  { re: /\bKintaros\b/i,       hint: '→ Kintaro' },
-  { re: /\bMomotaros\b/i,      hint: '→ Momotaro' },
+  { re: /\bCrabs\b/i,          hint: 'the Crab' },
+  { re: /\bMonkeys\b/i,        hint: 'the Monkey' },
+  { re: /\bBees\b/i,           hint: 'the Bee' },
+  { re: /\bChestnuts\b/i,      hint: 'the Chestnut' },
+  { re: /\bMortars\b/i,        hint: 'the Mortar' },
+  { re: /\bUnchis\b/i,         hint: 'Unchi' },
+  { re: /\bGrandmothers\b/i,   hint: 'Grandmother' },
+  { re: /\bGrandfathers\b/i,   hint: 'Grandfather' },
+  { re: /\bVillagers\b/i,      hint: 'the Villager' },
+  { re: /\bChildren\b/i,       hint: 'the Child' },
+  { re: /\bOnis\b/i,           hint: 'the Oni' },
+  { re: /\bSamurais\b/i,       hint: 'the Samurai' },
+  { re: /\bDogs\b/i,           hint: 'the Dog' },
+  { re: /\bPheasants\b/i,      hint: 'the Pheasant' },
+  { re: /\bKintaros\b/i,       hint: 'Kintaro' },
+  { re: /\bMomotaros\b/i,      hint: 'Momotaro' },
 ];
 
 /**
  * Props / appearance patterns to detect in prompt_character.
  * Add entries here when new prohibited keywords are identified.
- * @type {Array<{re: RegExp, hint: string}>}
  */
 var QC_PROPS_PATTERNS = [
-  { re: /onigiri/i,             hint: '→ prompt_scene へ移動' },
-  { re: /rice\s*ball/i,         hint: '→ prompt_scene へ移動' },
-  { re: /watering\s*can/i,      hint: '→ prompt_scene へ移動' },
-  { re: /holding\s+a\b/i,       hint: '物体を持つ記述 → prompt_scene へ移動' },
-  { re: /carrying\s+a\b/i,      hint: '物体を運ぶ記述 → prompt_scene へ移動' },
-  { re: /handing\s+over/i,      hint: '物体の受け渡し → prompt_scene へ移動' },
-  { re: /\bwearing\b/i,         hint: '衣装記述 → 削除（外見は character_book 担当）' },
-  { re: /\bkimono\b/i,          hint: '衣装記述 → 削除' },
-  { re: /\bhaircut\b/i,         hint: '髪型記述 → 削除' },
-  { re: /\bbob\s+hair/i,        hint: '髪型記述 → 削除' },
-  { re: /\baxe\b/i,             hint: '→ prompt_scene へ移動' },
-  { re: /\bsword\b/i,           hint: '→ prompt_scene へ移動' },
-  { re: /\bpersimmon\b/i,       hint: '→ prompt_scene へ移動' },
-  { re: /\bbasket\b/i,          hint: '→ prompt_scene へ移動' },
-  { re: /\bbucket\b/i,          hint: '→ prompt_scene へ移動' },
-  { re: /\bclub\b/i,            hint: '→ prompt_scene へ移動（金棒等）' },
+  { re: /onigiri/i,            hint: 'onigiri -> prompt_scene' },
+  { re: /rice\s*ball/i,        hint: 'rice ball -> prompt_scene' },
+  { re: /watering\s*can/i,     hint: 'watering can -> prompt_scene' },
+  { re: /holding\s+a\b/i,      hint: 'holding [obj] -> prompt_scene' },
+  { re: /carrying\s+a\b/i,     hint: 'carrying [obj] -> prompt_scene' },
+  { re: /handing\s+over/i,     hint: 'handing over -> prompt_scene' },
+  { re: /\bwearing\b/i,        hint: 'wearing -> remove (visual only)' },
+  { re: /\bkimono\b/i,         hint: 'kimono -> remove' },
+  { re: /\bhaircut\b/i,        hint: 'haircut -> remove' },
+  { re: /\bbob\s+hair/i,       hint: 'bob hair -> remove' },
+  { re: /\baxe\b/i,            hint: 'axe -> prompt_scene' },
+  { re: /\bsword\b/i,          hint: 'sword -> prompt_scene' },
+  { re: /\bpersimmon\b/i,      hint: 'persimmon -> prompt_scene' },
+  { re: /\bbasket\b/i,         hint: 'basket -> prompt_scene' },
+  { re: /\bbucket\b/i,         hint: 'bucket -> prompt_scene' },
+  { re: /\bclub\b/i,           hint: 'club -> prompt_scene' },
 ];
 
 // ---------------------------------------------------------------------------
-// Main
+// Menu entry point
 // ---------------------------------------------------------------------------
 
 /**
- * Scans 06_Image_Prompts, highlights offending cells, and shows a modeless dialog.
- * Called from the "AI動画制作 → 🔍 Prompt 品質チェック" menu in Code.gs.
+ * Opens the QC dialog (project selector).
+ * Called from onOpen() menu in Code.gs.
  */
 function runPromptQualityCheck() {
+  var html = HtmlService.createHtmlOutputFromFile('ImagePromptQC')
+    .setWidth(700)
+    .setHeight(460);
+  SpreadsheetApp.getUi().showModelessDialog(html, 'Prompt Quality Check');
+}
+
+// ---------------------------------------------------------------------------
+// Called from ImagePromptQC.html
+// ---------------------------------------------------------------------------
+
+/**
+ * Scans 06_Image_Prompts for the given project IDs, highlights cells,
+ * and returns issues as a JSON string directly (no cache needed).
+ * @param {string[]} projectIds - array of project_id strings to scan
+ * @returns {string} JSON string of issue objects
+ */
+function runQcForProjects(projectIds) {
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_IMAGE_PROMPTS);
-  if (!sheet) {
-    SpreadsheetApp.getUi().alert('シート "' + SHEET_IMAGE_PROMPTS + '" が見つかりません');
-    return;
-  }
+  if (!sheet) return JSON.stringify({ error: 'Sheet "' + SHEET_IMAGE_PROMPTS + '" not found' });
 
   var lastCol = sheet.getLastColumn();
   var lastRow = sheet.getLastRow();
-  if (lastRow < HEADER_ROW || lastCol < START_COL) {
-    SpreadsheetApp.getUi().alert('06_Image_Prompts にデータがありません');
-    return;
-  }
+  if (lastRow < HEADER_ROW || lastCol < START_COL) return JSON.stringify([]);
 
-  // Resolve column indices from header row (robust against column reordering)
   var colCount = lastCol - START_COL + 1;
   var headers  = sheet.getRange(HEADER_ROW, START_COL, 1, colCount).getValues()[0];
 
@@ -100,67 +109,70 @@ function runPromptQualityCheck() {
   };
 
   if (COL.composition === -1 || COL.character === -1) {
-    SpreadsheetApp.getUi().alert(
-      '必要なカラムが見つかりません\n（prompt_composition / prompt_character）'
-    );
-    return;
+    return JSON.stringify({ error: 'Required columns not found (prompt_composition / prompt_character)' });
   }
 
-  // Clear previous highlights before re-scan
+  // Build project filter set
+  var filterSet = {};
+  for (var k = 0; k < projectIds.length; k++) {
+    filterSet[projectIds[k]] = true;
+  }
+  var filterAll = (projectIds.length === 0);
+
+  // Clear previous highlights across all rows
   qcClearHighlights_(sheet, lastRow, COL);
 
-  // Read all data rows
   var rowCount = lastRow - DATA_START_ROW + 1;
-  if (rowCount <= 0) {
-    qcShowDialog_([]);
-    return;
-  }
-  var rows = sheet.getRange(DATA_START_ROW, START_COL, rowCount, colCount).getValues();
+  if (rowCount <= 0) return JSON.stringify([]);
 
+  var rows = sheet.getRange(DATA_START_ROW, START_COL, rowCount, colCount).getValues();
   var issues = [];
 
   for (var i = 0; i < rows.length; i++) {
-    var row         = rows[i];
-    var projectId   = String(row[COL.projectId]   || '');
-    var recordId    = String(row[COL.recordId]     || '');
+    var row       = rows[i];
+    var projectId = String(row[COL.projectId] || '');
+    if (!filterAll && !filterSet[projectId]) continue;
+
+    var recordId    = String(row[COL.recordId]    || '');
     var sceneNo     = String(row[COL.sceneNo]      || '');
     var composition = String(row[COL.composition]  || '');
     var character   = String(row[COL.character]    || '');
-
-    var sheetRow = DATA_START_ROW + i; // 1-based row index in sheet
+    var sheetRow    = DATA_START_ROW + i;
 
     // ① prompt_composition — plural character names
-    var pluralHits = QC_PLURAL_PATTERNS
-      .filter(function(p) { return p.re.test(composition); })
-      .map(function(p) {
-        return '"' + composition.match(p.re)[0] + '" ' + p.hint;
-      });
-
+    var pluralHits = [];
+    for (var p = 0; p < QC_PLURAL_PATTERNS.length; p++) {
+      var pp = QC_PLURAL_PATTERNS[p];
+      if (pp.re.test(composition)) {
+        pluralHits.push(composition.match(pp.re)[0] + ' -> ' + pp.hint);
+      }
+    }
     if (pluralHits.length > 0) {
       sheet.getRange(sheetRow, START_COL + COL.composition).setBackground(QC_COLOR_PLURAL);
       issues.push({
-        type: 'plural', projectId: projectId, recordId: recordId, sceneNo: sceneNo,
-        col: 'prompt_composition', detail: pluralHits.join(' / '), rowIndex: sheetRow,
+        type: 'plural', recordId: recordId, sceneNo: sceneNo,
+        col: 'prompt_composition', detail: pluralHits.join(' / '),
       });
     }
 
     // ② prompt_character — props / appearance descriptions
-    var propsHits = QC_PROPS_PATTERNS
-      .filter(function(p) { return p.re.test(character); })
-      .map(function(p) {
-        return '"' + character.match(p.re)[0] + '" ' + p.hint;
-      });
-
+    var propsHits = [];
+    for (var q = 0; q < QC_PROPS_PATTERNS.length; q++) {
+      var qp = QC_PROPS_PATTERNS[q];
+      if (qp.re.test(character)) {
+        propsHits.push(character.match(qp.re)[0] + ' -> ' + qp.hint);
+      }
+    }
     if (propsHits.length > 0) {
       sheet.getRange(sheetRow, START_COL + COL.character).setBackground(QC_COLOR_PROPS);
       issues.push({
-        type: 'props', projectId: projectId, recordId: recordId, sceneNo: sceneNo,
-        col: 'prompt_character', detail: propsHits.join(' / '), rowIndex: sheetRow,
+        type: 'props', recordId: recordId, sceneNo: sceneNo,
+        col: 'prompt_character', detail: propsHits.join(' / '),
       });
     }
   }
 
-  qcShowDialog_(issues);
+  return JSON.stringify(issues);
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +181,7 @@ function runPromptQualityCheck() {
 
 /**
  * Removes all QC highlights from 06_Image_Prompts.
- * Called via google.script.run from the dialog's close button.
+ * Called via google.script.run from the dialog close button.
  */
 function clearAllHighlights() {
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
@@ -189,7 +201,7 @@ function clearAllHighlights() {
 }
 
 // ---------------------------------------------------------------------------
-// Private helpers
+// Private helper
 // ---------------------------------------------------------------------------
 
 function qcClearHighlights_(sheet, lastRow, COL) {
@@ -199,25 +211,4 @@ function qcClearHighlights_(sheet, lastRow, COL) {
     sheet.getRange(DATA_START_ROW, START_COL + COL.composition, dataRows, 1).setBackground(null);
   if (COL.character >= 0)
     sheet.getRange(DATA_START_ROW, START_COL + COL.character, dataRows, 1).setBackground(null);
-}
-
-/**
- * Called from ImagePromptQC.html via google.script.run after the dialog opens.
- * Reads issues from CacheService (shared across GAS executions).
- * @returns {string} JSON string of issue objects
- */
-function getQcIssues() {
-  var cache = CacheService.getScriptCache();
-  return cache.get('qcIssues') || '[]';
-}
-
-function qcShowDialog_(issues) {
-  // Persist issues in CacheService so getQcIssues() can read them in a separate execution
-  var cache = CacheService.getScriptCache();
-  cache.put('qcIssues', JSON.stringify(issues), 300); // TTL: 5 minutes
-  // Use createHtmlOutputFromFile (no scriptlets — data loaded client-side via google.script.run)
-  var html = HtmlService.createHtmlOutputFromFile('ImagePromptQC')
-    .setWidth(680)
-    .setHeight(420);
-  SpreadsheetApp.getUi().showModelessDialog(html, 'Prompt Quality Check');
 }
