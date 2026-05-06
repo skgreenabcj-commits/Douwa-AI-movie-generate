@@ -201,21 +201,21 @@ function qcClearHighlights_(sheet, lastRow, COL) {
     sheet.getRange(DATA_START_ROW, START_COL + COL.character, dataRows, 1).setBackground(null);
 }
 
-// Temporary cache: holds scan results until the dialog fetches them via getQcIssues()
-var QC_ISSUES_CACHE_ = [];
-
 /**
  * Called from ImagePromptQC.html via google.script.run after the dialog opens.
- * Returns the cached scan results as a JSON string (safe cross-boundary transfer).
+ * Reads issues from CacheService (shared across GAS executions).
+ * @returns {string} JSON string of issue objects
  */
 function getQcIssues() {
-  return JSON.stringify(QC_ISSUES_CACHE_);
+  var cache = CacheService.getScriptCache();
+  return cache.get('qcIssues') || '[]';
 }
 
 function qcShowDialog_(issues) {
-  // Cache results so the dialog can fetch them via google.script.run
-  QC_ISSUES_CACHE_ = issues;
-  // Use createHtmlOutputFromFile (no scriptlets needed — data loaded client-side)
+  // Persist issues in CacheService so getQcIssues() can read them in a separate execution
+  var cache = CacheService.getScriptCache();
+  cache.put('qcIssues', JSON.stringify(issues), 300); // TTL: 5 minutes
+  // Use createHtmlOutputFromFile (no scriptlets — data loaded client-side via google.script.run)
   var html = HtmlService.createHtmlOutputFromFile('ImagePromptQC')
     .setWidth(680)
     .setHeight(420);
