@@ -6,7 +6,7 @@
  * テンプレート内の {{KEY}} を replacements[KEY] で置換する。
  */
 
-import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, ScriptShortReadRow, QaAiRow, VisualBibleReadRow, VisualBibleFullRow } from "../types.js";
+import type { ProjectRow, RightsValidationReadRow, SourceReadRow, SceneReadRow, ScriptFullReadRow, ScriptShortReadRow, QaAiRow, VisualBibleReadRow, VisualBibleFullRow, VisualBibleCoreItemRow } from "../types.js";
 import type { Step01Assets, Step02Assets, Step03Assets, Step04Assets, Step05Assets, Step06Assets, Step07Assets, Step08aAssets, Step09Assets } from "./load-assets.js";
 
 /**
@@ -403,6 +403,24 @@ export function buildStep07Prompt(
   return buildPrompt(assets.promptTemplate, {
     INPUT_DATA: inputData,
   });
+}
+
+/**
+ * Visual Bible の core_item エントリからアイテムシート生成用英語プロンプトを組み立てる。
+ * buildCharacterSheetPrompt に相当するが、物体（アイテム）専用。
+ */
+export function buildCoreItemSheetPrompt(item: VisualBibleCoreItemRow): string {
+  const parts: string[] = [
+    `Generate a clean item reference sheet for the following object.`,
+    `Show the item isolated on a plain white or very light background.`,
+    `No scene context, no characters, no people, no text, no captions.`,
+    `Display the item clearly with all distinctive features fully visible.`,
+  ];
+  if (item.description)   parts.push(`Item description: ${item.description}`);
+  if (item.color_palette) parts.push(`Color palette: ${item.color_palette}`);
+  if (item.avoid_rule)    parts.push(`Avoid: ${item.avoid_rule}`);
+  parts.push(`no text, no letters, no captions, no watermark`);
+  return parts.join(" ");
 }
 
 /**

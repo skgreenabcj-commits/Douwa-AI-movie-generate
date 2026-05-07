@@ -11,7 +11,7 @@
  */
 
 import { readSheet } from "./sheets-client.js";
-import type { VisualBibleReadRow, VisualBibleCharacterRow, VisualBibleFullRow } from "../types.js";
+import type { VisualBibleReadRow, VisualBibleCharacterRow, VisualBibleFullRow, VisualBibleCoreItemRow } from "../types.js";
 
 const SHEET_NAME = "05_Visual_Bible";
 
@@ -112,6 +112,38 @@ export async function loadCharactersByProjectId(
       color_palette:   (row["color_palette"]   ?? "").trim(),
       expression_rule: (row["expression_rule"] ?? "").trim(),
       avoid_rule:      (row["avoid_rule"]      ?? "").trim(),
+    });
+  }
+
+  return result;
+}
+
+/**
+ * 指定 project_id の Visual Bible から category="core_item" の行を取得する。
+ * コアアイテムシート画像生成のための詳細データとして使用する。
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param projectId     - 検索する project_id
+ * @returns VisualBibleCoreItemRow[]（シート行順）
+ */
+export async function loadCoreItemsByProjectId(
+  spreadsheetId: string,
+  projectId: string
+): Promise<VisualBibleCoreItemRow[]> {
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  const target = projectId.trim();
+
+  const result: VisualBibleCoreItemRow[] = [];
+  for (const row of rows) {
+    if ((row["project_id"] ?? "").trim() !== target) continue;
+    if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
+    if ((row["category"] ?? "").trim() !== "core_item") continue;
+
+    result.push({
+      key_name:      (row["key_name"]      ?? "").trim(),
+      description:   (row["description"]   ?? "").trim(),
+      color_palette: (row["color_palette"] ?? "").trim(),
+      avoid_rule:    (row["avoid_rule"]    ?? "").trim(),
     });
   }
 

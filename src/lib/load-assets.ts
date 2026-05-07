@@ -278,7 +278,7 @@ export interface Step06Assets {
 export function loadStep06Assets(): Step06Assets {
   return {
     promptTemplate: readText(
-      repoPath("prompts", "visual_bible_prompt_v1.md")
+      repoPath("prompts", "visual_bible_prompt_v2.md")
     ),
     aiSchema: readText(
       repoPath("schemas", "visual_bible_schema_ai_v1.json")
@@ -295,7 +295,7 @@ export function loadStep06Assets(): Step06Assets {
 // ─── STEP_07 Assets (Image Prompts) ──────────────────────────────────────────
 
 export interface Step07Assets {
-  promptTemplate: string;  // image_prompt_prompt_v1.md
+  promptTemplate: string;  // image_prompt_prompt_v2.md
   aiSchema:       string;  // image_prompt_schema_ai_v1.json（JSON string）
   fullSchema:     string;  // image_prompt_schema_full_v1.json（JSON string）
 }
@@ -306,7 +306,7 @@ export interface Step07Assets {
 export function loadStep07Assets(): Step07Assets {
   return {
     promptTemplate: readText(
-      repoPath("prompts", "image_prompt_prompt_v1.md")
+      repoPath("prompts", "image_prompt_prompt_v2.md")
     ),
     aiSchema: readText(
       repoPath("schemas", "image_prompt_schema_ai_v1.json")

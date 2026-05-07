@@ -402,7 +402,8 @@ export type VisualBibleCategory =
   | "color_theme"
   | "lighting"
   | "style_global"
-  | "avoid";
+  | "avoid"
+  | "core_item";
 
 /**
  * STEP_06 Visual Bible — AI が返す 1 element 分の row
@@ -504,6 +505,17 @@ export interface VisualBibleCharacterRow {
   color_palette:   string;
   expression_rule: string;
   avoid_rule:      string;
+}
+
+/**
+ * コアアイテムシート生成用 Visual Bible core_item 行
+ * （loadCoreItemsByProjectId が返す型）
+ */
+export interface VisualBibleCoreItemRow {
+  key_name:      string;   // アイテム名（例: "きびだんご"）
+  description:   string;   // 概要・役割
+  color_palette: string;   // 色指定
+  avoid_rule:    string;   // 禁止表現
 }
 
 /**

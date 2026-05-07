@@ -13,7 +13,7 @@
         "properties": {
           "category": {
             "type": "string",
-            "enum": ["character", "background", "color_theme", "lighting", "style_global", "avoid"]
+            "enum": ["character", "background", "color_theme", "lighting", "style_global", "avoid", "core_item"]
           },
           "key_name":         { "type": "string", "minLength": 1 },
           "description":      { "type": "string", "minLength": 1 },

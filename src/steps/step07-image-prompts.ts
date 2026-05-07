@@ -49,13 +49,14 @@ import { loadScenesByProjectId } from "../lib/load-scenes.js";
 import {
   loadFullVisualBibleByProjectId,
   loadCharactersByProjectId,
+  loadCoreItemsByProjectId,
 } from "../lib/load-visual-bible.js";
 import {
   loadImagePromptsByProjectId,
   loadRetakeImagePromptsByProjectId,
 } from "../lib/load-image-prompts.js";
 import { loadStep07Assets } from "../lib/load-assets.js";
-import { buildStep07Prompt } from "../lib/build-prompt.js";
+import { buildStep07Prompt, buildCoreItemSheetPrompt } from "../lib/build-prompt.js";
 import {
   callGemini,
   buildGeminiOptionsStep07,
@@ -404,6 +405,61 @@ export async function runStep07ImagePrompts(
         logInfo(`[STEP_07] Character sheets ready: ${characterSheets.size}/${charEntries.length}`);
       } else if (payload.dry_run) {
         logInfo(`[STEP_07][DRY_RUN] Would process ${charEntries.length} character sheet(s)`);
+      }
+
+      // ── コアアイテムシート Pre-processing ───────────────────────────────────────
+      // character_book/ フォルダに character と同様の参照画像として保存する。
+      // characterSheets Map に追加することで selectReferenceImages が透過的に参照できる。
+      const coreItemEntries = await loadCoreItemsByProjectId(spreadsheetId, projectId);
+
+      if (coreItemEntries.length > 0 && !payload.dry_run) {
+        logInfo(`[STEP_07] Generating core item sheets for ${coreItemEntries.length} item(s)...`);
+        const charBookFolderIdForItems = await ensurePjtFolder(pjtFolderId, "character_book");
+
+        for (const item of coreItemEntries) {
+          if (!item.key_name) continue;
+          const safeFileName = item.key_name.replace(/[^\w　-鿿゠-ヿ]/g, "_");
+
+          // Retake: Drive から既存シートを再利用試行
+          if (isRetakeMode) {
+            const driveFiles = await listFilesInFolder(charBookFolderIdForItems);
+            const match = driveFiles.find((f) => f.name.startsWith(safeFileName + "_"));
+            if (match) {
+              try {
+                const buf = await downloadFileFromDrive(match.id);
+                characterSheets.set(item.key_name, buf);
+                logInfo(`[STEP_07][RETAKE] Core item sheet loaded from Drive: ${item.key_name}`);
+              } catch (_) {
+                // fallthrough to regenerate
+              }
+            }
+          }
+
+          if (!characterSheets.has(item.key_name)) {
+            try {
+              const sheetPrompt = buildCoreItemSheetPrompt(item);
+              const sheetPng = await generateCharacterSheet(
+                sheetPrompt, imageGenOptions.primaryModel, imageGenOptions.secondaryModel,
+              );
+              const sheetJpeg = await convertToJpeg(sheetPng);
+              characterSheets.set(item.key_name, sheetJpeg);
+              const sheetFileName = `${safeFileName}_${dateStr}.jpg`;
+              const sheetUrl = await uploadImageToDrive(
+                charBookFolderIdForItems, sheetFileName, sheetJpeg, "image/jpeg"
+              );
+              logInfo(`[STEP_07] Core item sheet uploaded: ${item.key_name} → ${sheetUrl}`);
+            } catch (itemErr) {
+              if (itemErr instanceof GeminiSpendingCapError) throw itemErr;
+              logError(
+                `[STEP_07] Core item sheet generation failed for "${item.key_name}": ` +
+                (itemErr instanceof Error ? itemErr.message : String(itemErr))
+              );
+            }
+          }
+        }
+        logInfo(`[STEP_07] Core item sheets processed: ${coreItemEntries.length}`);
+      } else if (payload.dry_run && coreItemEntries.length > 0) {
+        logInfo(`[STEP_07][DRY_RUN] Would process ${coreItemEntries.length} core item sheet(s)`);
       }
 
       // ── record_id 採番（通常モード）/ Retake は retakeMap から取得 ─────────────
