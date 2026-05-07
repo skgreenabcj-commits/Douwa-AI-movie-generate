@@ -550,7 +550,10 @@ export function buildStep08aFullPrompt(
     2
   );
 
-  return buildPrompt(assets.promptTemplate, { INPUT_DATA: inputData });
+  return buildPrompt(assets.promptTemplate, {
+    INPUT_DATA:       inputData,
+    TTS_READING_DICT: assets.readingDict,
+  });
 }
 
 /**
@@ -585,5 +588,8 @@ export function buildStep08aShortPrompt(
     2
   );
 
-  return buildPrompt(assets.promptTemplate, { INPUT_DATA: inputData });
+  return buildPrompt(assets.promptTemplate, {
+    INPUT_DATA:       inputData,
+    TTS_READING_DICT: assets.readingDict,
+  });
 }

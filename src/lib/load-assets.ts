@@ -349,11 +349,12 @@ export function loadStep09Assets(): Step09Assets {
 // ─── STEP_08A Assets (TTS Subtitle & Edit Plan) ──────────────────────────────
 
 export interface Step08aAssets {
-  promptTemplate:    string;  // tts_subtitle_edit_plan_prompt_v1.md
+  promptTemplate:    string;  // tts_subtitle_edit_plan_prompt_v2.md
   aiSchema:          string;  // tts_subtitle_schema_ai_v1.json（JSON string）
   ttsFullSchema:     string;  // tts_subtitle_schema_full_v1.json（JSON string）
   editPlanFullSchema: string; // edit_plan_schema_full_v1.json（JSON string）
   aiResponseExample: string;  // tts_subtitle_ai_response_example_v1.json（JSON string）
+  readingDict:       string;  // config/tts_reading_dict_v1.md
 }
 
 /**
@@ -362,7 +363,7 @@ export interface Step08aAssets {
 export function loadStep08aAssets(): Step08aAssets {
   return {
     promptTemplate: readText(
-      repoPath("prompts", "tts_subtitle_edit_plan_prompt_v1.md")
+      repoPath("prompts", "tts_subtitle_edit_plan_prompt_v2.md")
     ),
     aiSchema: readText(
       repoPath("schemas", "tts_subtitle_schema_ai_v1.json")
@@ -375,6 +376,9 @@ export function loadStep08aAssets(): Step08aAssets {
     ),
     aiResponseExample: readText(
       repoPath("examples", "tts_subtitle_ai_response_example_v1.json")
+    ),
+    readingDict: readText(
+      repoPath("config", "tts_reading_dict_v1.md")
     ),
   };
 }
