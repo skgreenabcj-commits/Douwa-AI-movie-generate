@@ -246,6 +246,8 @@ export async function mergeScenes(
       "-crf", INTERMEDIATE_CRF,
       "-c:a", "aac",
       "-b:a", "32k",
+      "-ar", "24000",   // must match TTS source rate — prevents implicit SWR resampling
+      "-ac", "1",       // keep mono — prevents channel-layout mismatch at each merge step
       "-pix_fmt", "yuv420p",
       "-r", "30",
       "-shortest",
