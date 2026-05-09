@@ -11,13 +11,11 @@
  * 3. 各バージョンの処理:
  *    a. 09_Edit_Plan + 08_TTS_Subtitles から SceneVideoInput を構築
  *    b. アセット（画像・音声）を Drive からダウンロードして一時ディレクトリに保存
- *    c. イントロ・アウトロ動画を Drive からダウンロード
- *    d. シーンごとに scene_N.mp4 を生成（静止画 + 音声）
- *    e. シーン群を wipe_left xfade で結合
- *    f. イントロ → 0.8s ブラック → merged_scenes → 1.0s ブラック → アウトロ を結合
- *    g. ASS 字幕を生成して焼き込み
- *    h. 完成 mp4 を Drive にアップロード
- *    i. 07_Assets に storage_url / duration_sec を upsert
+ *    c. シーンごとに scene_N.mp4 を生成（静止画 + 音声）
+ *    d. シーン群を wipe_left xfade で結合
+ *    e. ASS 字幕を生成して焼き込み（introOffset=0）
+ *    f. 完成 mp4 を Drive にアップロード
+ *    g. 07_Assets に storage_url / duration_sec を upsert
  * 4. 00_Project を最小更新（current_step = STEP_10_VIDEO_BUILD）
  * 5. 100_App_Logs にログ記録
  *
@@ -48,17 +46,12 @@ import { appendAppLog } from "../lib/write-app-log.js";
 import { logInfo, logError } from "../lib/logger.js";
 import {
   buildSceneClip,
-  buildBlackClip,
   mergeScenes,
-  concatClips,
   burnSubtitles,
   generateAssFile,
   buildSubtitleEntries,
   probeVideoDuration,
   resolveResolution,
-  DEFAULT_XFADE_DURATION,
-  INTRO_BLACK_DURATION,
-  OUTRO_BLACK_DURATION,
   SCENE_TRANSITION_DURATION,
 } from "../lib/build-video.js";
 
@@ -88,14 +81,12 @@ async function buildVideoForVersion(params: {
   projectId:   string;
   version:     TtsSubtitleVersion;
   scenes:      SceneVideoInput[];
-  introUrl:    string;
-  quizUrl:     string;
   resolution:  string;
   folderId:    string;
   dryRun:      boolean;
   tempDir:     string;
 }): Promise<{ storageUrl: string; durationSec: number }> {
-  const { projectId, version, scenes, introUrl, quizUrl, resolution, folderId, dryRun, tempDir } = params;
+  const { projectId, version, scenes, resolution, folderId, dryRun, tempDir } = params;
 
   logInfo(`[STEP_10][${projectId}][${version}] Generating video with ${scenes.length} scenes`);
 
@@ -104,17 +95,7 @@ async function buildVideoForVersion(params: {
     return { storageUrl: "DRY_RUN", durationSec: 0 };
   }
 
-  // ── 1. イントロ・アウトロをダウンロード ────────────────────────────────────
-  const introPath = path.join(tempDir, `intro_${version}.mp4`);
-  const quizPath  = path.join(tempDir, `quiz_${version}.mp4`);
-  logInfo(`[STEP_10][${projectId}][${version}] Downloading intro: ${introUrl}`);
-  fs.writeFileSync(introPath, await downloadFromDriveUrl(introUrl).catch(e => { throw new Error(`intro download failed (${introUrl}): ${e.message}`); }));
-  logInfo(`[STEP_10][${projectId}][${version}] Downloading quiz: ${quizUrl}`);
-  fs.writeFileSync(quizPath,  await downloadFromDriveUrl(quizUrl).catch(e => { throw new Error(`quiz download failed (${quizUrl}): ${e.message}`); }));
-
-  const introDuration = await probeVideoDuration(introPath);
-
-  // ── 2. シーンアセットをダウンロードしてシーンクリップを生成 ─────────────────
+  // ── 1. シーンアセットをダウンロードしてシーンクリップを生成 ─────────────────
   const sceneClipPaths: string[] = [];
   const sceneDurations: number[] = [];
 
@@ -142,7 +123,7 @@ async function buildVideoForVersion(params: {
     sceneDurations.push(actualDuration > 0 ? actualDuration : scene.durationSec);
   }
 
-  // ── 3. シーンを wipeleft xfade で結合（0.7s トランジション） ─────────────────
+  // ── 2. シーンを wipeleft xfade で結合（0.7s トランジション） ─────────────────
   const mergedScenesPath = path.join(tempDir, `merged_scenes_${version}.mp4`);
   const mergedDuration = await mergeScenes(
     sceneClipPaths,
@@ -156,49 +137,31 @@ async function buildVideoForVersion(params: {
     logInfo(`[STEP_10][${projectId}][${version}] mergedScenes: size=${mergedSize}B, calcDur=${mergedDuration.toFixed(2)}s, actualDur=${mergedActualDur.toFixed(2)}s`);
   }
 
-  // ── 4. ブラッククリップを生成 ──────────────────────────────────────────────
-  const blackInPath  = path.join(tempDir, `black_intro_${version}.mp4`);
-  const blackOutPath = path.join(tempDir, `black_outro_${version}.mp4`);
-  await buildBlackClip(blackInPath,  INTRO_BLACK_DURATION, resolution);
-  await buildBlackClip(blackOutPath, OUTRO_BLACK_DURATION, resolution);
-
-  // ── 5. 全クリップを結合（イントロ → ブラック → scenes → ブラック → クイズ） ─
-  const concatPath = path.join(tempDir, `concat_${version}.mp4`);
-  await concatClips(
-    [introPath, blackInPath, mergedScenesPath, blackOutPath, quizPath],
-    concatPath,
-    resolution
-  );
-  {
-    const concatSize = fs.statSync(concatPath).size;
-    const concatActualDur = await probeVideoDuration(concatPath);
-    logInfo(`[STEP_10][${projectId}][${version}] concat: size=${concatSize}B, actualDur=${concatActualDur.toFixed(2)}s`);
-  }
-
-  // ── 6. ASS 字幕を生成して焼き込む ──────────────────────────────────────────
-  const introOffset = introDuration + INTRO_BLACK_DURATION;
+  // ── 3. ASS 字幕を生成して焼き込む（introOffset=0: イントロなし） ──────────────
+  // introOffset=0 とすることで字幕タイムスタンプをシーン先頭から開始する。
+  // burnSubtitles は mergedScenesPath（libx264 中間ファイル）を入力として受け取り、
+  // libx265 で再エンコードするため、入力コーデックを問わない。
   const subtitleEntries = buildSubtitleEntries(
     scenes,
     sceneDurations,
-    introOffset,
+    0,                        // introOffset = 0 (no intro prepended)
     SCENE_TRANSITION_DURATION
   );
-  const assPath    = path.join(tempDir, `subtitle_${version}.ass`);
+  const assPath   = path.join(tempDir, `subtitle_${version}.ass`);
   generateAssFile(subtitleEntries, assPath, resolution);
 
   const finalPath = path.join(tempDir, `final_${version}.mp4`);
-  await burnSubtitles(concatPath, assPath, finalPath);
+  await burnSubtitles(mergedScenesPath, assPath, finalPath);
   {
     const finalSize = fs.statSync(finalPath).size;
     const finalActualDur = await probeVideoDuration(finalPath);
     logInfo(`[STEP_10][${projectId}][${version}] final: size=${finalSize}B, actualDur=${finalActualDur.toFixed(2)}s`);
   }
 
-  // ── 7. 総尺を計算 ──────────────────────────────────────────────────────────
-  const quizDuration = await probeVideoDuration(quizPath);
-  const totalDuration = introDuration + INTRO_BLACK_DURATION + mergedDuration + OUTRO_BLACK_DURATION + quizDuration;
+  // ── 4. 総尺 = merged シーン尺のみ ──────────────────────────────────────────
+  const totalDuration = mergedDuration;
 
-  // ── 8. Drive にアップロード ─────────────────────────────────────────────────
+  // ── 5. Drive にアップロード ─────────────────────────────────────────────────
   const timestamp   = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const fileName    = `${projectId}_${version}_v1_${timestamp}.mp4`;
   const mp4Buffer   = fs.readFileSync(finalPath);
@@ -223,8 +186,6 @@ export async function runStep10VideoBuild(
   const batchData = await readSheetsBatch(spreadsheetId, [...BATCH_SHEETS]);
 
   const configMap = parseRuntimeConfig(batchData.get("94_Runtime_Config") ?? []);
-  const introUrl  = getConfigValue(configMap, "step_10_intro_video_url");
-  const quizUrl   = getConfigValue(configMap, "step_10_quiz_video_url");
   // 他ステップと同様に 94_Runtime_Config の google_drive_folder_id を使用する
   const driveFolderId = getConfigValue(configMap, "google_drive_folder_id", "");
   if (!driveFolderId && !dry_run) {
@@ -280,8 +241,6 @@ export async function runStep10VideoBuild(
             projectId,
             version,
             scenes,
-            introUrl,
-            quizUrl,
             resolution,
             folderId:  pjtFolderId,
             dryRun:    dry_run,
