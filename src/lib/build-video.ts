@@ -65,6 +65,12 @@ const OUTPUT_CODEC = "libx265";
 const OUTPUT_PRESET = "fast";
 const OUTPUT_CRF = "24";
 
+// Frame rate for all video output.
+// 10 fps is sufficient for still-image storybook clips (no motion within scenes).
+// At the 0.7 s xfade transition this yields 7 transition frames — smooth enough.
+// Lower fps reduces file size and speeds up encoding significantly.
+export const OUTPUT_FPS = 10;
+
 // アスペクト比 → 解像度マッピング
 const ASPECT_TO_RESOLUTION: Record<string, string> = {
   "16:9": "1920x1080",
@@ -160,7 +166,7 @@ export async function buildSceneClip(
     "-ar", "24000",
     "-ac", "1",
     "-pix_fmt", "yuv420p",
-    "-r", "30",
+    "-r", String(OUTPUT_FPS),
     outputPath,
   ]);
 }
@@ -175,7 +181,7 @@ export async function buildBlackClip(
 ): Promise<void> {
   await runFfmpeg([
     "-y",
-    "-f", "lavfi", "-i", `color=black:s=${resolution}:r=30`,
+    "-f", "lavfi", "-i", `color=black:s=${resolution}:r=${OUTPUT_FPS}`,
     "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono",
     "-c:v", INTERMEDIATE_CODEC,
     "-preset", INTERMEDIATE_PRESET,
@@ -258,7 +264,7 @@ export async function mergeScenes(
       "-crf", INTERMEDIATE_CRF,
       ...audioCodecArgs,
       "-pix_fmt", "yuv420p",
-      "-r", "30",
+      "-r", String(OUTPUT_FPS),
       "-shortest",
       stepOut,
     ]);
@@ -307,7 +313,7 @@ export async function concatClips(
   let filterComplex = "";
   for (let i = 0; i < N; i++) {
     filterComplex += `[${i}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
-      `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[sv${i}];`;
+      `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${OUTPUT_FPS}[sv${i}];`;
     filterComplex += `[${i}:a]aresample=24000,aformat=channel_layouts=mono[sa${i}];`;
   }
   // Interleave normalized video/audio pairs for concat.
