@@ -219,13 +219,25 @@ export async function mergeScenes(
 
   for (let k = 0; k < N - 1; k++) {
     const isLast = k === N - 2;
+    // Intermediate steps use MKV + PCM audio (lossless) to avoid generation
+    // loss from repeated AAC lossy re-encode cycles.  Each cycle at 32 kbps
+    // accumulates psychoacoustic noise — 26 cycles on a 27-scene video causes
+    // the constant "grating noise" artifact.  Only the final step encodes to
+    // AAC (once), which is then stream-copied by burnSubtitles.
     const stepOut = isLast
       ? outputPath
-      : path.join(tmpDir, `_xfstep${k}_${path.basename(outputPath)}`);
+      : path.join(tmpDir, `_xfstep${k}_${path.basename(outputPath, ".mp4")}.mkv`);
     // offset = how far into currentInput the transition begins.
     // Subtract XFADE_SAFETY: probeVideoDuration may slightly overestimate the
     // actual clip length, causing offset > real duration → black frames.
     const offset = Math.max(0.001, currentDuration - xfadeDuration - XFADE_SAFETY);
+
+    // Audio codec strategy:
+    //   intermediate (MKV): pcm_s16le — lossless, no generation loss
+    //   final (MP4):        aac 128k  — one encode only, then stream-copied by burnSubtitles
+    const audioCodecArgs: string[] = isLast
+      ? ["-c:a", "aac", "-b:a", "128k", "-ar", "24000", "-ac", "1"]
+      : ["-c:a", "pcm_s16le",           "-ar", "24000", "-ac", "1"];
 
     // Audio: simple concat (no crossfade).  Scene clips have silence-padded
     // audio (buildSceneClip), so clip0 is in its trailing silence and clip1 in
@@ -244,10 +256,7 @@ export async function mergeScenes(
       "-c:v", INTERMEDIATE_CODEC,
       "-preset", INTERMEDIATE_PRESET,
       "-crf", INTERMEDIATE_CRF,
-      "-c:a", "aac",
-      "-b:a", "32k",
-      "-ar", "24000",   // must match TTS source rate — prevents implicit SWR resampling
-      "-ac", "1",       // keep mono — prevents channel-layout mismatch at each merge step
+      ...audioCodecArgs,
       "-pix_fmt", "yuv420p",
       "-r", "30",
       "-shortest",
