@@ -6,12 +6,12 @@
  *
  * 主な責務:
  * 1. buildSceneClip     : 静止画 + 音声 → シーン mp4
- * 2. buildBlackClip     : 指定秒数の黒画面 mp4
- * 3. mergeScenes        : シーン群を wipe_left xfade で結合
- * 4. concatClips        : クリップ群を単純結合（イントロ/アウトロ/ブラック合成用）
- * 5. burnSubtitles      : ASS 字幕を動画に焼き込む
- * 6. generateAssFile    : 字幕テキスト + タイムコードから ASS ファイルを生成
- * 7. probeVideoDuration : ffprobe で動画の尺を取得
+ * 2. mergeScenes        : シーン群を wipe_left xfade で結合
+ * 3. burnSubtitles      : ASS 字幕を動画に焼き込む
+ * 4. generateAssFile    : 字幕テキスト + タイムコードから ASS ファイルを生成
+ * 5. probeVideoDuration : ffprobe で動画の尺を取得
+ * 6. buildBlackClip     : 黒画面 mp4 を生成（将来のイントロ/アウトロ合成用）
+ * 7. concatClips        : クリップ群を単純結合（将来のイントロ/アウトロ合成用）
  */
 
 import { spawn } from "node:child_process";
@@ -188,6 +188,7 @@ export async function buildBlackClip(
     "-crf", INTERMEDIATE_CRF,
     "-c:a", "aac",
     "-b:a", "32k",
+    "-ar", "24000",
     "-ac", "1",
     "-pix_fmt", "yuv420p",
     "-t", String(durationSec),
