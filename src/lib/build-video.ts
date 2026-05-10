@@ -226,25 +226,31 @@ export async function mergeScenes(
 
   for (let k = 0; k < N - 1; k++) {
     const isLast = k === N - 2;
-    // Intermediate steps use MKV + PCM audio (lossless) to avoid generation
+    // Intermediate steps use MP4 + ALAC (Apple Lossless) to avoid generation
     // loss from repeated AAC lossy re-encode cycles.  Each cycle at 32 kbps
     // accumulates psychoacoustic noise — 26 cycles on a 27-scene video causes
     // the constant "grating noise" artifact.  Only the final step encodes to
     // AAC (once), which is then stream-copied by burnSubtitles.
+    //
+    // NOTE: MKV + pcm_s16le was tried but caused xfade timebase mismatch:
+    //   MKV demuxer sets video timebase to 1/1000, while scene clips (MP4/H.264
+    //   at 10 fps) use 1/10240.  xfade requires identical timebases on both
+    //   inputs.  Using MP4 for all intermediates keeps timebases consistent.
+    //   ALAC is lossless and natively supported in MP4 containers.
     const stepOut = isLast
       ? outputPath
-      : path.join(tmpDir, `_xfstep${k}_${path.basename(outputPath, ".mp4")}.mkv`);
+      : path.join(tmpDir, `_xfstep${k}_${path.basename(outputPath)}`);
     // offset = how far into currentInput the transition begins.
     // Subtract XFADE_SAFETY: probeVideoDuration may slightly overestimate the
     // actual clip length, causing offset > real duration → black frames.
     const offset = Math.max(0.001, currentDuration - xfadeDuration - XFADE_SAFETY);
 
     // Audio codec strategy:
-    //   intermediate (MKV): pcm_s16le — lossless, no generation loss
-    //   final (MP4):        aac 128k  — one encode only, then stream-copied by burnSubtitles
+    //   intermediate (MP4): alac — lossless, MP4-native, no generation loss
+    //   final (MP4):        aac 128k — one encode only, stream-copied by burnSubtitles
     const audioCodecArgs: string[] = isLast
       ? ["-c:a", "aac", "-b:a", "128k", "-ar", "24000", "-ac", "1"]
-      : ["-c:a", "pcm_s16le",           "-ar", "24000", "-ac", "1"];
+      : ["-c:a", "alac",                 "-ar", "24000", "-ac", "1"];
 
     // Audio: simple concat (no crossfade).  Scene clips have silence-padded
     // audio (buildSceneClip), so clip0 is in its trailing silence and clip1 in
