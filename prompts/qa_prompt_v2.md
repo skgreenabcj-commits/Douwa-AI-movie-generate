@@ -44,10 +44,14 @@
 - **choice_1 / choice_2 / choice_3**: 3つの選択肢。正解は毎回1〜3のいずれかにランダムに配置する（正解が常に同じ番号にならないよう注意）
 - **correct_choice**: 正解の番号（"1" / "2" / "3" のいずれか）
 - **answer_narration**: 30〜60字程度の解説文。子供が納得できるよう理由・背景を含める。正解した子を褒める温かみのある表現で
-- **question_tts**: TTS 読み上げ用の問題文。以下の形式で記述すること:
-  `「問題です。[question]。1番[choice_1]、2番[choice_2]、3番[choice_3]。」`
-- **answer_announcement_tts**: TTS 読み上げ用の正解発表文。以下の形式で記述すること:
-  `「正解は[correct_choice]番、[correct choice text]でした！[answer_narration の要点を1文で]」`
+- **question_tts**: TTS 読み上げ用の問題文。以下の SSML 形式で記述すること:
+  `<speak><prosody rate="1.0">問題だよ<break time="1500ms"/>[question]。[choice_1]、[choice_2]、[choice_3]。</prosody></speak>`
+  - 導入は必ず `問題だよ<break time="1500ms"/>` で始める
+  - 選択肢は **番号なし**で読み上げる（「〇〇、△△、□□。」のように読点区切りで並べる）
+- **answer_announcement_tts**: TTS 読み上げ用の正解発表文。以下の SSML 形式で記述すること:
+  `<speak><prosody rate="1.0">正解は<break time="1500ms"/>[correct_choice]番、[correct choice text]でした！[answer_narration の要点を1文で]<break time="1000ms"/>どうかな?できたかな?</prosody></speak>`
+  - 導入は必ず `正解は<break time="1500ms"/>` で始める（"正解は" の後に1.5秒の間を置いてから答えを告げる）
+  - 末尾は必ず `<break time="1000ms"/>どうかな?できたかな?` で締めくくる
 
 ---
 
@@ -64,8 +68,8 @@
       "choice_3": "（選択肢3）",
       "correct_choice": "（正解番号: \"1\" / \"2\" / \"3\"）",
       "answer_narration": "（解説文）",
-      "question_tts": "（TTS問題読み上げ文）",
-      "answer_announcement_tts": "（TTS正解発表文）"
+      "question_tts": "（<speak><prosody rate=\"1.0\">問題だよ<break time=\"1500ms\"/>…選択肢は番号なし…</prosody></speak>）",
+      "answer_announcement_tts": "（<speak><prosody rate=\"1.0\">正解は<break time=\"1500ms\"/>…<break time=\"1000ms\"/>どうかな?できたかな?</prosody></speak>）"
     }
   ]
 }
@@ -88,8 +92,8 @@
       "choice_3": "犬",
       "correct_choice": "2",
       "answer_narration": "大きな桃をわると、中から元気な男の子が飛び出してきたよ。おじいさんとおばあさんはびっくりして、この子を桃太郎と名付けたんだ。",
-      "question_tts": "問題です。桃の中から出てきたのは誰でしょう？1番おじいさん、2番桃太郎、3番犬。",
-      "answer_announcement_tts": "正解は2番、桃太郎でした！大きな桃をわると、中から元気な桃太郎が飛び出してきたんだね。"
+      "question_tts": "<speak><prosody rate=\"1.0\">問題だよ<break time=\"1500ms\"/>桃の中から出てきたのは誰でしょう？おじいさん、桃太郎、犬。</prosody></speak>",
+      "answer_announcement_tts": "<speak><prosody rate=\"1.0\">正解は<break time=\"1500ms\"/>2番、桃太郎でした！大きな桃をわると、中から元気な桃太郎が飛び出してきたんだね。<break time=\"1000ms\"/>どうかな?できたかな?</prosody></speak>"
     },
     {
       "qa_type": "comprehension",
@@ -99,8 +103,8 @@
       "choice_3": "いぬ",
       "correct_choice": "2",
       "answer_narration": "桃太郎と一緒に鬼ヶ島へ行ったのは、犬・猿・キジの三匹だよ。ねこは仲間ではなかったんだね。",
-      "question_tts": "問題です。桃太郎の仲間でなかったのは誰でしょう？1番さる、2番ねこ、3番いぬ。",
-      "answer_announcement_tts": "正解は2番、ねこでした！桃太郎の仲間は犬・猿・キジの三匹だったんだね。"
+      "question_tts": "<speak><prosody rate=\"1.0\">問題だよ<break time=\"1500ms\"/>桃太郎の仲間でなかったのは誰でしょう？さる、ねこ、いぬ。</prosody></speak>",
+      "answer_announcement_tts": "<speak><prosody rate=\"1.0\">正解は<break time=\"1500ms\"/>2番、ねこでした！桃太郎の仲間は犬・猿・キジの三匹だったんだね。<break time=\"1000ms\"/>どうかな?できたかな?</prosody></speak>"
     },
     {
       "qa_type": "emotion",
@@ -110,8 +114,8 @@
       "choice_3": "かなしかった",
       "correct_choice": "2",
       "answer_narration": "川にこんなに大きな桃が流れてきたから、おばあさんはとても驚いたね。うれしくてドキドキした気持ちもあったかもしれないよ。",
-      "question_tts": "問題です。おばあさんは桃を見つけたとき、どんな気持ちだったと思う？1番こわかった、2番びっくりしてうれしかった、3番かなしかった。",
-      "answer_announcement_tts": "正解は2番、びっくりしてうれしかったでした！大きな桃が流れてきてびっくりしつつも、わくわくした気持ちもあったんだね。"
+      "question_tts": "<speak><prosody rate=\"1.0\">問題だよ<break time=\"1500ms\"/>おばあさんは桃を見つけたとき、どんな気持ちだったと思う？こわかった、びっくりしてうれしかった、かなしかった。</prosody></speak>",
+      "answer_announcement_tts": "<speak><prosody rate=\"1.0\">正解は<break time=\"1500ms\"/>2番、びっくりしてうれしかったでした！大きな桃が流れてきてびっくりしつつも、わくわくした気持ちもあったんだね。<break time=\"1000ms\"/>どうかな?できたかな?</prosody></speak>"
     },
     {
       "qa_type": "comprehension",
@@ -121,8 +125,8 @@
       "choice_3": "友だちに会うため",
       "correct_choice": "2",
       "answer_narration": "鬼たちが村の人たちを困らせていたから、桃太郎は村のみんなを守るために鬼ヶ島へ旅立ったんだよ。",
-      "question_tts": "問題です。桃太郎が鬼ヶ島へ行った理由はどれでしょう？1番宝物をさがすため、2番村の人たちを助けるため、3番友だちに会うため。",
-      "answer_announcement_tts": "正解は2番、村の人たちを助けるためでした！桃太郎は村のみんなを守るために戦いに行ったんだね。"
+      "question_tts": "<speak><prosody rate=\"1.0\">問題だよ<break time=\"1500ms\"/>桃太郎が鬼ヶ島へ行った理由はどれでしょう？宝物をさがすため、村の人たちを助けるため、友だちに会うため。</prosody></speak>",
+      "answer_announcement_tts": "<speak><prosody rate=\"1.0\">正解は<break time=\"1500ms\"/>2番、村の人たちを助けるためでした！桃太郎は村のみんなを守るために戦いに行ったんだね。<break time=\"1000ms\"/>どうかな?できたかな?</prosody></speak>"
     },
     {
       "qa_type": "emotion",
@@ -132,8 +136,8 @@
       "choice_3": "とてもよろこんだ",
       "correct_choice": "3",
       "answer_narration": "ずっと鬼に困らされていた村の人たちは、桃太郎が鬼を倒してくれて、とても喜んだよ。安心した気持ちもあったね。",
-      "question_tts": "問題です。桃太郎が鬼を倒したとき、村の人たちはどんな気持ちだったと思う？1番こわかった、2番かなしかった、3番とてもよろこんだ。",
-      "answer_announcement_tts": "正解は3番、とてもよろこんだでした！長い間鬼に困らされていたから、みんな大喜びだったんだね。"
+      "question_tts": "<speak><prosody rate=\"1.0\">問題だよ<break time=\"1500ms\"/>桃太郎が鬼を倒したとき、村の人たちはどんな気持ちだったと思う？こわかった、かなしかった、とてもよろこんだ。</prosody></speak>",
+      "answer_announcement_tts": "<speak><prosody rate=\"1.0\">正解は<break time=\"1500ms\"/>3番、とてもよろこんだでした！長い間鬼に困らされていたから、みんな大喜びだったんだね。<break time=\"1000ms\"/>どうかな?できたかな?</prosody></speak>"
     },
     {
       "qa_type": "comprehension",
@@ -143,8 +147,8 @@
       "choice_3": "うさぎ",
       "correct_choice": "3",
       "answer_narration": "桃太郎がきびだんごをあげて仲間にしたのは犬・猿・キジの三匹だよ。うさぎは登場しなかったんだね。",
-      "question_tts": "問題です。桃太郎がきびだんごをあげなかった動物はどれでしょう？1番キジ、2番さる、3番うさぎ。",
-      "answer_announcement_tts": "正解は3番、うさぎでした！桃太郎の仲間は犬・猿・キジの三匹で、うさぎは出てこなかったんだね。"
+      "question_tts": "<speak><prosody rate=\"1.0\">問題だよ<break time=\"1500ms\"/>桃太郎がきびだんごをあげなかった動物はどれでしょう？キジ、さる、うさぎ。</prosody></speak>",
+      "answer_announcement_tts": "<speak><prosody rate=\"1.0\">正解は<break time=\"1500ms\"/>3番、うさぎでした！桃太郎の仲間は犬・猿・キジの三匹で、うさぎは出てこなかったんだね。<break time=\"1000ms\"/>どうかな?できたかな?</prosody></speak>"
     }
   ]
 }
