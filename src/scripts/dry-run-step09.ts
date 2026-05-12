@@ -1,7 +1,7 @@
 /**
  * src/scripts/dry-run-step09.ts
  *
- * STEP_09 Q&A Build テスト実行スクリプト（GSS 不要）
+ * STEP_09 Q&A Build テスト実行スクリプト（v2: 6問固定・バージョン共通）
  *
  * 【概要】
  * GSS（Google Sheets）への接続なしに、ローカルのリポジトリ assets +
@@ -30,11 +30,11 @@ import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { loadStep09Assets } from "../lib/load-assets.js";
-import { buildStep09FullPrompt, buildStep09ShortPrompt } from "../lib/build-prompt.js";
+import { buildStep09Prompt } from "../lib/build-prompt.js";
 import { callGemini } from "../lib/call-gemini.js";
 import type { GeminiCallOptions } from "../lib/call-gemini.js";
 import { validateQaAiResponse } from "../lib/validate-json.js";
-import type { ProjectRow, SceneReadRow, QaAiRow } from "../types.js";
+import type { ProjectRow, SceneReadRow } from "../types.js";
 
 // ─── パス解決 ─────────────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
@@ -198,7 +198,7 @@ const outputDir = (process.env.OUTPUT_DIR ?? "").trim();
 
 // ─── メイン ───────────────────────────────────────────────────────────────────
 console.log("═".repeat(70));
-console.log("  STEP_09 テスト実行 — Q&A Build");
+console.log("  STEP_09 テスト実行 — Q&A Build（v2: 6問固定・バージョン共通）");
 console.log("═".repeat(70));
 console.log(`  DRY_RUN    : ${isDryRun}`);
 console.log(`  PROJECT_IDS: ${projectIds.join(", ")}`);
@@ -223,155 +223,71 @@ for (const projectId of projectIds) {
   project.video_format = videoFormat;
 
   const allScenes = MOCK_SCENES[projectId] ?? [];
-  const fullScenes = allScenes.filter((s) => s.full_use === "Y");
-  const shortScenes = allScenes.filter((s) => s.short_use === "Y");
+
+  // シーン選択: full が含まれれば full_use=Y、short のみなら short_use=Y
+  const scenes: SceneReadRow[] = videoFormat.includes("full")
+    ? allScenes.filter((s) => s.full_use === "Y")
+    : allScenes.filter((s) => s.short_use === "Y");
 
   console.log("─".repeat(70));
   console.log(`  Project: ${projectId}  title: ${project.title_jp}`);
-  console.log(`  video_format: ${videoFormat}`);
-  console.log(`  full_use=Y scenes: ${fullScenes.length}`);
-  console.log(`  short_use=Y scenes: ${shortScenes.length}`);
+  console.log(`  video_format: ${videoFormat}  → using ${scenes.length} scenes`);
+  for (const s of scenes) {
+    console.log(`    S${String(s.scene_no).padStart(3, "0")} ${s.chapter} / ${s.scene_title}`);
+  }
   console.log();
 
-  // Full QA 生成済み行（Short プロンプトへの参照コンテキスト用）
-  let fullQaAiRows: QaAiRow[] = [];
-  let fullWrittenCount = 0;
+  totalTests++;
 
-  // ─── Full QA ─────────────────────────────────────────────────────────────────
-  if (videoFormat === "full" || videoFormat === "short+full") {
-    totalTests++;
-    console.log("── [Full QA Build] ──");
-    for (const s of fullScenes) {
-      console.log(`  S${String(s.scene_no).padStart(3, "0")} ${s.chapter} / ${s.scene_title}`);
-    }
-    console.log();
+  try {
+    const prompt = buildStep09Prompt(step09Assets, project, scenes);
 
-    try {
-      const prompt = buildStep09FullPrompt(step09Assets, project, fullScenes);
-
-      if (isDryRun) {
-        console.log("[DRY_RUN] Full QA Prompt Preview (first 2000 chars):");
-        console.log("─".repeat(60));
-        console.log(prompt.slice(0, 2000));
-        console.log("─".repeat(60));
-        console.log("[DRY_RUN] Gemini call skipped.");
-        totalPassed++;
-      } else {
-        const options: GeminiCallOptions = {
-          primaryModel: "gemini-2.5-flash",
-          secondaryModel: "gemini-2.5-flash",
-          maxOutputTokens: 8192,
-        };
-        console.log("[GEMINI] Calling Gemini for Full QA...");
-        const result = await callGemini(prompt, options);
-        console.log(
-          `[GEMINI] Response. model=${result.modelUsed}, usedFallback=${result.usedFallback}, len=${result.text.length}`
-        );
-
-        const validation = validateQaAiResponse(result.text, step09Assets.aiSchema, 1);
-        if (validation.success) {
-          console.log(`[VALID] Full QA items: ${validation.items.length}`);
-          for (const item of validation.items) {
-            console.log(`  qa_type=${item.qa_type} | Q: ${item.question}`);
-          }
-          fullQaAiRows = validation.items;
-          fullWrittenCount = validation.items.length;
-
-          if (outputDir) {
-            if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
-            const outFile = resolve(outputDir, `${projectId}_qa_full.json`);
-            writeFileSync(outFile, JSON.stringify({ qa: validation.items }, null, 2));
-            console.log(`[OUTPUT] Saved to ${outFile}`);
-          }
-          totalPassed++;
-        } else {
-          console.error(`[INVALID] Full QA: ${validation.errors}`);
-          console.error(`[RAW] ${result.text.slice(0, 300)}`);
-          totalFailed++;
-          // short+full の場合は Short もスキップ
-          if (videoFormat === "short+full") {
-            console.warn("[SKIP] Short QA skipped due to Full QA failure.");
-            totalTests++; // Short のカウントを加算
-            totalFailed++;
-            continue;
-          }
-        }
-      }
-    } catch (e) {
-      console.error(`[ERROR] Full QA: ${e instanceof Error ? e.message : String(e)}`);
-      totalFailed++;
-    }
-  }
-
-  // ─── Short QA ────────────────────────────────────────────────────────────────
-  if (videoFormat === "short" || videoFormat === "short+full") {
-    totalTests++;
-    console.log("── [Short QA Build] ──");
-    for (const s of shortScenes) {
-      console.log(`  S${String(s.scene_no).padStart(3, "0")} ${s.chapter} / ${s.scene_title}`);
-    }
-    if (fullQaAiRows.length > 0) {
-      console.log(`  (reference_full_qa: ${fullQaAiRows.length} items)`);
-    }
-    console.log();
-
-    try {
-      const prompt = buildStep09ShortPrompt(
-        step09Assets, project, shortScenes, fullQaAiRows
+    if (isDryRun) {
+      console.log("[DRY_RUN] QA Prompt Preview (first 2000 chars):");
+      console.log("─".repeat(60));
+      console.log(prompt.slice(0, 2000));
+      console.log("─".repeat(60));
+      console.log("[DRY_RUN] Gemini call skipped.");
+      totalPassed++;
+    } else {
+      const options: GeminiCallOptions = {
+        primaryModel: "gemini-2.5-flash",
+        secondaryModel: "gemini-2.5-flash",
+        maxOutputTokens: 8192,
+      };
+      console.log("[GEMINI] Calling Gemini...");
+      const result = await callGemini(prompt, options);
+      console.log(
+        `[GEMINI] Response. model=${result.modelUsed}, usedFallback=${result.usedFallback}, len=${result.text.length}`
       );
 
-      if (isDryRun) {
-        console.log("[DRY_RUN] Short QA Prompt Preview (first 2000 chars):");
-        console.log("─".repeat(60));
-        console.log(prompt.slice(0, 2000));
-        console.log("─".repeat(60));
-        console.log("[DRY_RUN] Gemini call skipped.");
+      // minItems=6（スキーマ側で minItems=maxItems=6 が保証されているが、バリデーターでも確認）
+      const validation = validateQaAiResponse(result.text, step09Assets.aiSchema, 6);
+      if (validation.success) {
+        console.log(`[VALID] QA items: ${validation.items.length}`);
+        for (let i = 0; i < validation.items.length; i++) {
+          const item = validation.items[i];
+          const recordId = `${projectId}-QA-${String(i + 1).padStart(3, "0")}`;
+          console.log(`  ${recordId} | qa_type=${item.qa_type} | Q: ${item.question}`);
+          console.log(`    1:${item.choice_1}  2:${item.choice_2}  3:${item.choice_3}  ✓:${item.correct_choice}`);
+        }
+
+        if (outputDir) {
+          if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
+          const outFile = resolve(outputDir, `${projectId}_qa.json`);
+          writeFileSync(outFile, JSON.stringify({ qa: validation.items }, null, 2));
+          console.log(`[OUTPUT] Saved to ${outFile}`);
+        }
         totalPassed++;
       } else {
-        const options: GeminiCallOptions = {
-          primaryModel: "gemini-2.5-flash",
-          secondaryModel: "gemini-2.5-flash",
-          maxOutputTokens: 8192,
-        };
-        console.log("[GEMINI] Calling Gemini for Short QA...");
-        const result = await callGemini(prompt, options);
-        console.log(
-          `[GEMINI] Response. model=${result.modelUsed}, usedFallback=${result.usedFallback}, len=${result.text.length}`
-        );
-
-        // Short: minItems=3
-        const validation = validateQaAiResponse(result.text, step09Assets.aiSchema, 3);
-        if (validation.success) {
-          console.log(`[VALID] Short QA items: ${validation.items.length}`);
-          for (const item of validation.items) {
-            console.log(`  qa_type=${item.qa_type} | Q: ${item.question}`);
-          }
-
-          // record_id 採番確認（実際の upsert はしない）
-          console.log("\n  [record_id 採番プレビュー]");
-          validation.items.forEach((item, i) => {
-            const seqNo = fullWrittenCount + i + 1;
-            const recordId = `${projectId}-QA-${String(seqNo).padStart(3, "0")}`;
-            console.log(`  ${recordId} | qa_no=${i + 1} | related_version=short`);
-          });
-
-          if (outputDir) {
-            if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
-            const outFile = resolve(outputDir, `${projectId}_qa_short.json`);
-            writeFileSync(outFile, JSON.stringify({ qa: validation.items }, null, 2));
-            console.log(`\n[OUTPUT] Saved to ${outFile}`);
-          }
-          totalPassed++;
-        } else {
-          console.error(`[INVALID] Short QA: ${validation.errors}`);
-          console.error(`[RAW] ${result.text.slice(0, 300)}`);
-          totalFailed++;
-        }
+        console.error(`[INVALID] ${validation.errors}`);
+        console.error(`[RAW] ${result.text.slice(0, 300)}`);
+        totalFailed++;
       }
-    } catch (e) {
-      console.error(`[ERROR] Short QA: ${e instanceof Error ? e.message : String(e)}`);
-      totalFailed++;
     }
+  } catch (e) {
+    console.error(`[ERROR] ${e instanceof Error ? e.message : String(e)}`);
+    totalFailed++;
   }
 
   console.log();

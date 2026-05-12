@@ -604,32 +604,34 @@ export interface ImagePromptPendingRow {
 
 // ─── 10_QA ───────────────────────────────────────────────────────────────────
 
-/** 10_QA の qa_type 固定 enum（schemas/qa_schema_ai_v1.json と同期） */
-export type QaType = "comprehension" | "emotion" | "vocabulary" | "moral";
-
-/** 10_QA の related_version 固定 enum */
-export type QaVersion = "full" | "short";
+/** 10_QA の qa_type 固定 enum（schemas/qa_schema_ai_v2.json と同期） */
+export type QaType = "comprehension" | "emotion";
 
 /**
  * STEP_09 Q&A Build — AI が返す 1 設問分の row
- * スキーマ: qa_schema_ai_v1.json
+ * スキーマ: qa_schema_ai_v2.json
  *
- * record_id / qa_no / related_version は AI 出力に含めない（システム側で付与）。
+ * record_id / qa_no はシステム側で付与するため AI 出力には含めない。
+ * 回答形式: 3択（choice_1〜3 + correct_choice）
  */
 export interface QaAiRow {
-  qa_type:          QaType;  // 固定 enum
-  question:         string;  // 設問文
-  answer_short:     string;  // 短い答え（1〜2語）
-  answer_narration: string;  // 解説文（30〜60字）
-  subtitle:         string;  // カード見出し（10〜20字）
+  qa_type:                  QaType;          // 固定 enum
+  question:                 string;          // 設問文
+  choice_1:                 string;          // 選択肢1
+  choice_2:                 string;          // 選択肢2
+  choice_3:                 string;          // 選択肢3
+  correct_choice:           "1" | "2" | "3"; // 正解番号
+  answer_narration:         string;          // 正解後の解説（30〜60字）
+  question_tts:             string;          // 問題読み上げ TTS 原稿
+  answer_announcement_tts:  string;          // 正解発表 TTS 原稿
 }
 
 /**
- * Google Sheets 10_QA 書き込み行（qa_schema_full_v1）
+ * Google Sheets 10_QA 書き込み行（qa_schema_full_v2）
  *
- * record_id はシステム側で採番する（形式: PJT-001-QA-001）。
+ * record_id はシステム側で採番する（形式: PJT-001-QA-001〜006）。
  * upsert キー: record_id 単体。
- * UNUSED フィールド（card_visual / duration_sec / learning_goal）は "" で書き込む。
+ * PJT 合計6問・バージョン共通（related_version フィールド廃止）。
  */
 export interface QaRow extends QaAiRow {
   project_id:        string;
@@ -637,11 +639,7 @@ export interface QaRow extends QaAiRow {
   generation_status: "GENERATED" | "FAILED" | "PENDING";
   approval_status:   "PENDING" | "APPROVED" | "REJECTED";
   step_id:           string;    // 固定: "STEP_09_QA_BUILD"
-  qa_no:             number;    // バージョン内の連番（1〜）
-  related_version:   QaVersion; // "full" | "short"
-  card_visual:       "";        // UNUSED: 常に空文字
-  duration_sec:      "";        // UNUSED: 常に空文字
-  learning_goal:     "";        // UNUSED: 常に空文字
+  qa_no:             number;    // 1〜6
   updated_at:        string;
   updated_by:        string;
   notes:             string;
@@ -649,9 +647,8 @@ export interface QaRow extends QaAiRow {
 
 /** 10_QA から読み込む参照用 row（再実行時の既存行取得用） */
 export interface QaReadRow {
-  project_id:      string;
-  record_id:       string;
-  related_version: QaVersion;
+  project_id: string;
+  record_id:  string;
 }
 
 // ─── 08_TTS_Subtitles / 09_Edit_Plan ─────────────────────────────────────────

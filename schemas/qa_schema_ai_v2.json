@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QaAiResponse_v2",
+  "description": "Schema for STEP_09 Q&A Build AI output (v2). 6 questions, 3-choice format, with TTS scripts.",
+  "type": "object",
+  "required": ["qa"],
+  "properties": {
+    "qa": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": [
+          "qa_type",
+          "question",
+          "choice_1",
+          "choice_2",
+          "choice_3",
+          "correct_choice",
+          "answer_narration",
+          "question_tts",
+          "answer_announcement_tts"
+        ],
+        "properties": {
+          "qa_type":                 { "type": "string", "enum": ["comprehension", "emotion"] },
+          "question":                { "type": "string", "minLength": 1 },
+          "choice_1":                { "type": "string", "minLength": 1 },
+          "choice_2":                { "type": "string", "minLength": 1 },
+          "choice_3":                { "type": "string", "minLength": 1 },
+          "correct_choice":          { "type": "string", "enum": ["1", "2", "3"] },
+          "answer_narration":        { "type": "string", "minLength": 1 },
+          "question_tts":            { "type": "string", "minLength": 1 },
+          "answer_announcement_tts": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

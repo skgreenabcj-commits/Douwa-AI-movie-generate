@@ -11,16 +11,18 @@
  */
 
 import { readSheet } from "./sheets-client.js";
-import type { QaReadRow, QaVersion } from "../types.js";
+import type { QaReadRow } from "../types.js";
 
 const SHEET_NAME = "10_QA";
 
 /**
  * 指定 project_id の QA 行を全件取得する。
+ * generation_status = "GENERATED" の行のみを返す。
+ * 再実行時の record_id 引き継ぎ用。
  *
  * @param spreadsheetId - 対象スプレッドシートID
  * @param projectId     - 検索する project_id
- * @returns QaReadRow[]（シート行順）
+ * @returns QaReadRow[]（シート行順・qa_no 昇順）
  */
 export async function loadQaByProjectId(
   spreadsheetId: string,
@@ -34,14 +36,9 @@ export async function loadQaByProjectId(
     if ((row["project_id"] ?? "").trim() !== target) continue;
     if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
 
-    const version = (row["related_version"] ?? "").trim();
-    // related_version が "full" / "short" 以外の行はスキップ
-    if (version !== "full" && version !== "short") continue;
-
     result.push({
-      project_id:      row["project_id"] ?? "",
-      record_id:       row["record_id"]  ?? "",
-      related_version: version as QaVersion,
+      project_id: row["project_id"] ?? "",
+      record_id:  row["record_id"]  ?? "",
     });
   }
 

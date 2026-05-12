@@ -320,10 +320,10 @@ export function loadStep07Assets(): Step07Assets {
 // ─── STEP_09 Assets (Q&A Build) ──────────────────────────────────────────────
 
 export interface Step09Assets {
-  promptTemplate:    string;  // qa_prompt_v1.md
-  aiSchema:          string;  // qa_schema_ai_v1.json（JSON string）
-  fullSchema:        string;  // qa_schema_full_v1.json（JSON string）
-  aiResponseExample: string;  // qa_ai_response_example_v1.json（JSON string）
+  promptTemplate:    string;  // qa_prompt_v2.md
+  aiSchema:          string;  // qa_schema_ai_v2.json（JSON string）
+  fullSchema:        string;  // qa_schema_full_v2.json（JSON string）
+  aiResponseExample: string;  // qa_ai_response_example_v2.json（JSON string）
 }
 
 /**
@@ -332,16 +332,16 @@ export interface Step09Assets {
 export function loadStep09Assets(): Step09Assets {
   return {
     promptTemplate: readText(
-      repoPath("prompts", "qa_prompt_v1.md")
+      repoPath("prompts", "qa_prompt_v2.md")
     ),
     aiSchema: readText(
-      repoPath("schemas", "qa_schema_ai_v1.json")
+      repoPath("schemas", "qa_schema_ai_v2.json")
     ),
     fullSchema: readText(
-      repoPath("schemas", "qa_schema_full_v1.json")
+      repoPath("schemas", "qa_schema_full_v2.json")
     ),
     aiResponseExample: readText(
-      repoPath("examples", "qa_ai_response_example_v1.json")
+      repoPath("examples", "qa_ai_response_example_v2.json")
     ),
   };
 }

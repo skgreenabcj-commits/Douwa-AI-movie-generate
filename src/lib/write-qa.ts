@@ -3,22 +3,18 @@
  *
  * 10_QA シートへの upsert（record_id 単体キー）を担当する。
  *
- * upsert 方針（仕様書 §12.1 準拠）:
+ * upsert 方針:
  * - record_id が一致する既存行があれば → UPDATE（上書き）
  * - 一致しなければ → getNextEmptyRowIndex で末尾次行に INSERT
  *
  * record_id 規則:
- * - システム側で採番する（形式: PJT-001-QA-001）
- * - Full QA が先に採番（001〜）、Short QA が後続採番
- *
- * UNUSED フィールド:
- * - card_visual / duration_sec / learning_goal は常に "" で書き込む
+ * - システム側で採番する（形式: PJT-001-QA-001〜006）
+ * - PJT 合計6問・バージョン共通（related_version 廃止）
  *
  * フィールド構成（GSS 10_QA ヘッダー順）:
- * SYSTEM: project_id, record_id, generation_status, approval_status, step_id,
- *         qa_no, related_version
- * AI_OUTPUT: qa_type, question, answer_short, answer_narration, subtitle
- * UNUSED: card_visual, duration_sec, learning_goal
+ * SYSTEM: project_id, record_id, generation_status, approval_status, step_id, qa_no
+ * AI_OUTPUT: qa_type, question, choice_1, choice_2, choice_3, correct_choice,
+ *            answer_narration, question_tts, answer_announcement_tts
  * META: updated_at, updated_by, notes
  */
 
@@ -35,15 +31,15 @@ const QA_HEADERS: Array<Extract<keyof QaRow, string>> = [
   "approval_status",
   "step_id",
   "qa_no",
-  "related_version",
   "qa_type",
   "question",
-  "answer_short",
+  "choice_1",
+  "choice_2",
+  "choice_3",
+  "correct_choice",
   "answer_narration",
-  "subtitle",
-  "card_visual",
-  "duration_sec",
-  "learning_goal",
+  "question_tts",
+  "answer_announcement_tts",
   "updated_at",
   "updated_by",
   "notes",
