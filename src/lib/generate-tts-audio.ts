@@ -24,6 +24,14 @@ import { getConfigValue } from "./load-runtime-config.js";
 const TTS_API_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 /** デフォルト音声モデル。94_Runtime_Config の tts_voice_name キーで上書き可能。 */
 const DEFAULT_VOICE_NAME      = "ja-JP-Neural2-B";
+/**
+ * STEP_09B (QA TTS) 用の設定キー（94_Runtime_Config に手動登録が必要）:
+ *   tts_qa_voice_name : ja-JP-Chirp3-HD-Kore  (確定: 2026-05-13)
+ *   tts_qa_pitch      : +1st
+ * STEP_09B 実装時は getConfigValue(configMap, "tts_qa_voice_name", QA_DEFAULT_VOICE_NAME) で参照する。
+ */
+const QA_DEFAULT_VOICE_NAME   = "ja-JP-Chirp3-HD-Kore";
+const QA_DEFAULT_PITCH        = "+1st";
 const TTS_REQUEST_TIMEOUT_MS  = 60_000;   // 1 分
 
 // speakingRate のデフォルト値（RuntimeConfig になければこちらを使用）
