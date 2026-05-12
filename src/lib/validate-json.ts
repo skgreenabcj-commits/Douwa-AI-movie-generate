@@ -496,11 +496,12 @@ export interface QaValidationFailure {
 export type ValidateQaResult = QaValidationResult | QaValidationFailure;
 
 /**
- * STEP_09 AI レスポンスを parse / validate して QaAiRow[] を返す。
+ * STEP_09 AI レスポンスを parse / validate して QaAiRow[] を返す（v2）。
  *
- * - minItems は Full: 1（スキーマ既定）、Short: 3（呼び出し元で確認）
- * - qa_type / question / answer_short / answer_narration / subtitle の空文字はスキーマが保証
- * - maxItems: 10（スキーマ既定）
+ * - minItems = maxItems = 6（スキーマ qa_schema_ai_v2.json と一致）
+ * - qa_type / question / choice_1~3 / correct_choice / answer_narration /
+ *   question_tts / answer_announcement_tts の空文字はスキーマが保証
+ * - minItems 引数（デフォルト 1）で下限を追加確認する（本番: 6 を渡すこと）
  */
 export function validateQaAiResponse(
   rawText: string,
