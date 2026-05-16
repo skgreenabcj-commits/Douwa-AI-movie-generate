@@ -21,6 +21,8 @@ var SHEET_IMAGE_PROMPTS = '06_Image_Prompts';
 /** @const */
 var SHEET_TTS_SUBTITLES = '08_TTS_Subtitles';
 /** @const */
+var SHEET_QA = '10_QA';
+/** @const */
 var HEADER_ROW = 5;
 /** @const */
 var DATA_START_ROW = 6;
@@ -256,6 +258,54 @@ function validateRetakeTts(projectIds) {
 }
 
 /**
+ * Validates that RETAKE rows exist in 10_QA for the given project IDs.
+ * @param {string[]} projectIds
+ * @returns {{valid: boolean, message?: string}}
+ */
+function validateRetakeQa(projectIds) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_QA);
+  if (!sheet) return { valid: false, message: '10_QA シートが見つかりません' };
+
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < HEADER_ROW || lastCol < START_COL) {
+    return { valid: false, message: 'RETAKE対象の行がありません' };
+  }
+
+  var colCount = lastCol - START_COL + 1;
+  var headers = sheet.getRange(HEADER_ROW, START_COL, 1, colCount).getValues()[0];
+  var pidIdx = headers.indexOf('project_id');
+  var approvalIdx = headers.indexOf('approval_status');
+
+  if (pidIdx < 0 || approvalIdx < 0) {
+    return { valid: false, message: '必要なカラム (project_id / approval_status) が見つかりません' };
+  }
+  if (lastRow < DATA_START_ROW) return { valid: false, message: 'RETAKE対象の行がありません' };
+
+  var rowCount = lastRow - DATA_START_ROW + 1;
+  var rows = sheet.getRange(DATA_START_ROW, START_COL, rowCount, colCount).getValues();
+
+  var targetSet = {};
+  projectIds.forEach(function(id) { targetSet[id] = true; });
+
+  var found = {};
+  rows.forEach(function(row) {
+    var pid = row[pidIdx] ? String(row[pidIdx]).trim() : '';
+    var approval = row[approvalIdx] ? String(row[approvalIdx]).trim() : '';
+    if (targetSet[pid] && approval === 'RETAKE') found[pid] = true;
+  });
+
+  if (Object.keys(found).length === 0) {
+    return {
+      valid: false,
+      message: 'RETAKE対象の行がありません。\n10_QA シートで approval_status を "RETAKE" に設定してから実行してください。'
+    };
+  }
+  return { valid: true };
+}
+
+/**
  * Main entry point called from the dialog.
  * @param {{stepId: string, projectIds: string[], isRetake: boolean, dryRun: boolean}} params
  * @returns {{success: boolean, alertMessage?: string}}
@@ -289,6 +339,12 @@ function runWorkflow(params) {
     var ttsValidation = validateRetakeTts(projectIds);
     if (!ttsValidation.valid) {
       return { success: false, alertMessage: ttsValidation.message };
+    }
+  }
+  if (stepId === 'STEP_09B' && isRetake) {
+    var qaValidation = validateRetakeQa(projectIds);
+    if (!qaValidation.valid) {
+      return { success: false, alertMessage: qaValidation.message };
     }
   }
 
