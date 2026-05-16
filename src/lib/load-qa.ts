@@ -11,7 +11,7 @@
  */
 
 import { readSheet } from "./sheets-client.js";
-import type { QaReadRow } from "../types.js";
+import type { QaReadRow, QaTtsTargetRow } from "../types.js";
 
 const SHEET_NAME = "10_QA";
 
@@ -39,6 +39,41 @@ export async function loadQaByProjectId(
     result.push({
       project_id: row["project_id"] ?? "",
       record_id:  row["record_id"]  ?? "",
+    });
+  }
+
+  return result;
+}
+
+/**
+ * STEP_09B の処理対象 QA 行を取得する。
+ *
+ * - generation_status = "GENERATED" かつ question_tts_file = "" の行のみを返す
+ * - 再実行時は未生成分のみが対象になる
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param projectId     - 検索する project_id
+ * @returns QaTtsTargetRow[]（シート行順）
+ */
+export async function loadQaTtsTargetsByProjectId(
+  spreadsheetId: string,
+  projectId: string
+): Promise<QaTtsTargetRow[]> {
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  const target = projectId.trim();
+
+  const result: QaTtsTargetRow[] = [];
+  for (const row of rows) {
+    if ((row["project_id"] ?? "").trim() !== target) continue;
+    if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
+    if ((row["question_tts_file"] ?? "").trim() !== "") continue;  // 既に生成済みはスキップ
+
+    result.push({
+      project_id:               (row["project_id"]              ?? "").trim(),
+      record_id:                (row["record_id"]               ?? "").trim(),
+      qa_no:                    parseInt((row["qa_no"]          ?? "0"), 10),
+      question_tts:             (row["question_tts"]            ?? "").trim(),
+      answer_announcement_tts:  (row["answer_announcement_tts"] ?? "").trim(),
     });
   }
 

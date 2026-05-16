@@ -18,6 +18,8 @@ export type StepId =
   | "STEP_08A_TTS_SUBTITLE"        // TTS Subtitle & Edit Plan Build
   | "STEP_08B_TTS_AUDIO"           // TTS Audio Generate
   | "STEP_09_QA_BUILD"             // Q&A Build
+  | "STEP_09B"                     // Q&A TTS Audio Generate (runtime trigger)
+  | "STEP_09B_QA_TTS"             // Q&A TTS Audio Generate (current_step value)
   | "STEP_10_VIDEO_BUILD";         // Video Build
 
 // ─── Runtime Config ──────────────────────────────────────────────────────────
@@ -651,6 +653,30 @@ export interface QaRow extends QaAiRow {
 export interface QaReadRow {
   project_id: string;
   record_id:  string;
+}
+
+/**
+ * STEP_09B が処理対象として読み込む QA 行
+ * question_tts_file = "" の未生成行のみ対象
+ */
+export interface QaTtsTargetRow {
+  project_id:               string;
+  record_id:                string;
+  qa_no:                    number;
+  question_tts:             string;  // SSML: <speak><prosody rate="1.0">…</prosody></speak>
+  answer_announcement_tts:  string;  // SSML: <speak><prosody rate="1.0">…</prosody></speak>
+}
+
+/**
+ * STEP_09B が 10_QA に書き戻す部分更新フィールド
+ * record_id でマッチして question_tts_file / answer_tts_file のみ更新する
+ */
+export interface QaTtsFilePatch {
+  record_id:          string;
+  question_tts_file:  string;   // Drive URL: {record_id}_q.mp3
+  answer_tts_file:    string;   // Drive URL: {record_id}_a.mp3
+  updated_at:         string;
+  updated_by:         string;
 }
 
 // ─── 08_TTS_Subtitles / 09_Edit_Plan ─────────────────────────────────────────

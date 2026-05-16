@@ -19,7 +19,7 @@
  */
 
 import { readSheet, updateRow, calcRowIndex, getNextEmptyRowIndex } from "./sheets-client.js";
-import type { QaRow } from "../types.js";
+import type { QaRow, QaTtsFilePatch } from "../types.js";
 
 const SHEET_NAME = "10_QA";
 
@@ -89,6 +89,41 @@ function buildRowData(row: QaRow): Record<string, string> {
     result[key] = val != null ? String(val) : "";
   }
   return result;
+}
+
+/**
+ * STEP_09B が 10_QA の question_tts_file / answer_tts_file を書き戻す部分更新。
+ * record_id でマッチした行の 2 フィールドのみ上書きする（read-modify-write）。
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param patch         - 書き戻すパッチデータ
+ */
+export async function patchQaTtsFiles(
+  spreadsheetId: string,
+  patch: QaTtsFilePatch
+): Promise<void> {
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  const recordId = patch.record_id.trim();
+
+  for (let i = 0; i < rows.length; i++) {
+    if ((rows[i]["record_id"] ?? "").trim() !== recordId) continue;
+
+    // Build patch: keep all existing fields, overwrite only TTS file fields
+    const rowData: Record<string, string> = {};
+    for (const key of QA_HEADERS) {
+      const k = String(key);
+      rowData[k] =
+        k === "question_tts_file" ? patch.question_tts_file
+        : k === "answer_tts_file"  ? patch.answer_tts_file
+        : k === "updated_at"       ? patch.updated_at
+        : k === "updated_by"       ? patch.updated_by
+        : (rows[i][k] ?? "");
+    }
+    await updateRow(spreadsheetId, SHEET_NAME, calcRowIndex(i), QA_HEADERS.map(String), rowData);
+    return;
+  }
+
+  throw new Error(`patchQaTtsFiles: record_id not found in ${SHEET_NAME}: ${recordId}`);
 }
 
 /**

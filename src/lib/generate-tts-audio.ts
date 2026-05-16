@@ -269,6 +269,84 @@ export function formatTcOut(durationSec: number): string {
 }
 
 /**
+ * STEP_09B 用 QA TTS 音声生成。
+ *
+ * 使用音声: 94_Runtime_Config の `tts_qa_voice_name`（デフォルト: ja-JP-Chirp3-HD-Kore）
+ * ピッチ  : `tts_qa_pitch_st` を parsePitchSt() で変換し SSML に注入
+ * スピーキングレート: SSML の <prosody rate="1.0"> に既に含まれているため audioConfig では指定しない
+ *
+ * Chirp3-HD は audioConfig.pitch / speakingRate を受け付けないため
+ * すべての制御を SSML prosody 属性で行う。
+ *
+ * @param ssmlText  - <speak><prosody rate="...">…</prosody></speak> 形式（pitch なし）
+ * @param configMap - RuntimeConfigMap
+ * @returns MP3 Buffer
+ */
+export async function generateQaTtsAudio(
+  ssmlText: string,
+  configMap: RuntimeConfigMap
+): Promise<Buffer> {
+  const voiceName = getConfigValue(configMap, "tts_qa_voice_name", QA_DEFAULT_VOICE_NAME);
+  const pitchSt   = parsePitchSt(getConfigValue(configMap, "tts_qa_pitch_st", ""));
+
+  // Inject pitch attribute into existing <prosody rate="..."> tag
+  const ssmlWithPitch = pitchSt
+    ? ssmlText.replace(
+        /<prosody rate="([^"]+)">/,
+        `<prosody rate="$1" pitch="${pitchSt}">`
+      )
+    : ssmlText;
+
+  const token = await getTtsAccessToken();
+
+  const requestBody = {
+    input: { ssml: ssmlWithPitch },
+    voice: {
+      languageCode: "ja-JP",
+      name: voiceName,
+    },
+    audioConfig: {
+      audioEncoding: "MP3",
+      // Chirp3-HD does not support audioConfig.pitch or speakingRate —
+      // both are controlled via SSML <prosody> attributes.
+    },
+  };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TTS_REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(TTS_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "(no body)");
+    throw new Error(
+      `Google Cloud TTS API returned HTTP ${response.status}: ${errorBody}`
+    );
+  }
+
+  const json = (await response.json()) as { audioContent?: string };
+  const audioContent = json.audioContent;
+  if (!audioContent) {
+    throw new Error("Google Cloud TTS API returned no audioContent in response.");
+  }
+
+  return Buffer.from(audioContent, "base64");
+}
+
+/**
  * speech_rate 文字列から実際の speakingRate 数値を解決する。
  * RuntimeConfig のキー `tts_speaking_rate_{slow|normal|fast}` を優先参照する。
  */

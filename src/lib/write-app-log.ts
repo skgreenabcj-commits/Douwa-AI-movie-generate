@@ -508,3 +508,34 @@ export function buildStep09FailureLog(
     app_log:      `[ERROR][${errorType}] ${message}`,
   };
 }
+
+// ─── STEP_09B ログビルダー（Q&A TTS Audio Generate）─────────────────────────
+
+export function buildStep09bSuccessLog(
+  projectId: string,
+  recordId: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_09B_QA_TTS",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[INFO][success] ${message}`,
+  };
+}
+
+export function buildStep09bFailureLog(
+  projectId: string,
+  recordId: string,
+  errorType: string,
+  message: string
+): AppLogRow {
+  return {
+    project_id:   projectId,
+    record_id:    recordId,
+    current_step: "STEP_09B_QA_TTS",
+    timestamp:    new Date().toISOString(),
+    app_log:      `[ERROR][${errorType}] ${message}`,
+  };
+}

@@ -24,6 +24,7 @@ import { runStep07bImageGenerate } from "./steps/step07b-image-generate.js";
 import { runStep08aTtsSubtitleEditPlan } from "./steps/step08a-tts-subtitle-edit-plan.js";
 import { runStep08bTtsAudioGenerate } from "./steps/step08b-tts-audio-generate.js";
 import { runStep09QaBuild } from "./steps/step09-qa-build.js";
+import { runStep09bQaTtsGenerate } from "./steps/step09b-qa-tts-generate.js";
 import { runStep10VideoBuild } from "./steps/step10-video-build.js";
 import type { WorkflowPayload } from "./types.js";
 
@@ -157,6 +158,10 @@ async function main(): Promise<void> {
 
     case "STEP_09":
       await runStep09QaBuild(payload, spreadsheetId);
+      break;
+
+    case "STEP_09B":
+      await runStep09bQaTtsGenerate(payload, spreadsheetId);
       break;
 
     case "STEP_10":
