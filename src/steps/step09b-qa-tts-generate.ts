@@ -37,7 +37,10 @@ import type {
 } from "../types.js";
 import { loadRuntimeConfig, getConfigValue } from "../lib/load-runtime-config.js";
 import { readProjectsByIds } from "../lib/load-project-input.js";
-import { loadQaTtsTargetsByProjectId } from "../lib/load-qa.js";
+import {
+  loadQaTtsTargetsByProjectId,
+  loadQaRetakeTtsTargetsByProjectId,
+} from "../lib/load-qa.js";
 import { patchQaTtsFiles } from "../lib/write-qa.js";
 import { generateQaTtsAudio } from "../lib/generate-tts-audio.js";
 import { uploadAudioToDrive, ensurePjtFolder } from "../lib/upload-to-drive.js";
@@ -108,24 +111,42 @@ export async function runStep09bQaTtsGenerate(
         continue;
       }
 
-      // ── 処理対象 QA 行の取得（question_tts_file = "" の未生成行） ────────────
-      const targetRows = await loadQaTtsTargetsByProjectId(spreadsheetId, projectId);
+      // ── RETAKE モード検出 ──────────────────────────────────────────────────
+      // approval_status = "RETAKE" の行が 1 件でもあれば RETAKE モードで動作する。
+      const retakeRows = await loadQaRetakeTtsTargetsByProjectId(spreadsheetId, projectId);
+      const isRetakeMode = retakeRows.length > 0;
+
+      if (isRetakeMode) {
+        logInfo(`[STEP_09B][RETAKE] Retake mode: ${retakeRows.length} row(s) targeted for project ${projectId}`);
+      }
+
+      // ── 処理対象行の選択 ─────────────────────────────────────────────────
+      // 通常モード: question_tts_file = "" の未生成行
+      // RETAKE モード: approval_status = "RETAKE" の行（tts_file の有無を問わない）
+      const unprocessedRows = await loadQaTtsTargetsByProjectId(spreadsheetId, projectId);
+      const targetRows = isRetakeMode ? retakeRows : unprocessedRows;
 
       if (targetRows.length === 0) {
-        logInfo(`[STEP_09B] No unprocessed QA TTS rows for project ${projectId}. Skipping.`);
+        logInfo(`[STEP_09B] No target QA TTS rows for project ${projectId}. Skipping.`);
         continue;
       }
 
-      logInfo(`[STEP_09B] ${targetRows.length} unprocessed QA row(s) for ${projectId}`);
+      logInfo(
+        `[STEP_09B] ${targetRows.length} target QA row(s) for ${projectId}` +
+        (isRetakeMode ? " [RETAKE]" : "")
+      );
 
       // ── 各 QA 行に対して音声生成 ─────────────────────────────────────────────
       for (const qaRow of targetRows) {
         const recordId = qaRow.record_id;
 
-        logInfo(`[STEP_09B] Processing QA ${recordId} (qa_no=${qaRow.qa_no})`);
+        logInfo(
+          `[STEP_09B] Processing QA ${recordId} (qa_no=${qaRow.qa_no})` +
+          (isRetakeMode ? " [RETAKE]" : "")
+        );
 
         if (payload.dry_run) {
-          logInfo(`[STEP_09B][DRY_RUN] Would generate audio for ${recordId}`);
+          logInfo(`[STEP_09B][DRY_RUN] Would generate audio for ${recordId}${isRetakeMode ? " [RETAKE]" : ""}`);
           logInfo(`  question_tts length: ${qaRow.question_tts.length}`);
           logInfo(`  answer_tts length  : ${qaRow.answer_announcement_tts.length}`);
           atLeastOneSuccess = true;
@@ -162,6 +183,8 @@ export async function runStep09bQaTtsGenerate(
             record_id:          recordId,
             question_tts_file:  questionUrl,
             answer_tts_file:    answerUrl,
+            // RETAKE 後は approval_status を "PENDING" にリセットして再レビュー待ちにする
+            ...(isRetakeMode ? { approval_status: "PENDING" } : {}),
             updated_at:         now,
             updated_by:         "github_actions",
           };

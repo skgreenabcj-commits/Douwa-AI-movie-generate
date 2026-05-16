@@ -125,10 +125,19 @@ export async function runStep09QaBuild(
         continue;
       }
 
-      // ── 既存 QA 行の取得（再実行時の record_id 引き継ぎ用） ─────────────────
+      // ── 既存 QA 行の取得（再実行時の record_id 引き継ぎ / RETAKE 検出） ────
       const existingQa = await loadQaByProjectId(spreadsheetId, projectId);
+      const retakeRows = existingQa.filter((r) => r.approval_status === "RETAKE");
+      const isRetakeMode = retakeRows.length > 0;
+
       if (existingQa.length > 0) {
-        logInfo(`[STEP_09] Re-run: ${existingQa.length} existing rows for ${projectId}`);
+        if (isRetakeMode) {
+          logInfo(`[STEP_09][RETAKE] ${retakeRows.length} RETAKE row(s) found — will regenerate all 6 QA questions.`);
+        } else {
+          // 既存 GENERATED 行がありかつ RETAKE なし → スキップ（上書き禁止）
+          logInfo(`[STEP_09] ${existingQa.length} GENERATED rows already exist with no RETAKE. Skipping generation for ${projectId}.`);
+          continue;
+        }
         if (existingQa.length > 6) {
           logError(`[STEP_09][WARN] Existing QA rows (${existingQa.length}) > 6. Surplus rows remain in place.`);
         }

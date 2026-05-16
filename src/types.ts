@@ -649,10 +649,11 @@ export interface QaRow extends QaAiRow {
   notes:              string;
 }
 
-/** 10_QA から読み込む参照用 row（再実行時の既存行取得用） */
+/** 10_QA から読み込む参照用 row（再実行時の既存行取得用・RETAKE 検出用） */
 export interface QaReadRow {
-  project_id: string;
-  record_id:  string;
+  project_id:      string;
+  record_id:       string;
+  approval_status: string;  // "PENDING" | "APPROVED" | "REJECTED" | "RETAKE"
 }
 
 /**
@@ -669,12 +670,14 @@ export interface QaTtsTargetRow {
 
 /**
  * STEP_09B が 10_QA に書き戻す部分更新フィールド
- * record_id でマッチして question_tts_file / answer_tts_file のみ更新する
+ * record_id でマッチして question_tts_file / answer_tts_file のみ更新する。
+ * RETAKE 後は approval_status = "PENDING" にリセットするため optional で持つ。
  */
 export interface QaTtsFilePatch {
   record_id:          string;
   question_tts_file:  string;   // Drive URL: {record_id}_q.mp3
   answer_tts_file:    string;   // Drive URL: {record_id}_a.mp3
+  approval_status?:   string;   // RETAKE 後に "PENDING" へリセット（省略時は既存値を維持）
   updated_at:         string;
   updated_by:         string;
 }

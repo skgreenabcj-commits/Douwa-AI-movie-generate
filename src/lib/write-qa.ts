@@ -115,6 +115,8 @@ export async function patchQaTtsFiles(
       rowData[k] =
         k === "question_tts_file" ? patch.question_tts_file
         : k === "answer_tts_file"  ? patch.answer_tts_file
+        : k === "approval_status"  && patch.approval_status != null
+          ? patch.approval_status
         : k === "updated_at"       ? patch.updated_at
         : k === "updated_by"       ? patch.updated_by
         : (rows[i][k] ?? "");

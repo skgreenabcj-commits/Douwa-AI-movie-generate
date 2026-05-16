@@ -37,8 +37,44 @@ export async function loadQaByProjectId(
     if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
 
     result.push({
-      project_id: row["project_id"] ?? "",
-      record_id:  row["record_id"]  ?? "",
+      project_id:      (row["project_id"]      ?? "").trim(),
+      record_id:       (row["record_id"]       ?? "").trim(),
+      approval_status: (row["approval_status"] ?? "").trim(),
+    });
+  }
+
+  return result;
+}
+
+/**
+ * STEP_09B RETAKE の処理対象 QA 行を取得する。
+ *
+ * - generation_status = "GENERATED" かつ approval_status = "RETAKE" の行のみを返す
+ * - 通常モード（question_tts_file=""）とは排他: RETAKE 行は tts_file の有無を問わない
+ *
+ * @param spreadsheetId - 対象スプレッドシートID
+ * @param projectId     - 検索する project_id
+ * @returns QaTtsTargetRow[]（RETAKE 対象行）
+ */
+export async function loadQaRetakeTtsTargetsByProjectId(
+  spreadsheetId: string,
+  projectId: string
+): Promise<QaTtsTargetRow[]> {
+  const rows = await readSheet(spreadsheetId, SHEET_NAME);
+  const target = projectId.trim();
+
+  const result: QaTtsTargetRow[] = [];
+  for (const row of rows) {
+    if ((row["project_id"]      ?? "").trim() !== target)    continue;
+    if ((row["generation_status"] ?? "").trim() !== "GENERATED") continue;
+    if ((row["approval_status"] ?? "").trim() !== "RETAKE")  continue;
+
+    result.push({
+      project_id:               (row["project_id"]              ?? "").trim(),
+      record_id:                (row["record_id"]               ?? "").trim(),
+      qa_no:                    parseInt((row["qa_no"]          ?? "0"), 10),
+      question_tts:             (row["question_tts"]            ?? "").trim(),
+      answer_announcement_tts:  (row["answer_announcement_tts"] ?? "").trim(),
     });
   }
 
