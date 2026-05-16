@@ -46,7 +46,12 @@ const SAMPLE_SSML = `<speak><prosody rate="1.0">問題だよ<break time="1500ms"
 
 const TTS_API_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 const OUTPUT_DIR  = (process.env["OUTPUT_DIR"] ?? "./voice-samples").trim();
-const PITCH_ST    = (process.env["PITCH_ST"]   ?? "").trim();  // 例: "+2st"
+// PITCH_ST は数値文字列または SSML 形式どちらでも受け付ける
+// 数値のみ("1", "-0.5")の場合は parsePitchSt で変換、"+1st" 形式ならそのまま使用
+const _pitchRaw = (process.env["PITCH_ST"] ?? "").trim();
+const PITCH_ST = _pitchRaw === "" ? "" : /[a-zA-Z]/.test(_pitchRaw)
+  ? _pitchRaw   // すでに "+1st" 形式
+  : (() => { const n = parseFloat(_pitchRaw); return isNaN(n)||n===0?"":n>0?`+${n}st`:`${n}st`; })();
 const VOICES_FILTER = (process.env["VOICES"] ?? "").trim()
   .split(",").map(v => v.trim()).filter(Boolean);
 

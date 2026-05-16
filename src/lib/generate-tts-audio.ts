@@ -27,11 +27,13 @@ const DEFAULT_VOICE_NAME      = "ja-JP-Neural2-B";
 /**
  * STEP_09B (QA TTS) 用の設定キー（94_Runtime_Config に手動登録が必要）:
  *   tts_qa_voice_name : ja-JP-Chirp3-HD-Kore  (確定: 2026-05-13)
- *   tts_qa_pitch      : +1st
- * STEP_09B 実装時は getConfigValue(configMap, "tts_qa_voice_name", QA_DEFAULT_VOICE_NAME) で参照する。
+ *   tts_qa_pitch_st   : 1   ← 数値のみ格納（GSS が "+" を数式と誤認するため符号なし）
+ *                            正値=ピッチ上昇, 負値=ピッチ下降, 0 or 空=pitch 指定なし
+ * STEP_09B 実装時は parsePitchSt() で SSML 用文字列に変換する。
  */
 const QA_DEFAULT_VOICE_NAME   = "ja-JP-Chirp3-HD-Kore";
-const QA_DEFAULT_PITCH        = "+1st";
+/** GSS の tts_qa_pitch_st に格納する数値デフォルト（= +1st） */
+const QA_DEFAULT_PITCH_ST_NUM = 1;
 const TTS_REQUEST_TIMEOUT_MS  = 60_000;   // 1 分
 
 // speakingRate のデフォルト値（RuntimeConfig になければこちらを使用）
@@ -281,4 +283,25 @@ function resolveSpeakingRate(speechRate: string, configMap: RuntimeConfigMap): n
   }
 
   return DEFAULT_SPEAKING_RATE[rate] ?? DEFAULT_SPEAKING_RATE["normal"]!;
+}
+
+/**
+ * 94_Runtime_Config の `tts_qa_pitch_st` 値（数値文字列）を
+ * SSML prosody pitch 属性値に変換する。
+ *
+ * GSS は "+" 始まりの値を数式と誤認するため、シートには符号なし数値を格納する。
+ *   例: "1"   → "+1st"
+ *       "-0.5" → "-0.5st"
+ *       "0"   → ""（pitch 指定なし）
+ *       ""    → ""（pitch 指定なし）
+ *
+ * @param rawValue - 94_Runtime_Config から取得した生文字列（例: "1", "-0.5", ""）
+ * @param defaultNum - rawValue が空/無効のときのデフォルト数値（省略時: QA_DEFAULT_PITCH_ST_NUM）
+ * @returns SSML pitch 属性値（例: "+1st"）または "" (pitch なし)
+ */
+export function parsePitchSt(rawValue: string, defaultNum: number = QA_DEFAULT_PITCH_ST_NUM): string {
+  const trimmed = rawValue.trim();
+  const num = trimmed !== "" ? parseFloat(trimmed) : defaultNum;
+  if (isNaN(num) || num === 0) return "";
+  return num > 0 ? `+${num}st` : `${num}st`;
 }
