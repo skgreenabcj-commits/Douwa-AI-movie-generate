@@ -634,15 +634,17 @@ export interface QaAiRow {
  * PJT 合計6問・バージョン共通（related_version フィールド廃止）。
  */
 export interface QaRow extends QaAiRow {
-  project_id:        string;
-  record_id:         string;    // システム採番: {project_id}-QA-{seq:03d}
-  generation_status: "GENERATED" | "FAILED" | "PENDING";
-  approval_status:   "PENDING" | "APPROVED" | "REJECTED";
-  step_id:           string;    // 固定: "STEP_09_QA_BUILD"
-  qa_no:             number;    // 1〜6
-  updated_at:        string;
-  updated_by:        string;
-  notes:             string;
+  project_id:         string;
+  record_id:          string;    // システム採番: {project_id}-QA-{seq:03d}
+  generation_status:  "GENERATED" | "FAILED" | "PENDING";
+  approval_status:    "PENDING" | "APPROVED" | "REJECTED";
+  step_id:            string;    // 固定: "STEP_09_QA_BUILD"
+  qa_no:              number;    // 1〜6
+  question_tts_file:  string;    // STEP_09B: Drive URL ({record_id}_q.mp3)
+  answer_tts_file:    string;    // STEP_09B: Drive URL ({record_id}_a.mp3)
+  updated_at:         string;
+  updated_by:         string;
+  notes:              string;
 }
 
 /** 10_QA から読み込む参照用 row（再実行時の既存行取得用） */

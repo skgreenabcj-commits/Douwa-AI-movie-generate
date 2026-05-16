@@ -40,6 +40,8 @@ const QA_HEADERS: Array<Extract<keyof QaRow, string>> = [
   "answer_narration",
   "question_tts",
   "answer_announcement_tts",
+  "question_tts_file",
+  "answer_tts_file",
   "updated_at",
   "updated_by",
   "notes",

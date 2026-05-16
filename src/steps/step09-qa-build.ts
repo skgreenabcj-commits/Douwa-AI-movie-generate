@@ -195,15 +195,17 @@ export async function runStep09QaBuild(
       for (const { ai, record_id, qa_no } of assigned) {
         const row: QaRow = {
           ...ai,
-          project_id:        projectId,
+          project_id:         projectId,
           record_id,
-          generation_status: "GENERATED",
-          approval_status:   "PENDING",
-          step_id:           "STEP_09_QA_BUILD",
+          generation_status:  "GENERATED",
+          approval_status:    "PENDING",
+          step_id:            "STEP_09_QA_BUILD",
           qa_no,
-          updated_at:        now,
-          updated_by:        "github_actions",
-          notes:             "",
+          question_tts_file:  "",   // STEP_09B で書き込む
+          answer_tts_file:    "",   // STEP_09B で書き込む
+          updated_at:         now,
+          updated_by:         "github_actions",
+          notes:              "",
         };
 
         if (payload.dry_run) {

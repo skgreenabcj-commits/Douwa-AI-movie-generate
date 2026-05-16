@@ -272,6 +272,8 @@ sheet_name	field_name	field_label	data_type	is_required	role_category	used_as_ai
 10_QA	answer_narration	answer_narration	string	N	AI_OUTPUT	Y	Y	N	N	N	all	AI生成結果であり、後続AIの入力にもなる		role_sync=done
 10_QA	question_tts	question_tts	string	N	AI_OUTPUT	Y	N	N	N	N	all	TTS読み上げ用問題文（「問題です。…」形式）		role_sync=done
 10_QA	answer_announcement_tts	answer_announcement_tts	string	N	AI_OUTPUT	Y	N	N	N	N	all	TTS読み上げ用正解発表文（「正解は…」形式）		role_sync=done
+10_QA	question_tts_file	question_tts_file	string	N	SYSTEM_CONTROL	Y	N	N	N	N	all	STEP_09B: 問題音声ファイル Drive URL（{record_id}_q.mp3）		role_sync=done
+10_QA	answer_tts_file	answer_tts_file	string	N	SYSTEM_CONTROL	Y	N	N	N	N	all	STEP_09B: 正解発表音声ファイル Drive URL（{record_id}_a.mp3）		role_sync=done
 10_QA	updated_at	updated_at	datetime	Y	SYSTEM_CONTROL	Y	N	N	N	Y	all	システム制御または案件識別に使う		role_sync=done
 10_QA	updated_by	updated_by	string	Y	SYSTEM_CONTROL	Y	N	N	N	Y	all	システム制御または案件識別に使う		role_sync=done
 10_QA	notes	notes	string	N	HUMAN_REVIEW	Y	N	N	N	N	all	運用上の補助列		role_sync=done
